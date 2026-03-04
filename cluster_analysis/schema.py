@@ -69,6 +69,10 @@ class Constant:
     ASCEND_PROFILER_INFO_HEAD = "profiler_info_"
     ASCEND_PROFILER_METADATA_JSON = "profiler_metadata.json"
 
+    # for torch profile
+    TORCH_PROFILER_SUFFIX = ".json.gz"
+    TORCH_PROFILER_ASYNC_LLM = "async_llm"
+
     # result files type
     TEXT = "text"
     DB = "db"
