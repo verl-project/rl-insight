@@ -6,7 +6,7 @@
 
 - [ ] Search for similar PRs. Paste at least one query link here: ...
 - [ ] Format the PR title as `[{modules}] {type}: {description}` (This will be checked by the CI)
-  - `{modules}` include `mstx`, `mvtx`, `torch_profile`,  `deployment`, `misc`, `perf`, `algo`, `env`, `ckpt`, `doc`, `data`, `cfg`,
+  - `{modules}` include `mstx`, `mvtx`, `torch_profile`, `deployment`, `perf`, `algo`, `env`, `doc`, `data`, `cfg`, `ci`, `misc`, 
   - If this PR involves multiple modules, separate them with `,` like `[megatron, fsdp, doc]`
   - `{type}` is in `feat`, `fix`, `refactor`, `chore`, `test`
   - If this PR breaks any API (CLI arguments, config, function signature, etc.), add `[BREAKING]` to the beginning of the title.
