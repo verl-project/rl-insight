@@ -19,8 +19,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/tardis-key/rl-insight"
-Source = "https://github.com/tardis-key/rl-insight"
+Homepage = "https://github.com/verl-project/rl-insight"
+Source = "https://github.com/verl-project/rl-insight"
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -33,7 +33,7 @@
 > [!IMPORTANT]
 > Please check all the following items before requesting a review, otherwise the reviewer might deprioritize this PR for review.
 
-- [ ] Read the [Contribute Guide](https://github.com/tardis-key/rl-insight/blob/main/CONTRIBUTING.md).
-- [ ] Apply [pre-commit checks](https://github.com/tardis-key/rl-insight/blob/main/CONTRIBUTING.md#code-linting-and-formatting): `pre-commit install && pre-commit run --all-files --show-diff-on-failure --color=always`
-- [ ] Add / Update [the documentation](https://github.com/tardis-key/rl-insight/tree/main/docs).
-- [ ] Add unit or end-to-end test(s) to [the CI workflow](https://github.com/tardis-key/rl-insight/tree/main/.github/workflows) to cover all the code. If not feasible, explain why: ...
+- [ ] Read the [Contribute Guide](https://github.com/verl-project/rl-insight/blob/main/CONTRIBUTING.md).
+- [ ] Apply [pre-commit checks](https://github.com/verl-project/rl-insight/blob/main/CONTRIBUTING.md#code-linting-and-formatting): `pre-commit install && pre-commit run --all-files --show-diff-on-failure --color=always`
+- [ ] Add / Update [the documentation](https://github.com/verl-project/rl-insight/tree/main/docs).
+- [ ] Add unit or end-to-end test(s) to [the CI workflow](https://github.com/verl-project/rl-insight/tree/main/.github/workflows) to cover all the code. If not feasible, explain why: ...
