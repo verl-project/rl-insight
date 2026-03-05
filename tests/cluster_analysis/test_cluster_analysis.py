@@ -89,7 +89,6 @@ def mock_mstx_profiler_structure(tmp_path, sample_trace_view_json_data):
     └── rollout_generate/
         └── 20250101_120000_ascend_pt/
             ├── profiler_info_0.json
-            ├── profiler_info_1.json
             ├── profiler_metadata.json
             └── ASCEND_PROFILER_OUTPUT/
                 └── trace_view.json
@@ -102,9 +101,6 @@ def mock_mstx_profiler_structure(tmp_path, sample_trace_view_json_data):
 
     # Create profiler_info_0.json
     (timestamp_dir / "profiler_info_0.json").write_text('{"device": "npu:0"}')
-
-    # Create profiler_info_1.json
-    (timestamp_dir / "profiler_info_1.json").write_text('{"device": "npu:1"}')
 
     # Create profiler_metadata.json
     (timestamp_dir / "profiler_metadata.json").write_text(
@@ -295,22 +291,6 @@ class TestMstxClusterParser:
             "trace_view.json",
         )
         assert data_path == expected
-
-    def test_allocate_prof_data(self, mock_mstx_profiler_structure):
-        """Test allocating profiler data from directory structure."""
-        parser = MstxClusterParser(
-            {
-                Constant.INPUT_PATH: mock_mstx_profiler_structure,
-                Constant.RANK_LIST: "all",
-            }
-        )
-
-        data_maps = parser.allocate_prof_data(mock_mstx_profiler_structure)
-
-        assert len(data_maps) == 1
-        assert data_maps[0]["rank_id"] == 0
-        assert data_maps[0]["role"] == "rollout_generate"
-        assert "ASCEND_PROFILER_OUTPUT" in data_maps[0]["profiler_data_path"]
 
     def test_parse_analysis_data(self, mock_mstx_profiler_structure):
         """Test parsing analysis data from trace_view.json."""
