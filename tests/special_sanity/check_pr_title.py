@@ -19,7 +19,7 @@ import re
 pr_title = os.environ.get("PR_TITLE", "").strip()
 
 # Define rules
-allowed_modules = ["*"] # Do not restrict the modules
+allowed_modules = ["mstx", "mvtx", "torch_profile", "deployment", "perf", "algo", "env", "doc", "data", "cfg", "ci", "misc"] 
 allowed_types = ["feat", "fix", "refactor", "chore", "test"]
 
 # Check for [1/N] prefix and extract the rest of the title
@@ -46,7 +46,8 @@ if not re_modules:
     raise Exception("Invalid PR title")
 else:
     modules = re.findall(r"[a-z_]+", re_modules.group(1).lower())
-    if not all(module in allowed_modules for module in modules):
+    # When "*" is in allowed_modules, any module is accepted
+    if len(allowed_modules) > 0 and not all(module in allowed_modules for module in modules):
         invalid_modules = [module for module in modules if module not in allowed_modules]
         print(f"❌ Invalid modules: {', '.join(invalid_modules)}")
         print(f"Allowed modules: {', '.join(allowed_modules)}")
