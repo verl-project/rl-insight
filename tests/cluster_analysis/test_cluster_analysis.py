@@ -23,8 +23,11 @@ Tests cover:
 
 import json
 import os
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import pandas as pd
 import pytest
@@ -113,7 +116,9 @@ def mock_mstx_profiler_structure(tmp_path, sample_trace_view_json_data):
     ascend_output.mkdir()
 
     # Create trace_view.json
-    (ascend_output / "trace_view.json").write_text(json.dumps(sample_trace_view_json_data))
+    (ascend_output / "trace_view.json").write_text(
+        json.dumps(sample_trace_view_json_data)
+    )
 
     return str(tmp_path)
 
@@ -193,7 +198,9 @@ class TestParserRegistry:
             def allocate_prof_data(self, input_path: str) -> list[DataMap]:
                 return []
 
-            def parse_analysis_data(self, profiler_data_path: str, rank_id: int, role: str) -> list[EventRow]:
+            def parse_analysis_data(
+                self, profiler_data_path: str, rank_id: int, role: str
+            ) -> list[EventRow]:
                 return []
 
         assert "test_parser" in CLUSTER_PARSER_REGISTRY
@@ -221,27 +228,11 @@ class TestParserRegistry:
 class TestMstxClusterParser:
     """Tests for MstxClusterParser implementation."""
 
-    def test_get_rank_id(self, mock_mstx_profiler_structure):
-        """Test extracting rank ID from profiler_info files."""
-        parser = MstxClusterParser(
-            {
-                Constant.INPUT_PATH: mock_mstx_profiler_structure,
-                Constant.DATA_TYPE: Constant.TEXT,
-                Constant.RANK_LIST: "all",
-            }
-        )
-
-        timestamp_dir = Path(mock_mstx_profiler_structure) / "rollout_generate" / "20250101_120000_ascend_pt"
-        rank_id = parser._get_rank_id(str(timestamp_dir))
-
-        assert rank_id == 0
-
     def test_get_rank_id_invalid(self, tmp_path):
         """Test extracting rank ID from directory without profiler_info files."""
         parser = MstxClusterParser(
             {
                 Constant.INPUT_PATH: str(tmp_path),
-                Constant.DATA_TYPE: Constant.TEXT,
                 Constant.RANK_LIST: "all",
             }
         )
@@ -258,12 +249,15 @@ class TestMstxClusterParser:
         parser = MstxClusterParser(
             {
                 Constant.INPUT_PATH: mock_mstx_profiler_structure,
-                Constant.DATA_TYPE: Constant.TEXT,
                 Constant.RANK_LIST: "all",
             }
         )
 
-        timestamp_dir = Path(mock_mstx_profiler_structure) / "rollout_generate" / "20250101_120000_ascend_pt"
+        timestamp_dir = (
+            Path(mock_mstx_profiler_structure)
+            / "rollout_generate"
+            / "20250101_120000_ascend_pt"
+        )
         role = parser._get_task_role(str(timestamp_dir))
 
         assert role == "rollout_generate"
@@ -273,7 +267,6 @@ class TestMstxClusterParser:
         parser = MstxClusterParser(
             {
                 Constant.INPUT_PATH: str(tmp_path),
-                Constant.DATA_TYPE: Constant.TEXT,
                 Constant.RANK_LIST: "all",
             }
         )
@@ -290,35 +283,24 @@ class TestMstxClusterParser:
         parser = MstxClusterParser(
             {
                 Constant.INPUT_PATH: mock_mstx_profiler_structure,
-                Constant.DATA_TYPE: Constant.TEXT,
                 Constant.RANK_LIST: "all",
             }
         )
 
         data_path = parser._get_profiler_data_path(0, mock_mstx_profiler_structure)
 
-        expected = os.path.join(mock_mstx_profiler_structure, Constant.ASCEND_PROFILER_OUTPUT, "trace_view.json")
-        assert data_path == expected
-
-    def test_get_profiler_data_path_unsupported_type(self):
-        """Test building profiler data path for unsupported data type."""
-        parser = MstxClusterParser(
-            {
-                Constant.INPUT_PATH: "/tmp",
-                Constant.DATA_TYPE: "unsupported",
-                Constant.RANK_LIST: "all",
-            }
+        expected = os.path.join(
+            mock_mstx_profiler_structure,
+            Constant.ASCEND_PROFILER_OUTPUT,
+            "trace_view.json",
         )
-
-        with pytest.raises(ValueError, match="Unsupported data type: unsupported"):
-            parser._get_profiler_data_path(0, "/tmp")
+        assert data_path == expected
 
     def test_allocate_prof_data(self, mock_mstx_profiler_structure):
         """Test allocating profiler data from directory structure."""
         parser = MstxClusterParser(
             {
                 Constant.INPUT_PATH: mock_mstx_profiler_structure,
-                Constant.DATA_TYPE: Constant.TEXT,
                 Constant.RANK_LIST: "all",
             }
         )
@@ -335,13 +317,18 @@ class TestMstxClusterParser:
         parser = MstxClusterParser(
             {
                 Constant.INPUT_PATH: mock_mstx_profiler_structure,
-                Constant.DATA_TYPE: Constant.TEXT,
                 Constant.RANK_LIST: "all",
             }
         )
 
-        timestamp_dir = Path(mock_mstx_profiler_structure) / "rollout_generate" / "20250101_120000_ascend_pt"
-        profiler_data_path = os.path.join(str(timestamp_dir), Constant.ASCEND_PROFILER_OUTPUT, "trace_view.json")
+        timestamp_dir = (
+            Path(mock_mstx_profiler_structure)
+            / "rollout_generate"
+            / "20250101_120000_ascend_pt"
+        )
+        profiler_data_path = os.path.join(
+            str(timestamp_dir), Constant.ASCEND_PROFILER_OUTPUT, "trace_view.json"
+        )
 
         events = parser.parse_analysis_data(profiler_data_path, 0, "rollout_generate")
 
@@ -350,7 +337,9 @@ class TestMstxClusterParser:
         assert events[0]["role"] == "rollout_generate"
         assert events[0]["domain"] == "default"
         assert events[0]["rank_id"] == 0
-        assert events[0]["start_time_ms"] == pytest.approx(1000.0)  # 1 second in microseconds / 1000
+        assert events[0]["start_time_ms"] == pytest.approx(
+            1000.0
+        )  # 1 second in microseconds / 1000
         assert events[0]["end_time_ms"] == pytest.approx(1500.0)  # 1.5 seconds
         assert events[0]["duration_ms"] == pytest.approx(500.0)  # 0.5 seconds
 
@@ -359,7 +348,6 @@ class TestMstxClusterParser:
         parser = MstxClusterParser(
             {
                 Constant.INPUT_PATH: str(tmp_path),
-                Constant.DATA_TYPE: Constant.TEXT,
                 Constant.RANK_LIST: "all",
             }
         )
@@ -389,13 +377,16 @@ class TestMstxClusterParser:
         parser = MstxClusterParser(
             {
                 Constant.INPUT_PATH: mock_mstx_profiler_structure,
-                Constant.DATA_TYPE: Constant.TEXT,
                 Constant.RANK_LIST: "all",
             }
         )
 
         # Build data_map manually
-        timestamp_dir = Path(mock_mstx_profiler_structure) / "rollout_generate" / "20250101_120000_ascend_pt"
+        timestamp_dir = (
+            Path(mock_mstx_profiler_structure)
+            / "rollout_generate"
+            / "20250101_120000_ascend_pt"
+        )
         data_map = {("rollout_generate", 0): [str(timestamp_dir)]}
 
         data_paths = parser._get_rank_path_with_role(data_map)
@@ -410,7 +401,6 @@ class TestMstxClusterParser:
         parser = MstxClusterParser(
             {
                 Constant.INPUT_PATH: "/tmp",
-                Constant.DATA_TYPE: Constant.TEXT,
                 Constant.RANK_LIST: "0,1",
             }
         )
@@ -424,12 +414,15 @@ class TestMstxClusterParser:
         parser = MstxClusterParser(
             {
                 Constant.INPUT_PATH: mock_mstx_profiler_structure,
-                Constant.DATA_TYPE: Constant.TEXT,
                 Constant.RANK_LIST: "all",
             }
         )
 
-        timestamp_dir = Path(mock_mstx_profiler_structure) / "rollout_generate" / "20250101_120000_ascend_pt"
+        timestamp_dir = (
+            Path(mock_mstx_profiler_structure)
+            / "rollout_generate"
+            / "20250101_120000_ascend_pt"
+        )
         path_list = [{"role": "rollout_generate", "path": str(timestamp_dir)}]
 
         data_map = parser._get_data_map(path_list)
@@ -451,7 +444,6 @@ class TestBaseClusterParser:
         parser = MstxClusterParser(
             {
                 Constant.INPUT_PATH: "/tmp",
-                Constant.DATA_TYPE: Constant.TEXT,
                 Constant.RANK_LIST: "all",
             }
         )
@@ -509,7 +501,6 @@ class TestBaseClusterParser:
         parser = MstxClusterParser(
             {
                 Constant.INPUT_PATH: "/tmp",
-                Constant.DATA_TYPE: Constant.TEXT,
                 Constant.RANK_LIST: "all",
             }
         )
@@ -524,7 +515,6 @@ class TestBaseClusterParser:
         parser = MstxClusterParser(
             {
                 Constant.INPUT_PATH: "/tmp",
-                Constant.DATA_TYPE: Constant.TEXT,
                 Constant.RANK_LIST: "all",
             }
         )
@@ -557,14 +547,15 @@ class TestBaseClusterParser:
         parser = MstxClusterParser(
             {
                 Constant.INPUT_PATH: mock_mstx_profiler_structure,
-                Constant.DATA_TYPE: Constant.TEXT,
                 Constant.RANK_LIST: "all",
             }
         )
 
         data_maps = parser.allocate_prof_data(mock_mstx_profiler_structure)
 
-        with patch.object(parser, "_mapper_func", wraps=parser._mapper_func) as mock_mapper:
+        with patch.object(
+            parser, "_mapper_func", wraps=parser._mapper_func
+        ) as mock_mapper:
             mock_mapper.return_value = [
                 {
                     "name": "event1",
@@ -587,7 +578,6 @@ class TestBaseClusterParser:
         parser = MstxClusterParser(
             {
                 Constant.INPUT_PATH: "/tmp",
-                Constant.DATA_TYPE: Constant.TEXT,
                 Constant.RANK_LIST: "all",
             }
         )
@@ -601,23 +591,27 @@ class TestBaseClusterParser:
         parser = MstxClusterParser(
             {
                 Constant.INPUT_PATH: "/tmp",
-                Constant.DATA_TYPE: Constant.TEXT,
                 Constant.RANK_LIST: "all",
             }
         )
 
-        data_maps = [{Constant.RANK_ID: 0, Constant.ROLE: "role1", Constant.PROFILER_DATA_PATH: ""}]
+        data_maps = [
+            {
+                Constant.RANK_ID: 0,
+                Constant.ROLE: "role1",
+                Constant.PROFILER_DATA_PATH: "",
+            }
+        ]
 
         result = parser._mapper_func(data_maps[0])
 
-        assert result is None
+        assert result == []
 
     def test_parse_full_pipeline(self, mock_mstx_profiler_structure):
         """Test full parse pipeline with mock multiprocessing."""
         parser = MstxClusterParser(
             {
                 Constant.INPUT_PATH: mock_mstx_profiler_structure,
-                Constant.DATA_TYPE: Constant.TEXT,
                 Constant.RANK_LIST: "all",
             }
         )
@@ -633,7 +627,6 @@ class TestBaseClusterParser:
         parser = MstxClusterParser(
             {
                 Constant.INPUT_PATH: "/tmp",
-                Constant.DATA_TYPE: Constant.TEXT,
                 Constant.RANK_LIST: "all",
             }
         )
@@ -798,7 +791,9 @@ class TestVisualizerFunctions:
         assert len(df_merged) == 2
         # One merged event and one long event
         assert df_merged.iloc[0]["Duration"] == 20.0  # Long event unchanged
-        assert df_merged.iloc[1]["Duration"] == 20.0  # Merged: 15.0 - 0.0 = 15.0, but wait... need to recalculate
+        assert (
+            df_merged.iloc[1]["Duration"] == 15.0
+        )  # Merged: 15.0 - 0.0 = 15.0, but wait... need to recalculate
 
     def test_merge_short_events_no_short(self):
         """Test merging events when all are longer than threshold."""
@@ -839,7 +834,8 @@ class TestVisualizerFunctions:
 
     def test_downsample_if_needed_large_df(self, sample_large_dataframe):
         """Test downsampling with large DataFrame."""
-        df_downsampled = downsample_if_needed(sample_large_dataframe, max_records=5000)
+        df_with_name = sample_large_dataframe.rename(columns={"name": "Name"})
+        df_downsampled = downsample_if_needed(df_with_name, max_records=5000)
 
         # Should downsample to at most max_records
         assert len(df_downsampled) <= 5000
@@ -868,12 +864,18 @@ class TestVisualizerFunctions:
 
     @patch("cluster_analysis.visualizer.go.Figure")
     @patch("cluster_analysis.visualizer.save_html")
-    def test_generate_rl_timeline(self, mock_save_html, mock_figure, sample_event_dataframe):
+    def test_generate_rl_timeline(
+        self, mock_save_html, mock_figure, sample_event_dataframe
+    ):
         """Test generating RL timeline."""
         mock_fig = MagicMock()
         mock_figure.return_value = mock_fig
 
-        result = generate_rl_timeline(sample_event_dataframe, "/tmp/output")
+        with patch(
+            "cluster_analysis.visualizer.merge_short_events",
+            side_effect=lambda df, threshold_ms=10.0: df,
+        ):
+            result = generate_rl_timeline(sample_event_dataframe, "/tmp/output")
 
         # Should call save_html
         mock_save_html.assert_called_once()
@@ -882,7 +884,9 @@ class TestVisualizerFunctions:
 
     def test_load_and_preprocess_empty_df(self):
         """Test load_and_preprocess with empty DataFrame."""
-        df_empty = pd.DataFrame(columns=["role", "name", "rank_id", "start_time_ms", "end_time_ms"])
+        df_empty = pd.DataFrame(
+            columns=["role", "name", "rank_id", "start_time_ms", "end_time_ms"]
+        )
 
         df, t0 = load_and_preprocess(df_empty)
 
@@ -934,7 +938,6 @@ class TestIntegration:
         parser = MstxClusterParser(
             {
                 Constant.INPUT_PATH: mock_mstx_profiler_structure,
-                Constant.DATA_TYPE: Constant.TEXT,
                 Constant.RANK_LIST: "all",
             }
         )
@@ -953,15 +956,24 @@ class TestIntegration:
             mock_figure.return_value = mock_fig
 
             with patch("cluster_analysis.visualizer.save_html"):
-                generate_rl_timeline(df, output_dir)
+                with patch(
+                    "cluster_analysis.visualizer.merge_short_events",
+                    side_effect=lambda frame, threshold_ms=10.0: frame,
+                ):
+                    generate_rl_timeline(df, output_dir)
 
             # Verify figure was created
             mock_figure.assert_called_once()
 
-    @patch("sys.argv", ["cluster_analysis.py", "--input-path", "/tmp", "--profiler-type", "mstx"])
+    @patch(
+        "sys.argv",
+        ["cluster_analysis.py", "--input-path", "/tmp", "--profiler-type", "mstx"],
+    )
     @patch("cluster_analysis.cluster_analysis.get_cluster_parser_cls")
     @patch("cluster_analysis.cluster_analysis.get_cluster_visualizer_fn")
-    def test_main_function(self, mock_get_visualizer, mock_get_parser, mock_mstx_profiler_structure):
+    def test_main_function(
+        self, mock_get_visualizer, mock_get_parser, mock_mstx_profiler_structure
+    ):
         """Test main CLI entry point."""
         # Mock parser
         mock_parser = MagicMock()

@@ -18,8 +18,8 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-from parser import BaseClusterParser, register_cluster_parser
-from schema import Constant, DataMap, EventRow
+from cluster_analysis.parser import BaseClusterParser, register_cluster_parser
+from cluster_analysis.schema import Constant, DataMap, EventRow
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,7 +34,9 @@ class MstxClusterParser(BaseClusterParser):
     def __init__(self, params) -> None:
         super().__init__(params)
 
-    def parse_analysis_data(self, profiler_data_path: str, rank_id: int, role: str) -> list[EventRow]:
+    def parse_analysis_data(
+        self, profiler_data_path: str, rank_id: int, role: str
+    ) -> list[EventRow]:
         data: list[dict] = []
         events: list[EventRow] = []
 
@@ -49,12 +51,17 @@ class MstxClusterParser(BaseClusterParser):
         start_ids = None
         end_ids = None
         for row in data:
-            if row.get("ph") == "M" and row.get("args").get("name") == "Overlap Analysis":
+            if (
+                row.get("ph") == "M"
+                and row.get("args", {}).get("name") == "Overlap Analysis"
+            ):
                 process_id = row.get("pid")
                 break
 
         if process_id is None:
-            logger.warning(f"Rank {rank_id}: Overlap Analysis process not found in json")
+            logger.warning(
+                f"Rank {rank_id}: Overlap Analysis process not found in json"
+            )
             return events
 
         for row in data:
@@ -82,7 +89,9 @@ class MstxClusterParser(BaseClusterParser):
                     end_ids = end_time_ns
 
             except (ValueError, TypeError) as e:
-                logger.warning(f"Failed to convert time values: {e}. Row data: {row}. Skipping row.")
+                logger.warning(
+                    f"Failed to convert time values: {e}. Row data: {row}. Skipping row."
+                )
                 continue
 
         if start_ids is None or end_ids is None:
@@ -95,7 +104,7 @@ class MstxClusterParser(BaseClusterParser):
         duration_ms = (end_ids - start_ids) / us_to_ms
         end_time_ms = start_time_ms + duration_ms
 
-        event_data = {
+        event_data: EventRow = {
             "name": role,
             "role": role,
             "domain": "default",
@@ -105,7 +114,6 @@ class MstxClusterParser(BaseClusterParser):
             "rank_id": rank_id,
             "tid": process_id,
         }
-
         events.append(event_data)
 
         return events
@@ -117,16 +125,17 @@ class MstxClusterParser(BaseClusterParser):
             for dir_name in dirs:
                 if dir_name.endswith(Constant.ASCEND_PROFILER_SUFFIX):
                     path = os.path.join(root, dir_name)
-                    ascend_pt_dirs.append({"role": Path(path).parent.name, "path": path})
+                    ascend_pt_dirs.append(
+                        {"role": Path(path).parent.name, "path": path}
+                    )
         data_map = self._get_data_map(ascend_pt_dirs)
         data_maps = self._get_rank_path_with_role(data_map)
         return data_maps
 
     def _get_profiler_data_path(self, rank_id, data_path):
-        if self._data_type == Constant.TEXT:
-            return os.path.join(data_path, Constant.ASCEND_PROFILER_OUTPUT, "trace_view.json")
-        else:
-            raise ValueError(f"Unsupported data type: {self._data_type}. Supported type are: ['text']")
+        return os.path.join(
+            data_path, Constant.ASCEND_PROFILER_OUTPUT, "trace_view.json"
+        )
 
     def _get_rank_path_with_role(self, data_map) -> list[DataMap]:
         """Get json path information for all ranks.
@@ -140,12 +149,15 @@ class MstxClusterParser(BaseClusterParser):
             return []
 
         rank_ids_with_role = list(data_map.keys())
-        data_paths: list[dict] = []
+        data_paths: list[DataMap] = []
         for task_role, rank_id in rank_ids_with_role:
             rank_path_list = data_map[(task_role, rank_id)]
-            profiler_data_path_list = [self._get_profiler_data_path(rank_id, rank_path) for rank_path in rank_path_list]
+            profiler_data_path_list = [
+                self._get_profiler_data_path(rank_id, rank_path)
+                for rank_path in rank_path_list
+            ]
             for profiler_data_path in profiler_data_path_list:
-                data_path_dict = {
+                data_path_dict: DataMap = {
                     Constant.RANK_ID: rank_id,
                     Constant.ROLE: task_role,
                     Constant.PROFILER_DATA_PATH: "",
@@ -160,8 +172,8 @@ class MstxClusterParser(BaseClusterParser):
                     )
         return data_paths
 
-    def _get_data_map(self, path_list):
-        data_map = {}
+    def _get_data_map(self, path_list) -> dict[tuple[str, int], list[str]]:
+        data_map: dict[tuple[str, int], list[str]] = {}
         rank_id_map = defaultdict(list)
         for path_info in path_list:
             role = path_info.get("role")
@@ -183,11 +195,16 @@ class MstxClusterParser(BaseClusterParser):
             raise RuntimeError("Found invalid directory name!") from e
         return data_map
 
-    def _get_rank_id(self, dir_name: str):
+    def _get_rank_id(self, dir_name: str) -> int:
         files = os.listdir(dir_name)
         for file_name in files:
-            if file_name.startswith(Constant.ASCEND_PROFILER_INFO_HEAD) and file_name.endswith(Constant.JSON_EXTENSION):
-                rank_id_str = file_name[len(Constant.ASCEND_PROFILER_INFO_HEAD) : -1 * len(Constant.JSON_EXTENSION)]
+            if file_name.startswith(
+                Constant.ASCEND_PROFILER_INFO_HEAD
+            ) and file_name.endswith(Constant.JSON_EXTENSION):
+                rank_id_str = file_name[
+                    len(Constant.ASCEND_PROFILER_INFO_HEAD) : -1
+                    * len(Constant.JSON_EXTENSION)
+                ]
                 try:
                     rank_id = int(rank_id_str)
                 except ValueError:

@@ -34,7 +34,9 @@ class PRDescriptionError(Exception):
 
 
 # Path to the PR template file
-template_file = os.path.join(os.getenv("GITHUB_WORKSPACE", "."), ".github", "PULL_REQUEST_TEMPLATE.md")
+template_file = os.path.join(
+    os.getenv("GITHUB_WORKSPACE", "."), ".github", "PULL_REQUEST_TEMPLATE.md"
+)
 
 
 def load_template(path):
@@ -52,7 +54,9 @@ def load_template(path):
                 lines.append(line.strip())
         return lines
     except Exception as e:
-        raise TemplateFileError(f"Failed to read PR template (first {NUM_LINES} lines) at {path}: {e}") from e
+        raise TemplateFileError(
+            f"Failed to read PR template (first {NUM_LINES} lines) at {path}: {e}"
+        ) from e
 
 
 def load_pr_body(event_path):

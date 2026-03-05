@@ -19,7 +19,7 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from schema import FigureConfig
+from cluster_analysis.schema import FigureConfig
 
 logging.basicConfig(
     level=logging.INFO,
@@ -49,7 +49,9 @@ COLOR_PALETTE = [
 CLUSTER_VISUALIZER_REGISTRY: dict[str, ClusterVisualizerFn] = {}
 
 
-def register_cluster_visualizer(name: str) -> Callable[[ClusterVisualizerFn], ClusterVisualizerFn]:
+def register_cluster_visualizer(
+    name: str,
+) -> Callable[[ClusterVisualizerFn], ClusterVisualizerFn]:
     def decorator(func: ClusterVisualizerFn) -> ClusterVisualizerFn:
         CLUSTER_VISUALIZER_REGISTRY[name] = func
         return func
@@ -72,7 +74,9 @@ def cluster_visualizer_html(data: pd.DataFrame, output_path: str, config: dict) 
 
 
 @register_cluster_visualizer("chart")
-def cluster_visualizer_chart(data: pd.DataFrame, output_path: str, config: dict) -> None:
+def cluster_visualizer_chart(
+    data: pd.DataFrame, output_path: str, config: dict
+) -> None:
     logger.info("in chart")
 
 
@@ -162,6 +166,11 @@ def merge_short_events(df: pd.DataFrame, threshold_ms: float = 10.0) -> pd.DataF
     def _merge_group(g: pd.DataFrame) -> pd.DataFrame:
         short = g[g["Duration"] < threshold_ms]
         long = g[g["Duration"] >= threshold_ms]
+
+        role, rank_id, name = g.name
+        long["Role"] = role
+        long["Rank ID"] = rank_id
+        long["Name"] = name
         if short.empty:
             return long
         merged = pd.DataFrame(
@@ -169,16 +178,20 @@ def merge_short_events(df: pd.DataFrame, threshold_ms: float = 10.0) -> pd.DataF
                 {
                     "Start": short["Start"].min(),
                     "Finish": short["Finish"].max(),
-                    "Role": short.iloc[0]["Role"],
-                    "Rank ID": short.iloc[0]["Rank ID"],
-                    "Name": short.iloc[0]["Name"],
+                    "Role": role,
+                    "Rank ID": rank_id,
+                    "Name": name,
                     "Duration": short["Finish"].max() - short["Start"].min(),
                 }
             ]
         )
         return pd.concat([long, merged], ignore_index=True)
 
-    return df.groupby(["Role", "Rank ID", "Name"], group_keys=False).apply(_merge_group).reset_index(drop=True)
+    return (
+        df.groupby(["Role", "Rank ID", "Name"], group_keys=False)
+        .apply(_merge_group)
+        .reset_index(drop=True)
+    )
 
 
 def downsample_if_needed(
@@ -196,7 +209,11 @@ def downsample_if_needed(
             return g
         return g.sample(n=samples_per_domain, random_state=random_state)
 
-    return df.groupby("Name", group_keys=False).apply(_sample_domain).reset_index(drop=True)
+    return (
+        df.groupby("Name", group_keys=False)
+        .apply(_sample_domain)
+        .reset_index(drop=True)
+    )
 
 
 def build_y_mappings(df: pd.DataFrame):
@@ -213,11 +230,15 @@ def build_y_mappings(df: pd.DataFrame):
     bar_height = y_axis_spacing * 0.8
 
     y_labels_default = unique_y_labels
-    mapping_default = {label: i * y_axis_spacing for i, label in enumerate(y_labels_default)}
+    mapping_default = {
+        label: i * y_axis_spacing for i, label in enumerate(y_labels_default)
+    }
     df["Y_default"] = df["Y_Label"].map(mapping_default)
 
     y_labels_by_rank = sorted(unique_y_labels, key=lambda x: (_extract_rank(x), x))
-    mapping_by_rank = {label: i * y_axis_spacing for i, label in enumerate(y_labels_by_rank)}
+    mapping_by_rank = {
+        label: i * y_axis_spacing for i, label in enumerate(y_labels_by_rank)
+    }
     df["Y_by_rank"] = df["Y_Label"].map(mapping_by_rank)
 
     return {
@@ -229,7 +250,10 @@ def build_y_mappings(df: pd.DataFrame):
 
 def build_traces(df: pd.DataFrame, y_mapping: dict):
     unique_domains = df["Name"].unique()
-    color_map = {dom: COLOR_PALETTE[i % len(COLOR_PALETTE)] for i, dom in enumerate(unique_domains)}
+    color_map = {
+        dom: COLOR_PALETTE[i % len(COLOR_PALETTE)]
+        for i, dom in enumerate(unique_domains)
+    }
     bar_height = y_mapping.get("bar_height", 48)
 
     traces = []
@@ -258,7 +282,9 @@ def build_traces(df: pd.DataFrame, y_mapping: dict):
     return traces
 
 
-def assemble_figure(traces: list[go.Bar], df: pd.DataFrame, cfg: FigureConfig) -> go.Figure:
+def assemble_figure(
+    traces: list[go.Bar], df: pd.DataFrame, cfg: FigureConfig
+) -> go.Figure:
     max_time = df["Finish"].max()
     unique_y_labels = sorted(df["Y_Label"].unique())
 
@@ -322,10 +348,19 @@ def assemble_figure(traces: list[go.Bar], df: pd.DataFrame, cfg: FigureConfig) -
                 buttons=[
                     dict(
                         args=[
-                            {"y": [df[df["Name"] == t.name]["Y_default"].tolist() for t in traces]},
                             {
-                                "yaxis.tickvals": list(cfg.y_mappings["default"].values()),
-                                "yaxis.ticktext": list(cfg.y_mappings["default"].keys()),
+                                "y": [
+                                    df[df["Name"] == t.name]["Y_default"].tolist()
+                                    for t in traces
+                                ]
+                            },
+                            {
+                                "yaxis.tickvals": list(
+                                    cfg.y_mappings["default"].values()
+                                ),
+                                "yaxis.ticktext": list(
+                                    cfg.y_mappings["default"].keys()
+                                ),
                             },
                         ],
                         label="Sort: Default",
@@ -333,10 +368,19 @@ def assemble_figure(traces: list[go.Bar], df: pd.DataFrame, cfg: FigureConfig) -
                     ),
                     dict(
                         args=[
-                            {"y": [df[df["Name"] == t.name]["Y_by_rank"].tolist() for t in traces]},
                             {
-                                "yaxis.tickvals": list(cfg.y_mappings["by_rank"].values()),
-                                "yaxis.ticktext": list(cfg.y_mappings["by_rank"].keys()),
+                                "y": [
+                                    df[df["Name"] == t.name]["Y_by_rank"].tolist()
+                                    for t in traces
+                                ]
+                            },
+                            {
+                                "yaxis.tickvals": list(
+                                    cfg.y_mappings["by_rank"].values()
+                                ),
+                                "yaxis.ticktext": list(
+                                    cfg.y_mappings["by_rank"].keys()
+                                ),
                             },
                         ],
                         label="Sort: By Rank ID",

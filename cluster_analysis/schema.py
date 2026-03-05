@@ -15,7 +15,7 @@
 import os
 import stat
 from dataclasses import dataclass
-from typing import TypedDict
+from typing import TypedDict, Literal
 
 
 class DataMap(TypedDict):
@@ -52,16 +52,16 @@ class FigureConfig:
 
 
 class Constant:
-    ROLE = "role"
-    COMMUNICATION_GROUP_DOMAIN = "communication_group"
+    ROLE: Literal["role"] = "role"
+    COMMUNICATION_GROUP_DOMAIN: Literal["communication_group"] = "communication_group"
     # params
-    INPUT_PATH = "input_path"
-    DATA_MAP = "data_map"
-    DATA_TYPE = "data_type"
-    PROFILER_TYPE = "profiler_type"
-    RANK_LIST = "rank_list"
-    RANK_ID = "rank_id"
-    PROFILER_DATA_PATH = "profiler_data_path"
+    INPUT_PATH: Literal["input_path"] = "input_path"
+    DATA_MAP: Literal["data_map"] = "data_map"
+    DATA_TYPE: Literal["data_type"] = "data_type"
+    PROFILER_TYPE: Literal["profiler_type"] = "profiler_type"
+    RANK_LIST: Literal["rank_list"] = "rank_list"
+    RANK_ID: Literal["rank_id"] = "rank_id"
+    PROFILER_DATA_PATH: Literal["profiler_data_path"] = "profiler_data_path"
 
     # for Ascend profile
     ASCEND_PROFILER_OUTPUT = "ASCEND_PROFILER_OUTPUT"

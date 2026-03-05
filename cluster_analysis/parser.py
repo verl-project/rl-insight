@@ -19,7 +19,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Callable, Optional
 
 import pandas as pd
-from schema import Constant, DataMap, EventRow
+from cluster_analysis.schema import Constant, DataMap, EventRow
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,7 +35,9 @@ class BaseClusterParser(ABC):
         self.input_path = params.get(Constant.INPUT_PATH, "")
         rank_list = params.get(Constant.RANK_LIST, "all")
         self._rank_list = (
-            rank_list if rank_list == "all" else [int(rank) for rank in rank_list.split(",") if rank.isdigit()]
+            rank_list
+            if rank_list == "all"
+            else [int(rank) for rank in rank_list.split(",") if rank.isdigit()]
         )
 
     def parse(self) -> pd.DataFrame:
@@ -50,9 +52,15 @@ class BaseClusterParser(ABC):
             logger.info("No data maps to process")
             return []
 
+        if len(data_maps) == 1:
+            logger.info("Single rank detected, using serial processing")
+            return [self._mapper_func(data_maps[0])]
+
         total_ranks = len(data_maps)
         max_workers = min(total_ranks, multiprocessing.cpu_count())
-        logger.info(f"Starting parallel processing: {total_ranks} ranks with {max_workers} workers")
+        logger.info(
+            f"Starting parallel processing: {total_ranks} ranks with {max_workers} workers"
+        )
 
         results = []
         completed = 0
@@ -60,7 +68,8 @@ class BaseClusterParser(ABC):
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             # Submit all tasks
             future_to_rank = {
-                executor.submit(self._mapper_func, data_map): data_map[Constant.RANK_ID] for data_map in data_maps
+                executor.submit(self._mapper_func, data_map): data_map[Constant.RANK_ID]
+                for data_map in data_maps
             }
 
             for future in as_completed(future_to_rank):
@@ -70,22 +79,26 @@ class BaseClusterParser(ABC):
                 try:
                     result = future.result()
                     results.append(result)
-                    logger.info(f"Completed rank {rank_id}: {completed}/{total_ranks} ({progress:.1f}%)")
+                    logger.info(
+                        f"Completed rank {rank_id}: {completed}/{total_ranks} ({progress:.1f}%)"
+                    )
                 except Exception as e:
                     logger.error(f"Failed to process rank {rank_id}: {e}")
 
-        logger.info(f"Parallel processing completed: {completed}/{total_ranks} ranks processed")
+        logger.info(
+            f"Parallel processing completed: {completed}/{total_ranks} ranks processed"
+        )
         return results
 
     def _mapper_func(self, data_map: DataMap) -> list[EventRow]:
         """Collect RL performance data from a single rank"""
-        profiler_data_path = data_map.get(Constant.PROFILER_DATA_PATH)
-        rank_id = data_map.get(Constant.RANK_ID)
-        role = data_map.get(Constant.ROLE)
+        profiler_data_path = data_map.get(Constant.PROFILER_DATA_PATH, "")
+        rank_id = data_map.get(Constant.RANK_ID, -1)
+        role = data_map.get(Constant.ROLE, "")
 
         if not profiler_data_path:
             logger.warning(f"Rank {rank_id}: profiler_data_path not found")
-            return None
+            return []
 
         return self.parse_analysis_data(profiler_data_path, rank_id, role)
 
@@ -99,7 +112,9 @@ class BaseClusterParser(ABC):
             if isinstance(result, list):
                 reduce_results.extend(result)
             else:
-                raise TypeError(f"parse_analysis_data must return list[dict] or None, got {type(result)}")
+                raise TypeError(
+                    f"parse_analysis_data must return list[dict] or None, got {type(result)}"
+                )
 
         if not reduce_results:
             logger.warning("No valid data collected from any rank")
@@ -142,7 +157,9 @@ class BaseClusterParser(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def parse_analysis_data(self, profiler_data_path: str, rank_id: int, role: str) -> list[EventRow]:
+    def parse_analysis_data(
+        self, profiler_data_path: str, rank_id: int, role: str
+    ) -> list[EventRow]:
         """
         Parse profiling data for a specific rank and return event information.
 
@@ -181,7 +198,9 @@ class BaseClusterParser(ABC):
 CLUSTER_PARSER_REGISTRY: dict[str, type[BaseClusterParser]] = {}
 
 
-def register_cluster_parser(name: str) -> Callable[type[BaseClusterParser], type[BaseClusterParser]]:
+def register_cluster_parser(
+    name: str,
+) -> Callable[[type[BaseClusterParser]], type[BaseClusterParser]]:
     def decorator(cls: type[BaseClusterParser]) -> type[BaseClusterParser]:
         CLUSTER_PARSER_REGISTRY[name] = cls
         return cls

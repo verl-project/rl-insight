@@ -8,4 +8,3 @@ This package exposes:
 """
 
 from .cluster_analysis import main  # noqa: F401
-
