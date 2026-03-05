@@ -14,15 +14,19 @@
 
 import argparse
 
-from parser import get_cluster_parser_cls
-from schema import Constant
-from visualizer import get_cluster_visualizer_fn
+import cluster_analysis.mstx_parser  # register built-in parsers via decorators
+import cluster_analysis.torch_parser
+from cluster_analysis.parser import get_cluster_parser_cls
+from cluster_analysis.schema import Constant
+from cluster_analysis.visualizer import get_cluster_visualizer_fn
+
+__all__ = ["cluster_analysis.torch_parser", "cluster_analysis.mstx_parser"]
 
 
 def main():
     arg_parser = argparse.ArgumentParser(description="Cluster scheduling visualization")
     arg_parser.add_argument("--input-path", default="test", help="Raw path of profiling data")
-    arg_parser.add_argument("--profiler-type", default="mstx", help="Profiler type, supported mstx/nvtx")
+    arg_parser.add_argument("--profiler-type", default="mstx", help="Profiler type, supported mstx/torch")
     arg_parser.add_argument("--output-path", default="test", help="Output path")
     arg_parser.add_argument("--vis-type", default="html", help="Visualization type, supported html")
     arg_parser.add_argument("--rank-list", type=str, help="Rank id list", default="all")

@@ -18,8 +18,8 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-from parser import BaseClusterParser, register_cluster_parser
-from schema import Constant, DataMap, EventRow
+from cluster_analysis.parser import BaseClusterParser, register_cluster_parser
+from cluster_analysis.schema import Constant, DataMap, EventRow
 
 logging.basicConfig(
     level=logging.INFO,
@@ -123,11 +123,8 @@ class MstxClusterParser(BaseClusterParser):
         return data_maps
 
     def _get_profiler_data_path(self, rank_id, data_path):
-        if self._data_type == Constant.TEXT:
-            return os.path.join(data_path, Constant.ASCEND_PROFILER_OUTPUT, "trace_view.json")
-        else:
-            raise ValueError(f"Unsupported data type: {self._data_type}. Supported type are: ['text']")
-
+        return os.path.join(data_path, Constant.ASCEND_PROFILER_OUTPUT, "trace_view.json")
+        
     def _get_rank_path_with_role(self, data_map) -> list[DataMap]:
         """Get json path information for all ranks.
 

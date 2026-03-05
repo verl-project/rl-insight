@@ -19,7 +19,7 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from schema import FigureConfig
+from cluster_analysis.schema import FigureConfig
 
 logging.basicConfig(
     level=logging.INFO,
