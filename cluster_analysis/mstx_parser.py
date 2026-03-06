@@ -18,8 +18,8 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-from cluster_analysis.parser import BaseClusterParser, register_cluster_parser
-from cluster_analysis.schema import Constant, DataMap, EventRow
+from .parser import BaseClusterParser, register_cluster_parser
+from .schema import Constant, DataMap, EventRow
 
 logging.basicConfig(
     level=logging.INFO,

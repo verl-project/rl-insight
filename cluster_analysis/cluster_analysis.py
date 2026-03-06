@@ -13,14 +13,10 @@
 # limitations under the License.
 
 import argparse
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from cluster_analysis.parser import get_cluster_parser_cls
-from cluster_analysis.schema import Constant
-from cluster_analysis.visualizer import get_cluster_visualizer_fn
+from .parser import get_cluster_parser_cls
+from .schema import Constant
+from .visualizer import get_cluster_visualizer_fn
 
 
 def main():

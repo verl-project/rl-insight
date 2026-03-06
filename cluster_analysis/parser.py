@@ -19,7 +19,8 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Callable, Optional
 
 import pandas as pd
-from cluster_analysis.schema import Constant, DataMap, EventRow
+from .schema import Constant, DataMap, EventRow
+
 
 logging.basicConfig(
     level=logging.INFO,
