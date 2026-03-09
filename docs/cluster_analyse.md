@@ -34,8 +34,10 @@ pip install pandas plotly numpy
 
 ### 2.3 执行分析脚本
 
+### 使用示例
+
 ```bash
-python cluster_analysis.py --input-path <profiling_data_path> --output-path <output_path>
+python -m cluster_analysis.cluster_analysis --input-path <profiling_data_path> --output-path <output_path>
 ```
 
 ## 三、命令行参数
@@ -48,16 +50,11 @@ python cluster_analysis.py --input-path <profiling_data_path> --output-path <out
 | `--vis-type` | `html` | 可视化类型（当前仅支持 html） |
 | `--rank-list` | `all` | Rank ID 列表（当前仅支持 "all"） |
 
-### 使用示例
 
-```bash
-# 基本使用
-python cluster_analysis.py --input-path ./data --output-path ./output
-```
 
 ## 四、输出说明
 
-工具会在指定的输出路径下生成 HTML 文件（默认为 `rl_timeline.html`），包含：
+工具会在指定的输出路径下生成 HTML 文件（文件名默认为 `rl_timeline.html`），包含：
 
 - **交互式 Timeline 甘特图**：展示各 Rank 在不同时间段的事件分布
 - **悬停信息**：鼠标悬停显示事件详细信息（名称、开始/结束时间、持续时间等）
@@ -78,10 +75,11 @@ python cluster_analysis.py --input-path ./data --output-path ./output
 
 ## 五、注意事项
 
-1. RL 分析功能当前仅支持处理所有 Rank（`--rank-list` 参数暂不支持过滤）
-2. 需至少采集 level0 及以上数据
+1. RL 分析功能当前仅支持处理所有 Rank（`--rank-list` 参数暂不支持过滤功能）
+2. 至少采集 level0 及以上数据（不支持level_none级数据）
 3. 采用离散模式采集 `discrete=True`
-4. MSTX 数据格式要求：
+4. MSTX 数据满足以下要求：
+   - 采集数据需经过解析，建议使用离线解析方式
    - 输入路径下需包含 `*_ascend_pt` 目录
    - 每个 ascend_pt 目录下需包含 `profiler_info_*.json` 文件
    - trace_view.json 文件位于 `ASCEND_PROFILER_OUTPUT` 子目录中
