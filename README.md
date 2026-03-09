@@ -8,15 +8,15 @@
 
 </div>
 
-In RL-Insight，we define [a general pipeline](https://github.com/verl-project/rl-insight/blob/main/docs/insight_framework.md) for performance insights. A series of capabilities will be built based on this framework. With a well-defined data protocal, these capabilities can generalize across training frameworks.
+In RL-Insight, we define [a general pipeline](https://github.com/verl-project/rl-insight/blob/main/docs/insight_framework.md) for performance insights. A series of capabilities will be built based on this framework. With a well-defined data protocol, these capabilities can generalize across training frameworks.
 
 <div align="center">
- <img src="https://github.com/tardis-key/rl-insight/blob/main/assets/rl_insight_framework.svg" width="600" alt="rl-insight-arch.png">
+ <img src="https://github.com/verl-project/rl-insight/blob/main/assets/rl_insight_framework.svg" width="600" alt="rl-insight-arch.png">
 </div>
 
 ## Key Features
 
-- Offiline analysis of cluster scheduling timeline based on **MSTX**,**NVTX**,**torch profile** data collected from verl.
+- Offline analysis of cluster scheduling timeline based on **MSTX**,**NVTX**,**torch profile** data collected from verl.
 
 
 ## Upcoming Features and Changes
@@ -31,7 +31,7 @@ In RL-Insight，we define [a general pipeline](https://github.com/verl-project/r
 
 - [Installation WIP]()
 - [Quickstart WIP]()
-- [Offiline Cluster Analyse Quickstart](https://github.com/verl-project/rl-insight/blob/main/docs/cluster_analyse.md)
+- [Offline Cluster Analyse Quickstart](https://github.com/verl-project/rl-insight/blob/main/docs/cluster_analyse.md)
 
 ## Contribution Guide
 
