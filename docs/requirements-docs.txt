@@ -1,0 +1,5 @@
+# Sphinx and extensions for rl-insight docs
+sphinx
+myst_parser
+sphinx-markdown-tables
+sphinx-rtd-theme

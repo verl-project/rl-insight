@@ -1,0 +1,40 @@
+name: doc_test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "**/*.py"
+      - "docs/**"
+      - ".github/workflows/doc.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  doc_test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      matrix:
+        python-version: ["3.10"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install docs dependencies
+        run: |
+          pip install -r docs/requirements-docs.txt
+      - name: Build Sphinx docs
+        run: |
+          sphinx-build -b html docs docs/_build/html -W --keep-going
