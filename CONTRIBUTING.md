@@ -9,6 +9,12 @@ Your support can take many forms:
 - Review pull requests and assist other contributors.
 - Spread the word: share rl-insight in blog posts, social media, or give the repo a ⭐.
 
+## Finding Issues to Contribute
+
+Looking for ways to dive in? Check out these issues:
+- [Good first issues](https://github.com/verl-project/rl-insight/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22)
+- [Call for contribution](https://github.com/verl-project/rl-insight/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22call%20for%20contribution%22)
+Furthermore, you can learn the development plan and roadmap via [RFC](https://github.com/verl-project/rl-insight/issues?q=is%3Aissue%20state%3Aopen%20label%3ARFC) and [Roadmap](https://github.com/verl-project/rl-insight/issues?q=state%3Aopen%20label%3A%22roadmap%22).
 
 ## Developing
 
@@ -43,7 +49,7 @@ pre-commit run --all-files --show-diff-on-failure --color=always autogen-trainer
 
 If possible, please add CI test(s) for your new feature:
 
-1. Find the most relevant workflow yml file, which usually corresponds to a `hydra` default config (e.g. `ppo_trainer`, `ppo_megatron_trainer`, `sft_trainer`, etc).
+1. Find the most relevant workflow yml file, which usually corresponds to a `hydra` default config.
 2. Add related path patterns to the `paths` section if not already included.
 3. Minimize the workload of the test script(s) (see existing scripts for examples).
 
@@ -67,4 +73,3 @@ See the [LICENSE](https://github.com/verl-project/rl-insight/blob/main/LICENSE) 
 ## Thank You
 
 We appreciate your contributions to rl-insight. Your efforts help make the project stronger and more user-friendly. Happy coding!
-
