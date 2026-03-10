@@ -35,7 +35,9 @@ class TorchClusterParser(BaseClusterParser):
     def __init__(self, params) -> None:
         super().__init__(params)
 
-    def parse_analysis_data(self, profiler_data_path: str, rank_id: int, role: str) -> list[EventRow]:
+    def parse_analysis_data(
+        self, profiler_data_path: str, rank_id: int, role: str
+    ) -> list[EventRow]:
         data: dict = {}
         events: list[EventRow] = []
 
@@ -53,7 +55,9 @@ class TorchClusterParser(BaseClusterParser):
         # Get rank_id from distributedInfo
         rank_id = data.get("distributedInfo", {}).get("rank", -1)
         if rank_id < 0:
-            logger.warning(f"Path {profiler_data_path}: No valid distributedInfo for Analysis")
+            logger.warning(
+                f"Path {profiler_data_path}: No valid distributedInfo for Analysis"
+            )
             return events
 
         trace_events = data.get("traceEvents", [])
@@ -80,7 +84,9 @@ class TorchClusterParser(BaseClusterParser):
                 end_ids = end_time_ns
 
         if start_ids is None or end_ids is None:
-            logger.warning(f"Path {profiler_data_path}: No valid timing in traceEvents for Analysis")
+            logger.warning(
+                f"Path {profiler_data_path}: No valid timing in traceEvents for Analysis"
+            )
             return events
 
         # Convert to milliseconds
@@ -89,7 +95,7 @@ class TorchClusterParser(BaseClusterParser):
         duration_ms = (end_ids - start_ids) / us_to_ms
         end_time_ms = start_time_ms + duration_ms
 
-        event_data = {
+        event_data: EventRow = {
             "name": role,
             "role": role,
             "domain": "default",
@@ -150,12 +156,12 @@ class TorchClusterParser(BaseClusterParser):
             return []
 
         roles = list(data_map.keys())
-        data_paths: list[dict] = []
+        data_paths: list[DataMap] = []
         for task_role in roles:
             file_list = data_map[task_role]
 
             for profiler_data_path in file_list:
-                data_path_dict = {
+                data_path_dict: DataMap = {
                     Constant.RANK_ID: -1,  # rank_id for torch will be loaded from json file.
                     Constant.ROLE: task_role,
                     Constant.PROFILER_DATA_PATH: "",
@@ -165,5 +171,7 @@ class TorchClusterParser(BaseClusterParser):
                     data_path_dict[Constant.PROFILER_DATA_PATH] = profiler_data_path
                     data_paths.append(data_path_dict)
                 else:
-                    logger.warning(f"Profiler data file not found, role: {task_role}, data path: {profiler_data_path}.")
+                    logger.warning(
+                        f"Profiler data file not found, role: {task_role}, data path: {profiler_data_path}."
+                    )
         return data_paths
