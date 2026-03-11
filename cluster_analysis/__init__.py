@@ -24,5 +24,6 @@ This package exposes:
 from .cluster_analysis import main  # noqa: F401
 
 from . import mstx_parser
+from . import torch_parser
 
-__all__ = ["mstx_parser"]
+__all__ = ["mstx_parser", "torch_parser"]

@@ -34,10 +34,24 @@ pip install pandas plotly numpy
 
 ### 2.3 执行分析脚本
 
-### 使用示例
+#### MSTX 使用示例
 
 ```bash
-python -m cluster_analysis.cluster_analysis --input-path <profiling_data_path> --output-path <output_path>
+python -m cluster_analysis.cluster_analysis \
+   --input-path <profiling_data_path> \
+   --profiler-type mstx \
+   --output-path <output_path>
+```
+
+#### Torch Profiler 解析示例
+
+从最新版本开始，工具支持解析 PyTorch Profiler 采集的性能数据（`torch` 类型）。
+
+```bash
+python -m cluster_analysis.cluster_analysis \
+    --input-path <torch_profiling_data_path> \
+    --profiler-type torch \
+    --output-path <output_path>
 ```
 
 ## 三、命令行参数
@@ -45,11 +59,10 @@ python -m cluster_analysis.cluster_analysis --input-path <profiling_data_path> -
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
 | `--input-path` | `test` | Profiling 数据的原始路径 |
-| `--profiler-type` | `mstx` | 性能数据种类 |
+| `--profiler-type` | `mstx` | 性能数据种类（支持 `mstx` 和 `torch`） |
 | `--output-path` | `test` | 输出路径 |
 | `--vis-type` | `html` | 可视化类型（当前仅支持 html） |
 | `--rank-list` | `all` | Rank ID 列表（当前仅支持 "all"） |
-
 
 
 ## 四、输出说明
@@ -83,3 +96,8 @@ python -m cluster_analysis.cluster_analysis --input-path <profiling_data_path> -
    - 输入路径下需包含 `*_ascend_pt` 目录
    - 每个 ascend_pt 目录下需包含 `profiler_info_*.json` 文件
    - trace_view.json 文件位于 `ASCEND_PROFILER_OUTPUT` 子目录中
+5. torch数据满足以下要求：
+   - 输入路径下需包含以 `.json.gz` 结尾的 PyTorch Profiler 数据文件，即verl仓目前默认torch_profile采集数据保存格式
+   - 系统会自动过滤包含 `async_llm` 关键字的文件
+   - 每个数据文件需包含有效的 `traceEvents` 和 `distributedInfo` 字段
+   - Rank ID 将从 `distributedInfo.rank` 字段自动提取
