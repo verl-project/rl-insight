@@ -13,10 +13,20 @@
 # limitations under the License.
 
 import argparse
+from .offline_insight_pipeline import OfflineInsightPipeline
 
-from .parser import get_cluster_parser_cls
-from .schema import Constant
-from .visualizer import get_cluster_visualizer_fn
+SUPPORTED_PIPELINE_TYPES = {"OfflineInsightPipeline": OfflineInsightPipeline}
+
+
+def run_pipeline(config, pipeline_class=None):
+    if pipeline_class is None:
+        raise ValueError(
+            "pipeline-type has not been specified. "
+            "Please specify it with --pipeline-type."
+        )
+
+    runner = pipeline_class(config)
+    runner.run()
 
 
 def main():
@@ -32,23 +42,24 @@ def main():
         "--vis-type", default="html", help="Visualization type, supported html"
     )
     arg_parser.add_argument("--rank-list", type=str, help="Rank id list", default="all")
-    args = arg_parser.parse_args()
+    arg_parser.add_argument(
+        "--pipeline-type",
+        type=str,
+        help="Tool pipeline type",
+        default="OfflineInsightPipeline",
+    )
+    config = arg_parser.parse_args()
 
-    # Prepare parser configuration
-    parser_config = {
-        Constant.INPUT_PATH: args.input_path,
-        Constant.RANK_LIST: args.rank_list,
-    }
-    visualizer_config = {}
+    # Validate pipeline type
+    if config.pipeline_type not in SUPPORTED_PIPELINE_TYPES:
+        supported_types = ", ".join(SUPPORTED_PIPELINE_TYPES.keys())
+        raise ValueError(
+            f"Unsupported pipeline type: {config.pipeline_type}. Supported types are: {supported_types}"
+        )
 
-    # Get and call parser
-    parser_cls = get_cluster_parser_cls(args.profiler_type)
-    parser = parser_cls(parser_config)
-    data = parser.parse()
-
-    # Get and Call visualizer
-    visualizer_fn = get_cluster_visualizer_fn(args.vis_type)
-    visualizer_fn(data, args.output_path, visualizer_config)
+    # Run the pipeline
+    pipeline_class = SUPPORTED_PIPELINE_TYPES[config.pipeline_type]
+    run_pipeline(config, pipeline_class)
 
 
 if __name__ == "__main__":
