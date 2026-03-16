@@ -20,10 +20,7 @@ SUPPORTED_PIPELINE_TYPES = {"OfflineInsightPipeline": OfflineInsightPipeline}
 
 def run_pipeline(config, pipeline_class=None):
     if pipeline_class is None:
-        raise ValueError(
-            "pipeline-type has not been specified. "
-            "Please specify it with --pipeline-type."
-        )
+        raise ValueError("A pipeline class must be provided.")
 
     runner = pipeline_class(config)
     runner.run()
