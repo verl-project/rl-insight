@@ -33,18 +33,18 @@ class OfflineInsightPipeline:
             Constant.RANK_LIST: self.rank_list,
         }
 
-    def parse_data(self, parser_config):
+    def parse_data(self):
         parser_cls = get_cluster_parser_cls(self.profiler_type)
-        parser = parser_cls(parser_config)
+        parser = parser_cls(self.parser_config)
         return parser.parse()
 
     def prepare_visualizer_config(self):
         return {}
 
-    def visualize_data(self, data, visualizer_config):
+    def visualize_data(self, data):
         visualizer_fn = get_cluster_visualizer_fn(self.vis_type)
-        visualizer_fn(data, self.output_path, visualizer_config)
+        visualizer_fn(data, self.output_path, self.visualizer_config)
 
     def run(self):
-        data = self.parse_data(self.parser_config)
-        self.visualize_data(data, self.visualizer_config)
+        data = self.parse_data()
+        self.visualize_data(data)
