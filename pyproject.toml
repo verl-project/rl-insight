@@ -24,7 +24,7 @@ Source = "https://github.com/verl-project/rl-insight"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["cluster_analysis"]
+include = ["insight"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

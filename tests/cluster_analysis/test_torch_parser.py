@@ -29,12 +29,12 @@ from pathlib import Path
 
 import pytest
 
-from cluster_analysis.parser import (
+from rl_insight.parser import (
     CLUSTER_PARSER_REGISTRY,
     get_cluster_parser_cls,
 )
-from cluster_analysis.schema import Constant
-from cluster_analysis.torch_parser import TorchClusterParser
+from rl_insight.schema import Constant
+from rl_insight.torch_parser import TorchClusterParser
 
 
 # =============================================================================

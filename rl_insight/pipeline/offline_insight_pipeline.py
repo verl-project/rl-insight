@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .parser import get_cluster_parser_cls
-from .schema import Constant
-from .visualizer import get_cluster_visualizer_fn
+from rl_insight.parser import get_cluster_parser_cls
+from rl_insight.schema import Constant
+from rl_insight.visualizer import get_cluster_visualizer_fn
 
 
 class OfflineInsightPipeline:
@@ -24,27 +24,27 @@ class OfflineInsightPipeline:
         self.output_path = config.output_path
         self.vis_type = config.vis_type
         self.rank_list = config.rank_list
-        self.parser_config = self.prepare_parser_config()
-        self.visualizer_config = self.prepare_visualizer_config()
+        self.parser_config = self._prepare_parser_config()
+        self.visualizer_config = self._prepare_visualizer_config()
 
-    def prepare_parser_config(self):
+    def _prepare_parser_config(self):
         return {
             Constant.INPUT_PATH: self.input_path,
             Constant.RANK_LIST: self.rank_list,
         }
 
-    def parse_data(self):
+    def _parse_data(self):
         parser_cls = get_cluster_parser_cls(self.profiler_type)
         parser = parser_cls(self.parser_config)
         return parser.parse()
 
-    def prepare_visualizer_config(self):
+    def _prepare_visualizer_config(self):
         return {}
 
-    def visualize_data(self, data):
+    def _visualize_data(self, data):
         visualizer_fn = get_cluster_visualizer_fn(self.vis_type)
         visualizer_fn(data, self.output_path, self.visualizer_config)
 
     def run(self):
-        data = self.parse_data()
-        self.visualize_data(data)
+        data = self._parse_data()
+        self._visualize_data(data)

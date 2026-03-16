@@ -29,16 +29,16 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from cluster_analysis.cluster_analysis import main
-from cluster_analysis.mstx_parser import MstxClusterParser
-from cluster_analysis.parser import (
+from rl_insight.cluster_analysis import main
+from rl_insight.mstx_parser import MstxClusterParser
+from rl_insight.parser import (
     CLUSTER_PARSER_REGISTRY,
     BaseClusterParser,
     get_cluster_parser_cls,
     register_cluster_parser,
 )
-from cluster_analysis.schema import Constant, DataMap, EventRow
-from cluster_analysis.visualizer import (
+from rl_insight.schema import Constant, DataMap, EventRow
+from rl_insight.visualizer import (
     CLUSTER_VISUALIZER_REGISTRY,
     build_traces,
     build_y_mappings,
@@ -839,8 +839,8 @@ class TestVisualizerFunctions:
         # Each trace should be a Plotly Bar object
         assert all(hasattr(trace, "base") for trace in traces)
 
-    @patch("cluster_analysis.visualizer.go.Figure")
-    @patch("cluster_analysis.visualizer.save_html")
+    @patch("rl_insight.visualizer.go.Figure")
+    @patch("rl_insight.visualizer.save_html")
     def test_generate_rl_timeline(
         self, mock_save_html, mock_figure, sample_event_dataframe
     ):
@@ -849,7 +849,7 @@ class TestVisualizerFunctions:
         mock_figure.return_value = mock_fig
 
         with patch(
-            "cluster_analysis.visualizer.merge_short_events",
+            "rl_insight.visualizer.merge_short_events",
             side_effect=lambda df, threshold_ms=10.0: df,
         ):
             result = generate_rl_timeline(sample_event_dataframe, "/tmp/output")
@@ -928,13 +928,13 @@ class TestIntegration:
         # Visualize data
         output_dir = str(tmp_path / "output")
 
-        with patch("cluster_analysis.visualizer.go.Figure") as mock_figure:
+        with patch("rl_insight.visualizer.go.Figure") as mock_figure:
             mock_fig = MagicMock()
             mock_figure.return_value = mock_fig
 
-            with patch("cluster_analysis.visualizer.save_html"):
+            with patch("rl_insight.visualizer.save_html"):
                 with patch(
-                    "cluster_analysis.visualizer.merge_short_events",
+                    "rl_insight.visualizer.merge_short_events",
                     side_effect=lambda frame, threshold_ms=10.0: frame,
                 ):
                     generate_rl_timeline(df, output_dir)
@@ -946,8 +946,8 @@ class TestIntegration:
         "sys.argv",
         ["cluster_analysis.py", "--input-path", "/tmp", "--profiler-type", "mstx"],
     )
-    @patch("cluster_analysis.cluster_analysis.get_cluster_parser_cls")
-    @patch("cluster_analysis.cluster_analysis.get_cluster_visualizer_fn")
+    @patch("rl_insight.pipeline.offline_insight_pipeline.get_cluster_parser_cls")
+    @patch("rl_insight.pipeline.offline_insight_pipeline.get_cluster_visualizer_fn")
     def test_main_function(
         self, mock_get_visualizer, mock_get_parser, mock_mstx_profiler_structure
     ):

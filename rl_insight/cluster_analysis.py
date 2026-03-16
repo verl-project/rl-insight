@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import argparse
-from .offline_insight_pipeline import OfflineInsightPipeline
+from .pipeline.offline_insight_pipeline import OfflineInsightPipeline
 
 SUPPORTED_PIPELINE_TYPES = {"OfflineInsightPipeline": OfflineInsightPipeline}
 
