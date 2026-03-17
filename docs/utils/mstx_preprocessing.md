@@ -13,13 +13,13 @@
 ## 脚本位置
 
 ```bash
-utils/mstx_preprocessing.py
+rl_insight/utils/mstx_preprocessing.py
 ```
 
 ## 使用方法
 
 ```bash
-python -m utils.mstx_preprocessing <profile-data-path>
+python -m rl_insight.utils.mstx_preprocessing <profile-data-path>
 ```
 
 ## 参数说明
