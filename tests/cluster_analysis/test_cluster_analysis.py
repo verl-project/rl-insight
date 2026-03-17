@@ -594,7 +594,7 @@ class TestBaseClusterParser:
         )
 
         with patch("concurrent.futures.ProcessPoolExecutor"):
-            df = parser.parse()
+            df = parser.run()
 
         assert df is not None
         assert len(df) >= 1
@@ -920,7 +920,7 @@ class TestIntegration:
         )
 
         with patch("concurrent.futures.ProcessPoolExecutor"):
-            df = parser.parse()
+            df = parser.run()
 
         assert df is not None
         assert len(df) >= 1
@@ -947,7 +947,7 @@ class TestIntegration:
         ["cluster_analysis.py", "--input-path", "/tmp", "--profiler-type", "mstx"],
     )
     @patch("rl_insight.pipeline.offline_insight_pipeline.get_cluster_parser_cls")
-    @patch("rl_insight.pipeline.offline_insight_pipeline.get_cluster_visualizer_fn")
+    @patch("rl_insight.visualizer.get_cluster_visualizer_fn")
     def test_main_function(
         self, mock_get_visualizer, mock_get_parser, mock_mstx_profiler_structure
     ):
@@ -955,7 +955,7 @@ class TestIntegration:
         # Mock parser
         mock_parser = MagicMock()
         mock_parser_instance = MagicMock()
-        mock_parser_instance.parse.return_value = pd.DataFrame(
+        mock_parser_instance.run.return_value = pd.DataFrame(
             [
                 {
                     "role": "test",
@@ -980,7 +980,7 @@ class TestIntegration:
 
         # Verify parser was called
         mock_get_parser.assert_called_with("mstx")
-        mock_parser_instance.parse.assert_called_once()
+        mock_parser_instance.run.assert_called_once()
 
         # Verify visualizer was called
         mock_get_visualizer.assert_called_with("html")

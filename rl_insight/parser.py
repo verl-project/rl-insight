@@ -41,7 +41,7 @@ class BaseClusterParser(ABC):
             else [int(rank) for rank in rank_list.split(",") if rank.isdigit()]
         )
 
-    def parse(self) -> pd.DataFrame:
+    def run(self) -> pd.DataFrame:
         """Run parsing and return the parsed DataFrame."""
         _data_maps = self.allocate_prof_data(self.input_path)
         mapper_res = self.mapper_func(_data_maps)
@@ -129,6 +129,12 @@ class BaseClusterParser(ABC):
 
     def get_data(self) -> pd.DataFrame:
         return self.events_summary
+
+    def get_input_type(self):
+        pass
+
+    def get_output_type(self):
+        pass
 
     @abstractmethod
     def allocate_prof_data(self, input_path: str) -> list[DataMap]:

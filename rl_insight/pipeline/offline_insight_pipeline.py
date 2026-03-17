@@ -14,7 +14,7 @@
 
 from rl_insight.parser import get_cluster_parser_cls
 from rl_insight.schema import Constant
-from rl_insight.visualizer import get_cluster_visualizer_fn
+from rl_insight.visualizer import RLTimelineVisualizer
 
 
 class OfflineInsightPipeline:
@@ -26,6 +26,9 @@ class OfflineInsightPipeline:
         self.rank_list = config.rank_list
         self.parser_config = self._prepare_parser_config()
         self.visualizer_config = self._prepare_visualizer_config()
+        self.parser_cls = get_cluster_parser_cls(self.profiler_type)
+        self.parser = self.parser_cls(self.parser_config)
+        self.visualizer = RLTimelineVisualizer(self.visualizer_config)
 
     def _prepare_parser_config(self):
         return {
@@ -33,18 +36,12 @@ class OfflineInsightPipeline:
             Constant.RANK_LIST: self.rank_list,
         }
 
-    def _parse_data(self):
-        parser_cls = get_cluster_parser_cls(self.profiler_type)
-        parser = parser_cls(self.parser_config)
-        return parser.parse()
-
     def _prepare_visualizer_config(self):
-        return {}
-
-    def _visualize_data(self, data):
-        visualizer_fn = get_cluster_visualizer_fn(self.vis_type)
-        visualizer_fn(data, self.output_path, self.visualizer_config)
+        return {
+            "output_path": self.output_path,
+            "vis_type": self.vis_type,
+        }
 
     def run(self):
-        data = self._parse_data()
-        self._visualize_data(data)
+        data = self.parser.run()
+        self.visualizer.run(data)

@@ -15,6 +15,7 @@
 import logging
 import os
 from typing import Callable
+from abc import ABC, abstractmethod
 
 import numpy as np
 import pandas as pd
@@ -59,7 +60,34 @@ def register_cluster_visualizer(
     return decorator
 
 
-def get_cluster_visualizer_fn(fn_name):
+class BaseVisualizer(ABC):
+    def __init__(self, config: dict):
+        self.config = config
+
+    def get_input_type(self):
+        pass
+
+    @abstractmethod
+    def run(self):
+        raise NotImplementedError
+
+
+class RLTimelineVisualizer(BaseVisualizer):
+    def __init__(self, config: dict):
+        super().__init__(config)
+        self.output_path = config.get("output_path", None)
+        self.vis_type = config.get("vis_type", None)
+        self.visualizer_fn = None
+
+    def get_input_type(self):
+        pass
+
+    def run(self, data):
+        self.visualizer_fn = get_cluster_visualizer_fn(self.vis_type)
+        self.visualizer_fn(data, self.output_path, self.config)
+
+
+def get_cluster_visualizer_fn(fn_name=None):
     if fn_name not in CLUSTER_VISUALIZER_REGISTRY:
         raise ValueError(
             f"Unsupported cluster visualizer: {fn_name}. Supported fns are: {list(CLUSTER_VISUALIZER_REGISTRY.keys())}"
