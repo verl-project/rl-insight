@@ -25,7 +25,7 @@ In RL-Insight, we define [a general pipeline](https://github.com/verl-project/rl
 
 ## Getting Started
 
-<a href="https://verl.readthedocs.io/en/latest/index.html"><b>Documentation WIP</b></a>
+<a href="https://rl-insight.readthedocs.io/en/latest/"><b>Documentation</b></a>
 
 **Quickstart:**
 
