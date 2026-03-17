@@ -24,7 +24,7 @@ Source = "https://github.com/verl-project/rl-insight"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["insight"]
+include = ["rl_insight"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
