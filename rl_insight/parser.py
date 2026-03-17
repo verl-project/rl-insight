@@ -134,7 +134,7 @@ class BaseClusterParser(ABC):
         pass
 
     def get_output_type(self):
-        pass
+        return pd.DataFrame
 
     @abstractmethod
     def allocate_prof_data(self, input_path: str) -> list[DataMap]:

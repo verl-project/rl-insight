@@ -80,7 +80,7 @@ class RLTimelineVisualizer(BaseVisualizer):
         self.visualizer_fn = None
 
     def get_input_type(self):
-        pass
+        return pd.DataFrame
 
     def run(self, data):
         self.visualizer_fn = get_cluster_visualizer_fn(self.vis_type)

@@ -11,10 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-class BaseData:
-    def __init__(self, params) -> None:
-        pass
-
-    @classmethod
-    def type_check(cls, params):
-        return True

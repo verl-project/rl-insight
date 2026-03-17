@@ -947,9 +947,9 @@ class TestIntegration:
         ["cluster_analysis.py", "--input-path", "/tmp", "--profiler-type", "mstx"],
     )
     @patch("rl_insight.pipeline.offline_insight_pipeline.get_cluster_parser_cls")
-    @patch("rl_insight.visualizer.get_cluster_visualizer_fn")
+    @patch("rl_insight.pipeline.offline_insight_pipeline.RLTimelineVisualizer")
     def test_main_function(
-        self, mock_get_visualizer, mock_get_parser, mock_mstx_profiler_structure
+        self, mock_visualizer_cls, mock_get_parser, mock_mstx_profiler_structure
     ):
         """Test main CLI entry point."""
         # Mock parser
@@ -968,12 +968,15 @@ class TestIntegration:
                 }
             ]
         )
+        mock_parser_instance.get_output_type.return_value = pd.DataFrame
+        mock_parser_instance.get_input_type.return_value = None
         mock_parser.return_value = mock_parser_instance
         mock_get_parser.return_value = mock_parser
 
         # Mock visualizer
-        mock_visualizer = MagicMock()
-        mock_get_visualizer.return_value = mock_visualizer
+        mock_visualizer_instance = MagicMock()
+        mock_visualizer_instance.get_input_type.return_value = pd.DataFrame
+        mock_visualizer_cls.return_value = mock_visualizer_instance
 
         # Run main
         main()
@@ -983,5 +986,4 @@ class TestIntegration:
         mock_parser_instance.run.assert_called_once()
 
         # Verify visualizer was called
-        mock_get_visualizer.assert_called_with("html")
-        mock_visualizer.assert_called_once()
+        mock_visualizer_instance.run.assert_called_once()
