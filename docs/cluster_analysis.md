@@ -43,6 +43,12 @@ python -m rl_insight.main \
    --output-path <output_path>
 ```
 
+或修改并直接使用examples/mstx_exec.sh脚本:
+
+```bash
+bash examples/mstx_exec.sh
+```
+
 #### Torch Profiler 解析示例
 
 从最新版本开始，工具支持解析 PyTorch Profiler 采集的性能数据（`torch` 类型）。
@@ -52,6 +58,12 @@ python -m rl_insight.main \
     --input-path <torch_profiling_data_path> \
     --profiler-type torch \
     --output-path <output_path>
+```
+
+或修改并直接使用examples/torch_profiler_exec.sh脚本:
+
+```bash
+bash examples/torch_profiler_exec.sh
 ```
 
 ## 三、命令行参数

@@ -18,6 +18,8 @@ echo "Vis Type:      ${VIS_TYPE}"
 echo "Rank List:     ${RANK_LIST}"
 echo "=========================================="
 
+# Preprocessing is optional: comment out below code if data is already preprocessed
+
 echo ">>> Start mstx data preprocessing..."
 
 python -m rl_insight.utils.mstx_preprocessing "${TORCH_PROFILER_DATA_PATH}"
