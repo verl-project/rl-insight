@@ -11,19 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from .parser import (
+    BaseClusterParser,
+    get_cluster_parser_cls,
+    register_cluster_parser,
+    CLUSTER_PARSER_REGISTRY,
+)
+from .torch_parser import TorchClusterParser
+from .mstx_parser import MstxClusterParser
 
-"""
-Cluster scheduling analysis and visualization for RL workloads.
-
-This package exposes:
-
-- ``cluster_analysis.main``: CLI entry point
-- ``mstx_parser.MstxClusterParser``: parser for Ascend MSTX traces
-"""
-
-from .cluster_analysis import main  # noqa: F401
-
-from .parser import mstx_parser
-from .parser import torch_parser
-
-__all__ = ["mstx_parser", "torch_parser"]
+__all__ = [
+    "get_cluster_parser_cls",
+    "TorchClusterParser",
+    "CLUSTER_PARSER_REGISTRY",
+    "MstxClusterParser",
+    "register_cluster_parser",
+    "BaseClusterParser",
+]

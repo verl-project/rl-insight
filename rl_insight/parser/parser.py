@@ -19,7 +19,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Callable, Optional
 
 import pandas as pd
-from .schema import Constant, DataMap, EventRow
+from rl_insight.schema import Constant, DataMap, EventRow
 
 
 logging.basicConfig(

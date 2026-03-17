@@ -30,7 +30,7 @@ import pandas as pd
 import pytest
 
 from rl_insight.cluster_analysis import main
-from rl_insight.mstx_parser import MstxClusterParser
+from rl_insight.parser import MstxClusterParser
 from rl_insight.parser import (
     CLUSTER_PARSER_REGISTRY,
     BaseClusterParser,

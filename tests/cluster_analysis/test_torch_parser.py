@@ -34,7 +34,7 @@ from rl_insight.parser import (
     get_cluster_parser_cls,
 )
 from rl_insight.schema import Constant
-from rl_insight.torch_parser import TorchClusterParser
+from rl_insight.parser import TorchClusterParser
 
 
 # =============================================================================
