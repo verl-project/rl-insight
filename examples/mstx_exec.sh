@@ -18,6 +18,12 @@ echo "Vis Type:      ${VIS_TYPE}"
 echo "Rank List:     ${RANK_LIST}"
 echo "=========================================="
 
+echo ">>> Start mstx data preprocessing..."
+
+python -m rl_insight.utils.mstx_preprocessing "${TORCH_PROFILER_DATA_PATH}"
+
+echo ">>> Mstx data preprocessing completed."
+
 python -m rl_insight.cluster_analysis \
     --input-path "${TORCH_PROFILER_DATA_PATH}" \
     --profiler-type "${PROFILER_TYPE}" \
@@ -26,6 +32,6 @@ python -m rl_insight.cluster_analysis \
     --rank-list "${RANK_LIST}"
 
 echo "=========================================="
-echo "Analysis completed successfully!"
-echo "Output saved to: ${OUTPUT_PATH}"
+echo ">>> Analysis completed successfully!"
+echo ">>> Output saved to: ${OUTPUT_PATH}"
 echo "=========================================="

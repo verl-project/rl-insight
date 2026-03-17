@@ -26,6 +26,6 @@ python -m rl_insight.cluster_analysis \
     --rank-list "${RANK_LIST}"
 
 echo "=========================================="
-echo "Analysis completed successfully!"
-echo "Output saved to: ${OUTPUT_PATH}"
+echo ">>> Analysis completed successfully!"
+echo ">>> Output saved to: ${OUTPUT_PATH}"
 echo "=========================================="
