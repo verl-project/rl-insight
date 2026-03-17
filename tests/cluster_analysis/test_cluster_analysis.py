@@ -37,8 +37,8 @@ from rl_insight.parser import (
     get_cluster_parser_cls,
     register_cluster_parser,
 )
-from rl_insight.schema import Constant, DataMap, EventRow
-from rl_insight.visualizer import (
+from rl_insight.tools.schema import Constant, DataMap, EventRow
+from rl_insight.visualizer.visualizer import (
     CLUSTER_VISUALIZER_REGISTRY,
     build_traces,
     build_y_mappings,
@@ -839,8 +839,8 @@ class TestVisualizerFunctions:
         # Each trace should be a Plotly Bar object
         assert all(hasattr(trace, "base") for trace in traces)
 
-    @patch("rl_insight.visualizer.go.Figure")
-    @patch("rl_insight.visualizer.save_html")
+    @patch("rl_insight.visualizer.visualizer.go.Figure")
+    @patch("rl_insight.visualizer.visualizer.save_html")
     def test_generate_rl_timeline(
         self, mock_save_html, mock_figure, sample_event_dataframe
     ):
@@ -849,7 +849,7 @@ class TestVisualizerFunctions:
         mock_figure.return_value = mock_fig
 
         with patch(
-            "rl_insight.visualizer.merge_short_events",
+            "rl_insight.visualizer.visualizer.merge_short_events",
             side_effect=lambda df, threshold_ms=10.0: df,
         ):
             result = generate_rl_timeline(sample_event_dataframe, "/tmp/output")
@@ -928,13 +928,13 @@ class TestIntegration:
         # Visualize data
         output_dir = str(tmp_path / "output")
 
-        with patch("rl_insight.visualizer.go.Figure") as mock_figure:
+        with patch("rl_insight.visualizer.visualizer.go.Figure") as mock_figure:
             mock_fig = MagicMock()
             mock_figure.return_value = mock_fig
 
-            with patch("rl_insight.visualizer.save_html"):
+            with patch("rl_insight.visualizer.visualizer.save_html"):
                 with patch(
-                    "rl_insight.visualizer.merge_short_events",
+                    "rl_insight.visualizer.visualizer.merge_short_events",
                     side_effect=lambda frame, threshold_ms=10.0: frame,
                 ):
                     generate_rl_timeline(df, output_dir)

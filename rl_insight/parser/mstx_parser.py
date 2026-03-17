@@ -19,7 +19,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from .parser import BaseClusterParser, register_cluster_parser
-from rl_insight.schema import Constant, DataMap, EventRow
+from rl_insight.tools.schema import Constant, DataMap, EventRow
 
 logging.basicConfig(
     level=logging.INFO,
