@@ -29,7 +29,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from rl_insight.cluster_analysis import main
+from rl_insight.main import main
 from rl_insight.parser import MstxClusterParser
 from rl_insight.parser import (
     CLUSTER_PARSER_REGISTRY,
@@ -944,7 +944,7 @@ class TestIntegration:
 
     @patch(
         "sys.argv",
-        ["cluster_analysis.py", "--input-path", "/tmp", "--profiler-type", "mstx"],
+        ["main.py", "--input-path", "/tmp", "--profiler-type", "mstx"],
     )
     @patch("rl_insight.pipeline.offline_insight_pipeline.get_cluster_parser_cls")
     @patch("rl_insight.pipeline.offline_insight_pipeline.RLTimelineVisualizer")

@@ -37,7 +37,7 @@ pip install pandas plotly numpy
 #### MSTX 使用示例
 
 ```bash
-python -m rl_insight.cluster_analysis \
+python -m rl_insight.main \
    --input-path <profiling_data_path> \
    --profiler-type mstx \
    --output-path <output_path>
@@ -48,7 +48,7 @@ python -m rl_insight.cluster_analysis \
 从最新版本开始，工具支持解析 PyTorch Profiler 采集的性能数据（`torch` 类型）。
 
 ```bash
-python -m rl_insight.cluster_analysis \
+python -m rl_insight.main \
     --input-path <torch_profiling_data_path> \
     --profiler-type torch \
     --output-path <output_path>

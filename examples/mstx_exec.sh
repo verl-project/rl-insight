@@ -24,7 +24,7 @@ python -m rl_insight.utils.mstx_preprocessing "${TORCH_PROFILER_DATA_PATH}"
 
 echo ">>> Mstx data preprocessing completed."
 
-python -m rl_insight.cluster_analysis \
+python -m rl_insight.main \
     --input-path "${TORCH_PROFILER_DATA_PATH}" \
     --profiler-type "${PROFILER_TYPE}" \
     --output-path "${OUTPUT_PATH}" \

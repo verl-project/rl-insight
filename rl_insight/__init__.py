@@ -17,11 +17,11 @@ Cluster scheduling analysis and visualization for RL workloads.
 
 This package exposes:
 
-- ``cluster_analysis.main``: CLI entry point
+- ``main.main``: CLI entry point
 - ``mstx_parser.MstxClusterParser``: parser for Ascend MSTX traces
 """
 
-from .cluster_analysis import main  # noqa: F401
+from .main import main  # noqa: F401
 
 from .parser import mstx_parser
 from .parser import torch_parser

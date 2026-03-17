@@ -2,7 +2,7 @@
 
 ## 功能说明
 
-`utils/mstx_preprocessing.py` 是一个 MSTX Profiling 离线解析脚本，用于在调用 cluster_analysis 之前对 NPU profiling 数据进行离线数据解析，从而生成 mstx_parser.py 需处理的目标文件 `trace_view.json`
+`utils/mstx_preprocessing.py` 是一个 MSTX Profiling 离线解析脚本，用于在调用 main 之前对 NPU profiling 数据进行离线数据解析，从而生成 mstx_parser.py 需处理的目标文件 `trace_view.json`
 
 它的作用是：
 
