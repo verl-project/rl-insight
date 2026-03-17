@@ -12,17 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Preprocessing for Ascend NPU profiling data.
+# """
+# Preprocessing for Ascend NPU profiling data.
 
-This package exposes:
+# This package exposes:
 
-- ``mstx_preprocessing.main``: CLI entry point
-- ``mstx_preprocessing.mstx_preprocessing``: preprocessing for Ascend NPU profiling data
-"""
+# - ``mstx_preprocessing.main``: CLI entry point
+# - ``mstx_preprocessing.mstx_preprocessing``: preprocessing for Ascend NPU profiling data
+# """
 
-from .mstx_preprocessing import main  # noqa: F401
+# from .mstx_preprocessing import main  # noqa: F401
 
-from . import mstx_preprocessing
+# from . import mstx_preprocessing
 
-__all__ = ["main", "mstx_preprocessing"]
+# __all__ = ["main", "mstx_preprocessing"]

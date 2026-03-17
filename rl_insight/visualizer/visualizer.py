@@ -20,7 +20,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from rl_insight.tools.schema import FigureConfig
+from rl_insight.utils.schema import FigureConfig
 
 logging.basicConfig(
     level=logging.INFO,

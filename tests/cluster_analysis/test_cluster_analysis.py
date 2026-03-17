@@ -37,7 +37,7 @@ from rl_insight.parser import (
     get_cluster_parser_cls,
     register_cluster_parser,
 )
-from rl_insight.tools.schema import Constant, DataMap, EventRow
+from rl_insight.utils.schema import Constant, DataMap, EventRow
 from rl_insight.visualizer.visualizer import (
     CLUSTER_VISUALIZER_REGISTRY,
     build_traces,

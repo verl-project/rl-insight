@@ -33,7 +33,7 @@ from rl_insight.parser import (
     CLUSTER_PARSER_REGISTRY,
     get_cluster_parser_cls,
 )
-from rl_insight.tools.schema import Constant
+from rl_insight.utils.schema import Constant
 from rl_insight.parser import TorchClusterParser
 
 

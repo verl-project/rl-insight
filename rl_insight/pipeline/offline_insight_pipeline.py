@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from rl_insight.parser import get_cluster_parser_cls
-from rl_insight.tools.schema import Constant
+from rl_insight.utils.schema import Constant
 from rl_insight.visualizer.visualizer import RLTimelineVisualizer
 from data.base import BaseData
 
