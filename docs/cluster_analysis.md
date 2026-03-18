@@ -30,7 +30,7 @@ pip install pandas plotly numpy
 
 使用 VeRL 框架采集性能数据，详细参考：
 
-[VeRL NPU Profiling 教程](https://github.com/verl-project/verl/blob/main/docs/ascend_tutorial/ascend_profiling_zh.rst)
+[VeRL NPU Profiling 教程](https://github.com/verl-project/verl/blob/main/docs/ascend_tutorial/profiling/ascend_profiling_zh.rst)
 
 ### 2.3 执行分析脚本
 
