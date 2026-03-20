@@ -13,21 +13,56 @@
 # limitations under the License.
 
 from typing import List
+from abc import ABC, abstractmethod 
+from pathlib import Path
+from typing import Optional
+import pandas as pd
 
-from rl_insight.data.base import ValidationRule
+
+
+class DataValidationError(Exception):
+    """Exception raised when data validation fails."""
+
+    def __init__(self, message: str, errors: Optional[List[List[str]]] = None):
+        super().__init__(message)
+        self.errors = errors or []
+
+    def __str__(self) -> str:
+        if self.errors:
+            return f"{super().__str__()}\n  - " + "\n  - ".join(
+                ["\n    ".join(err) for err in self.errors]
+            )
+        return super().__str__()
+
+
+class ValidationRule(ABC):
+    """Validation rule base class"""
+
+    @abstractmethod
+    def check(self, data) -> bool:
+        pass
+
+    @property
+    @abstractmethod
+    def error_message(self) -> List[str]:
+        pass
 
 
 class PathExistsRule(ValidationRule):
-    _error_message: List[str] = []
-
-    def check(self, data) -> bool:
-        if not hasattr(data, "path"):
-            self._error_message = ["Data object does not have 'path' attribute"]
+    _error_message: str
+    def check(self, data: str|dict|pd.DataFrame) -> bool:
+        if not isinstance(data, str):
+            self._error_message = "Data object is not a path"
             return False
-        if not data.path.exists():
-            self._error_message = [f"Source path does not exist: {data.path}"]
+        try:
+            path = Path(data)
+            if not path.is_dir():
+                self._error_message = f"Source path does not exist: {data}"
+                return False
+            return True
+        except Exception as e:
+            self._error_message = f"Source path does not exist: {data}"
             return False
-        return True
 
     @property
     def error_message(self) -> List[str]:

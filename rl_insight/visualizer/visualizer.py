@@ -20,7 +20,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from rl_insight.data.enums import DataEnum
+from rl_insight.data import DataEnum
 from rl_insight.utils.schema import FigureConfig
 
 logging.basicConfig(
@@ -80,6 +80,7 @@ class RLTimelineVisualizer(BaseVisualizer):
         super().__init__(config)
         self.output_path = config.get("output_path", None)
         self.vis_type = config.get("vis_type", None)
+        self.input_type = DataEnum.SUMMARY_EVENT
         self.visualizer_fn = None
 
     def get_input_type(self) -> List[DataEnum]:
