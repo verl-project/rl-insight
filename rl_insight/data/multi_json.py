@@ -11,3 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+from dataclasses import dataclass
+from pathlib import Path
+
+from rl_insight.data.base import BaseData, register_data_cls
+from rl_insight.data.enums import DataEnum
+from rl_insight.data.rules import PathExistsRule
+
+
+@register_data_cls()
+@dataclass
+class MultiJsonData(BaseData):
+    path: Path
+
+    _rules = [PathExistsRule()]
+    _data_type = DataEnum.MULTI_JSON
+
+    def __post_init__(self):
+        if isinstance(self.path, str):
+            self.path = Path(self.path)

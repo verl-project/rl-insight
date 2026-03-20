@@ -32,6 +32,12 @@ def main():
         "--input-path", default="test", help="Raw path of profiling data"
     )
     arg_parser.add_argument(
+        "--input-type",
+        default="multi_json",
+        help="Input data type, supported `multi_json`:"
+        "multi_json: data_type for nvtx/mstx/torch_profile. It consists of json/json/gz from different directories, ",
+    )
+    arg_parser.add_argument(
         "--profiler-type", default="mstx", help="Profiler type, supported mstx/nvtx"
     )
     arg_parser.add_argument("--output-path", default="test", help="Output path")

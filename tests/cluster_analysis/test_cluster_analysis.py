@@ -29,6 +29,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
+from rl_insight.data.enums import DataEnum
 from rl_insight.main import main
 from rl_insight.parser import MstxClusterParser
 from rl_insight.parser import (
@@ -968,14 +969,14 @@ class TestIntegration:
                 }
             ]
         )
-        mock_parser_instance.get_output_type.return_value = pd.DataFrame
-        mock_parser_instance.get_input_type.return_value = None
+        mock_parser_instance.get_output_type.return_value = DataEnum.SUMMARY_EVENT
+        mock_parser_instance.get_input_type.return_value = [DataEnum.MULTI_JSON]
         mock_parser.return_value = mock_parser_instance
         mock_get_parser.return_value = mock_parser
 
         # Mock visualizer
         mock_visualizer_instance = MagicMock()
-        mock_visualizer_instance.get_input_type.return_value = pd.DataFrame
+        mock_visualizer_instance.get_input_type.return_value = [DataEnum.SUMMARY_EVENT]
         mock_visualizer_cls.return_value = mock_visualizer_instance
 
         # Run main

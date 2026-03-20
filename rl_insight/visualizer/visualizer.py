@@ -14,12 +14,13 @@
 
 import logging
 import os
-from typing import Callable
+from typing import Callable, List
 from abc import ABC, abstractmethod
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from rl_insight.data.enums import DataEnum
 from rl_insight.utils.schema import FigureConfig
 
 logging.basicConfig(
@@ -64,7 +65,9 @@ class BaseVisualizer(ABC):
     def __init__(self, config: dict):
         self.config = config
 
-    def get_input_type(self):
+    @abstractmethod
+    def get_input_type(self) -> List[DataEnum]:
+        """Return the expected input data types for this visualizer."""
         pass
 
     @abstractmethod
@@ -79,8 +82,8 @@ class RLTimelineVisualizer(BaseVisualizer):
         self.vis_type = config.get("vis_type", None)
         self.visualizer_fn = None
 
-    def get_input_type(self):
-        return pd.DataFrame
+    def get_input_type(self) -> List[DataEnum]:
+        return [DataEnum.SUMMARY_EVENT]
 
     def run(self, data):
         self.visualizer_fn = get_cluster_visualizer_fn(self.vis_type)

@@ -16,11 +16,13 @@ import logging
 import multiprocessing
 from abc import ABC, abstractmethod
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from typing import Callable, Optional
+from typing import Callable, List, Optional
 
 import pandas as pd
-from rl_insight.utils.schema import Constant, DataMap, EventRow
 
+from rl_insight.data.base import BaseData
+from rl_insight.data.enums import DataEnum
+from rl_insight.utils.schema import Constant, DataMap, EventRow
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,7 +43,7 @@ class BaseClusterParser(ABC):
             else [int(rank) for rank in rank_list.split(",") if rank.isdigit()]
         )
 
-    def run(self) -> pd.DataFrame:
+    def run(self) -> BaseData:
         """Run parsing and return the parsed DataFrame."""
         _data_maps = self.allocate_prof_data(self.input_path)
         mapper_res = self.mapper_func(_data_maps)
@@ -130,11 +132,13 @@ class BaseClusterParser(ABC):
     def get_data(self) -> pd.DataFrame:
         return self.events_summary
 
-    def get_input_type(self):
-        pass
+    def get_input_type(self) -> List[DataEnum]:
+        """Return a list of acceptable input data types for this parser."""
+        return [DataEnum.MULTI_JSON]
 
-    def get_output_type(self):
-        return pd.DataFrame
+    def get_output_type(self) -> DataEnum:
+        """Return the output data type produced by this parser."""
+        return DataEnum.SUMMARY_EVENT
 
     @abstractmethod
     def allocate_prof_data(self, input_path: str) -> list[DataMap]:

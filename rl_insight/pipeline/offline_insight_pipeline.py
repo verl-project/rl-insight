@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from rl_insight.data.base import get_data_cls
+from rl_insight.data.enums import DataEnum
 from rl_insight.parser import get_cluster_parser_cls
 from rl_insight.utils.schema import Constant
 from rl_insight.visualizer.visualizer import RLTimelineVisualizer
-from data.base import BaseData
 
 
 class OfflineInsightPipeline:
@@ -25,6 +26,8 @@ class OfflineInsightPipeline:
         self.output_path = config.output_path
         self.vis_type = config.vis_type
         self.rank_list = config.rank_list
+        self.input_type: DataEnum = DataEnum(config.input_type)
+        self.input_data_cls = get_data_cls(self.input_type)
 
         # parser related
         self.parser_config = self._prepare_parser_config()
@@ -51,13 +54,15 @@ class OfflineInsightPipeline:
         }
 
     def _input_data_check(self):
-        if not BaseData.type_check(self.parser_input_type):
+        """Check if the input data is valid for the parser."""
+        if self.input_type not in self.parser_input_type:
             raise ValueError(
-                f"Parser input type {self.parser_input_type} is not a valid BaseData type"
+                f"Input data type {self.input_type} does not match parser input type {self.parser_input_type}"
             )
 
     def _inter_res_check(self):
-        if not isinstance(self.parser_output_type, type(self.visualizer_input_type)):
+        """Check if the intermediate results from parser are valid for visualizer."""
+        if self.parser_output_type not in self.visualizer_input_type:
             raise ValueError(
                 f"Parser output type {self.parser_output_type} does not match visualizer input type {self.visualizer_input_type}"
             )
