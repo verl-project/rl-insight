@@ -29,13 +29,12 @@ def run_pipeline(config, pipeline_class=None):
 def main():
     arg_parser = argparse.ArgumentParser(description="Cluster scheduling visualization")
     arg_parser.add_argument(
-        "--input-path", default=r"C:\Users\Tardis\Documents\profile_data\discrete_analyse_false_json_only", help="Raw path of profiling data"
+        "--input-path", default="test", help="Raw path of profiling data"
     )
     arg_parser.add_argument(
         "--input-type",
         default="multi_json",
-        help="Input data type, supported `multi_json`:"
-        "multi_json: data_type for nvtx/mstx/torch_profile. It consists of json/json/gz from different directories, ",
+        help="Input data type. Supported: 'multi_json' (for nvtx/mstx/torch_profile from different directories)."
     )
     arg_parser.add_argument(
         "--profiler-type", default="mstx", help="Profiler type, supported mstx/nvtx"

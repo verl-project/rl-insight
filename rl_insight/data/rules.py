@@ -44,7 +44,7 @@ class ValidationRule(ABC):
 
     @property
     @abstractmethod
-    def error_message(self) -> List[str]:
+    def error_message(self) -> str:
         pass
 
 
@@ -61,9 +61,9 @@ class PathExistsRule(ValidationRule):
                 return False
             return True
         except Exception as e:
-            self._error_message = f"Source path does not exist: {data}"
+            self._error_message = f"Error checking path {data}: {e}"
             return False
 
     @property
-    def error_message(self) -> List[str]:
+    def error_message(self) -> str:
         return self._error_message

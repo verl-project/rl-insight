@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import json
-import logging
+from loguru import logger
 import os
 from collections import defaultdict
 from pathlib import Path
@@ -21,12 +21,6 @@ from pathlib import Path
 from .parser import BaseClusterParser, register_cluster_parser
 from rl_insight.utils.schema import Constant, DataMap, EventRow
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()],
-)
-logger = logging.getLogger(__name__)
 
 
 @register_cluster_parser("mstx")

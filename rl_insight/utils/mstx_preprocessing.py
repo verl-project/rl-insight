@@ -15,16 +15,9 @@
 import os
 import sys
 import argparse
-import logging
+from loguru import logger
 import torch_npu
 from torch_npu.profiler.profiler import analyse
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()],
-)
-logger = logging.getLogger(__name__)
 
 
 def main():

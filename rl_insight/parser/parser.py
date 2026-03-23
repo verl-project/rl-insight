@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
+from loguru import logger
 import multiprocessing
 from abc import ABC, abstractmethod
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -23,17 +23,11 @@ import pandas as pd
 from rl_insight.data import DataEnum
 from rl_insight.utils.schema import Constant, DataMap, EventRow
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()],
-)
-logger = logging.getLogger(__name__)
-
 
 class BaseClusterParser(ABC):
+    input_type: DataEnum = DataEnum.MULTI_JSON
     def __init__(self, params) -> None:
-        self.input_type = DataEnum.MULTI_JSON
+        
         self.events_summary: Optional[pd.DataFrame] = None
         rank_list = params.get(Constant.RANK_LIST, "all")
         self._rank_list = (
