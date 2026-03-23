@@ -23,33 +23,31 @@ import pandas as pd
 class DataValidationError(Exception):
     """Exception raised when data validation fails."""
 
-    def __init__(self, message: str, errors: Optional[List[List[str]]] = None):
+    def __init__(self, message: str, errors: Optional[List[str]] = None):
         super().__init__(message)
         self.errors = errors or []
 
     def __str__(self) -> str:
         if self.errors:
-            return f"{super().__str__()}\n  - " + "\n  - ".join(
-                ["\n    ".join(err) for err in self.errors]
-            )
+            return f"{super().__str__()}\n  - " + "\n  - ".join(self.errors)
         return super().__str__()
 
 
 class ValidationRule(ABC):
     """Validation rule base class"""
+    def __init__(self):
+        self._error_message: str = ""
 
     @abstractmethod
     def check(self, data) -> bool:
         pass
 
     @property
-    @abstractmethod
     def error_message(self) -> str:
-        pass
+        return self._error_message
 
 
 class PathExistsRule(ValidationRule):
-    _error_message: str
     def check(self, data: str|dict|pd.DataFrame) -> bool:
         if not isinstance(data, str):
             self._error_message = "Data object is not a path"
@@ -57,13 +55,9 @@ class PathExistsRule(ValidationRule):
         try:
             path = Path(data)
             if not path.is_dir():
-                self._error_message = f"Source path does not exist: {data}"
+                self._error_message = f"Source path is not a directory or does not exist: {data}"
                 return False
             return True
-        except Exception as e:
+        except TypeError as e:
             self._error_message = f"Error checking path {data}: {e}"
             return False
-
-    @property
-    def error_message(self) -> str:
-        return self._error_message

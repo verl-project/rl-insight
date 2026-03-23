@@ -27,7 +27,6 @@ from rl_insight.utils.schema import Constant, DataMap, EventRow
 class BaseClusterParser(ABC):
     input_type: DataEnum = DataEnum.MULTI_JSON
     def __init__(self, params) -> None:
-        
         self.events_summary: Optional[pd.DataFrame] = None
         rank_list = params.get(Constant.RANK_LIST, "all")
         self._rank_list = (

@@ -15,7 +15,7 @@
 """Base data definitions for RL-Insight."""
 
 
-from typing import List
+from typing import Any, List
 from .rules import ValidationRule, PathExistsRule, DataValidationError
 from enum import Enum
 from loguru import logger
@@ -38,17 +38,19 @@ class DataChecker():
         DataEnum.SUMMARY_EVENT: [],
     }
 
-    def __init__(self, type: DataEnum, data: str|dict):
-        self.type = type
+    def __init__(self, data_type: DataEnum, data: Any):
+        self.data_type = data_type
         self.data = data
 
     def run(self):
         """Validate the data"""
         errors = []
-        rules = self.rules[self.type]
+        if self.data_type not in self.rules:
+            raise ValueError(f"Invalid data type: {self.data_type}")
+        rules = self.rules[self.data_type]
         for rule in rules:
             if not rule.check(self.data):
                 errors.append(rule.error_message)
         if errors:
             raise DataValidationError("Data validation failed", errors)
-        logger.info(f"Data validation passed for {self.type}")
+        logger.info(f"Data validation passed for {self.data_type}")
