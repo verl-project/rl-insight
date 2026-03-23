@@ -20,8 +20,7 @@ from typing import Callable, List, Optional
 
 import pandas as pd
 
-from rl_insight.data.base import BaseData
-from rl_insight.data.enums import DataEnum
+from rl_insight.data import DataEnum
 from rl_insight.utils.schema import Constant, DataMap, EventRow
 
 logging.basicConfig(
@@ -34,8 +33,8 @@ logger = logging.getLogger(__name__)
 
 class BaseClusterParser(ABC):
     def __init__(self, params) -> None:
+        self.input_type = DataEnum.MULTI_JSON
         self.events_summary: Optional[pd.DataFrame] = None
-        self.input_path = params.get(Constant.INPUT_PATH, "")
         rank_list = params.get(Constant.RANK_LIST, "all")
         self._rank_list = (
             rank_list
@@ -43,9 +42,9 @@ class BaseClusterParser(ABC):
             else [int(rank) for rank in rank_list.split(",") if rank.isdigit()]
         )
 
-    def run(self) -> BaseData:
+    def run(self, input_data: str) -> pd.DataFrame:
         """Run parsing and return the parsed DataFrame."""
-        _data_maps = self.allocate_prof_data(self.input_path)
+        _data_maps = self.allocate_prof_data(input_data)
         mapper_res = self.mapper_func(_data_maps)
         self.reducer_func(mapper_res)
         return self.get_data()
@@ -131,14 +130,6 @@ class BaseClusterParser(ABC):
 
     def get_data(self) -> pd.DataFrame:
         return self.events_summary
-
-    def get_input_type(self) -> List[DataEnum]:
-        """Return a list of acceptable input data types for this parser."""
-        return [DataEnum.MULTI_JSON]
-
-    def get_output_type(self) -> DataEnum:
-        """Return the output data type produced by this parser."""
-        return DataEnum.SUMMARY_EVENT
 
     @abstractmethod
     def allocate_prof_data(self, input_path: str) -> list[DataMap]:

@@ -14,20 +14,12 @@
 
 """Data module for RL-Insight."""
 
-from .base import (
-    BaseData,
-    DataValidationError,
-    ValidationRule,
+from .data_checker import (
+    DataChecker,
+    DataEnum
 )
-from .multi_json import MultiJsonData
-from .rules import PathExistsRule
-from .enums import DataEnum
 
 __all__ = [
-    "BaseData",
-    "MultiJsonData",
-    "DataValidationError",
-    "ValidationRule",
-    "PathExistsRule",
+    "DataChecker",
     "DataEnum",
 ]

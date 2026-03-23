@@ -29,7 +29,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from rl_insight.data.enums import DataEnum
+from rl_insight.data import DataEnum
 from rl_insight.main import main
 from rl_insight.parser import MstxClusterParser
 from rl_insight.parser import (
