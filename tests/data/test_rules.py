@@ -20,7 +20,7 @@ def test_path_exists_rule_rejects_missing_directory():
 
 
 def test_data_validation_error_string_includes_error_details():
-    err = DataValidationError("Data validation failed", [["line1", "line2"]])
+    err = DataValidationError("Data validation failed", ["line1", "line2"])
     text = str(err)
     assert "Data validation failed" in text
     assert "line1" in text
