@@ -34,7 +34,7 @@ def main():
     arg_parser.add_argument(
         "--input-type",
         default="multi_json",
-        help="Input data type. Supported: 'multi_json' (for nvtx/mstx/torch_profile from different directories)."
+        help="Input data type. Supported: 'multi_json' (for nvtx/mstx/torch_profile from different directories).",
     )
     arg_parser.add_argument(
         "--profiler-type", default="mstx", help="Profiler type, supported mstx/nvtx"
