@@ -14,10 +14,7 @@
 
 """Data module for RL-Insight."""
 
-from .data_checker import (
-    DataChecker,
-    DataEnum
-)
+from .data_checker import DataChecker, DataEnum
 
 __all__ = [
     "DataChecker",

@@ -13,11 +13,10 @@
 # limitations under the License.
 
 from typing import List
-from abc import ABC, abstractmethod 
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional
 import pandas as pd
-
 
 
 class DataValidationError(Exception):
@@ -35,6 +34,7 @@ class DataValidationError(Exception):
 
 class ValidationRule(ABC):
     """Validation rule base class"""
+
     def __init__(self):
         self._error_message: str = ""
 
@@ -48,14 +48,16 @@ class ValidationRule(ABC):
 
 
 class PathExistsRule(ValidationRule):
-    def check(self, data: str|dict|pd.DataFrame) -> bool:
+    def check(self, data: str | dict | pd.DataFrame) -> bool:
         if not isinstance(data, str):
             self._error_message = "Data object is not a path"
             return False
         try:
             path = Path(data)
             if not path.is_dir():
-                self._error_message = f"Source path is not a directory or does not exist: {data}"
+                self._error_message = (
+                    f"Source path is not a directory or does not exist: {data}"
+                )
                 return False
             return True
         except TypeError as e:

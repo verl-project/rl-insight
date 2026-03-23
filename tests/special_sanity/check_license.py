@@ -30,7 +30,8 @@ license_head_meituan = "Copyright 2025 Meituan Ltd. and/or its affiliates"
 license_head_huawei = (
     "Copyright (c) 2025 Huawei Technologies Co., Ltd. All Rights Reserved."
 )
-license_head_verl = "Copyright (c) 2025 verl-project authors."
+license_head_verl_25 = "Copyright (c) 2025 verl-project authors."
+license_head_verl_26 = "Copyright (c) 2026 verl-project authors."
 license_headers = [
     license_head_bytedance,
     license_head_bytedance_25,
@@ -44,7 +45,8 @@ license_headers = [
     license_head_facebook,
     license_head_meituan,
     license_head_huawei,
-    license_head_verl,
+    license_head_verl_25,
+    license_head_verl_26,
 ]
 
 

@@ -52,9 +52,9 @@ class OfflineInsightPipeline:
             )
         # validate input data
         DataChecker(self.input_data_type, self.config.input_path).run()
-        
+
         output_data = self.parser.run(self.config.input_path)
-        
+
         # validate output data
         DataChecker(self.visualizer.input_type, output_data).run()
 

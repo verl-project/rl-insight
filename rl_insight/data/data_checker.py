@@ -14,14 +14,15 @@
 
 """Base data definitions for RL-Insight."""
 
-
 from typing import Any, List
 from .rules import ValidationRule, PathExistsRule, DataValidationError
 from enum import Enum
 from loguru import logger
 
+
 class DataEnum(Enum):
     """Enum for data types in RL-Insight."""
+
     # input data type of parser
     MULTI_JSON = "multi_json"
     VERL_LOG = "verl_log"
@@ -31,8 +32,9 @@ class DataEnum(Enum):
     UNKNOWN = "unknown"
 
 
-class DataChecker():
+class DataChecker:
     """Base data class for RL-Insight."""
+
     rules: dict[DataEnum, List[ValidationRule]] = {
         DataEnum.MULTI_JSON: [PathExistsRule()],
         DataEnum.SUMMARY_EVENT: [],

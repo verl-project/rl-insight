@@ -1,4 +1,4 @@
-name: rl-insight-ut
+name: run-ut
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
       - v0.*
     paths:
       - "**/*.py"
-      - .github/workflows/rl-insight-ut.yml
+      - .github/workflows/run-ut.yml
       - "tests/**"
 
 concurrency:
@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 jobs:
-  cluster_analyse:
+  run-ut:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     strategy:

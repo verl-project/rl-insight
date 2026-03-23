@@ -22,7 +22,6 @@ from .parser import BaseClusterParser, register_cluster_parser
 from rl_insight.utils.schema import Constant, DataMap, EventRow
 
 
-
 @register_cluster_parser("mstx")
 class MstxClusterParser(BaseClusterParser):
     def __init__(self, params) -> None:

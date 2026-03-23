@@ -14,7 +14,7 @@
 
 from loguru import logger
 import os
-from typing import Callable, List
+from typing import Callable
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -56,6 +56,7 @@ def register_cluster_visualizer(
 
 class BaseVisualizer(ABC):
     input_type: DataEnum = DataEnum.SUMMARY_EVENT
+
     def __init__(self, config: dict):
         self.config = config
 
@@ -66,6 +67,7 @@ class BaseVisualizer(ABC):
 
 class RLTimelineVisualizer(BaseVisualizer):
     input_type: DataEnum = DataEnum.SUMMARY_EVENT
+
     def __init__(self, config: dict):
         super().__init__(config)
         self.output_path = config.get("output_path", None)

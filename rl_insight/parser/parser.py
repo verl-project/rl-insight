@@ -16,7 +16,7 @@ from loguru import logger
 import multiprocessing
 from abc import ABC, abstractmethod
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from typing import Callable, List, Optional
+from typing import Callable, Optional
 
 import pandas as pd
 
@@ -26,6 +26,7 @@ from rl_insight.utils.schema import Constant, DataMap, EventRow
 
 class BaseClusterParser(ABC):
     input_type: DataEnum = DataEnum.MULTI_JSON
+
     def __init__(self, params) -> None:
         self.events_summary: Optional[pd.DataFrame] = None
         rank_list = params.get(Constant.RANK_LIST, "all")
