@@ -16,6 +16,7 @@ dependencies = [
   "pandas",
   "plotly",
   "pytest",
+  "loguru"
 ]
 
 [project.urls]

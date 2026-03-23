@@ -17,6 +17,7 @@ RL-Insight 是一个强化学习性能数据快速分析的可视化工具，基
 - Pandas
 - Plotly
 - NumPy
+- Loguru
 
 ## 二、快速使用
 

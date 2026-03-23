@@ -3,3 +3,4 @@ numpy<2.0.0
 pandas
 plotly
 pytest
+loguru
