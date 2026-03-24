@@ -65,7 +65,7 @@ class MstxClusterParser(BaseClusterParser):
             return events
 
         for row in data:
-            if row.get("pid") != process_id:
+            if row.get("pid") != process_id or row.get("ph") != "X":
                 continue
 
             args = row.get("args")

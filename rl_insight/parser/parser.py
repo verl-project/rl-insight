@@ -80,9 +80,10 @@ class BaseClusterParser(ABC):
                 try:
                     result = future.result()
                     results.append(result)
-                    logger.info(
-                        f"Completed rank {rank_id}: {completed}/{total_ranks} ({progress:.1f}%)"
-                    )
+                    if completed % (total_ranks // 10) == 0:
+                        logger.info(
+                            f"Completed rank {rank_id}: {completed}/{total_ranks} ({progress:.1f}%)"
+                        )
                 except Exception as e:
                     logger.error(f"Failed to process rank {rank_id}: {e}")
 
