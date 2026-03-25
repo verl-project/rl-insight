@@ -1,4 +1,4 @@
-name: run-ut
+name: profiling_data_analysis_st
 
 on:
   push:
@@ -11,8 +11,8 @@ on:
       - v0.*
     paths:
       - "**/*.py"
-      - .github/workflows/run-ut.yml
-      - "tests/**"
+      - .github/workflows/special_e2e.yml
+      - "tests/special_e2e/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 jobs:
-  run-ut:
+  profiling_data_analysis_st:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     strategy:
@@ -42,10 +42,6 @@ jobs:
           pip install -r requirements.txt
           pip install -e .
 
-      - name: Run parser tests
+      - name: Run profiling_data_analysis_st tests
         run: |
-          pytest -s -x tests/parser
-      
-      - name: Run data_checker tests
-        run: |
-          pytest -s -x tests/data
+          pytest -s -x tests/special_e2e

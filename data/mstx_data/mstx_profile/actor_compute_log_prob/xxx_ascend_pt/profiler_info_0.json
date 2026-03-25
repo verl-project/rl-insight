@@ -1,0 +1,50 @@
+{
+    "config": {
+        "common_config": {
+            "activities": [
+                "ProfilerActivity.CPU",
+                "ProfilerActivity.NPU"
+            ],
+            "schedule": {},
+            "record_shapes": false,
+            "profile_memory": false,
+            "with_stack": false,
+            "with_flops": false,
+            "with_modules": false
+        },
+        "experimental_config": {
+            "_profiler_level": "Level1",
+            "_aic_metrics": "ACL_AICORE_PIPE_UTILIZATION",
+            "_l2_cache": false,
+            "_msprof_tx": true,
+            "_mstx": false,
+            "_data_simplification": true,
+            "record_op_args": false,
+            "_export_type": [
+                "db"
+            ],
+            "_host_sys": [],
+            "_op_attr": false,
+            "_gc_detect_threshold": null,
+            "_mstx_domain_include": [],
+            "_mstx_domain_exclude": [
+                "communication"
+            ],
+            "_sys_io": false,
+            "_sys_interconnection": false
+        }
+    },
+    "start_info": {
+        "syscnt_enable": true,
+        "freq": 100,
+        "start_cnt": 238468094663174,
+        "start_monotonic": 2384513312565430
+    },
+    "end_info": {
+        "collectionTimeEnd": 1773285903061065750,
+        "MonotonicTimeEnd": 2384517398234200
+    },
+    "torch_npu_version": "2.7.1",
+    "cann_version": "8.3.RC1",
+    "rank_id": "0"
+}

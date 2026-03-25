@@ -22,6 +22,12 @@ and visualization.
 
    README <../README.md>
 
+.. toctree::
+   :maxdepth: 2
+   :caption: Data Directory
+
+   data/data_directory
+
 Contribution
 -------------
 

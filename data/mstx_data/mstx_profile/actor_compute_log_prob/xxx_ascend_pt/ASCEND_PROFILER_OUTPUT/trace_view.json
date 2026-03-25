@@ -1,0 +1,101 @@
+[
+  {
+    "name": "process_name",
+    "pid": 3550586784,
+    "tid": 0,
+    "ph": "M",
+    "args": {
+      "name": "Overlap Analysis"
+    }
+  },
+  {
+    "name": "process_labels",
+    "pid": 3550586784,
+    "tid": 0,
+    "ph": "M",
+    "args": {
+      "labels": "NPU 0"
+    }
+  },
+  {
+    "name": "thread_name",
+    "pid": 3550586784,
+    "tid": 0,
+    "ph": "M",
+    "args": {
+      "name": "Communication"
+    }
+  },
+  {
+    "name": "thread_sort_index",
+    "pid": 3550586784,
+    "tid": 0,
+    "ph": "M",
+    "args": {
+      "sort_index": 0
+    }
+  },
+  {
+    "name": "thread_name",
+    "pid": 3550586784,
+    "tid": 1,
+    "ph": "M",
+    "args": {
+      "name": "Communication(Not Overlapped)"
+    }
+  },
+  {
+    "name": "thread_name",
+    "pid": 3550586784,
+    "tid": 2,
+    "ph": "M",
+    "args": {
+      "name": "Computing"
+    }
+  },
+  {
+    "name": "thread_name",
+    "pid": 3550586784,
+    "tid": 3,
+    "ph": "M",
+    "args": {
+      "name": "Free"
+    }
+  },
+  {
+    "name": "Computing",
+    "pid": 3550586784,
+    "tid": 2,
+    "ts": "1773285899055563.748",
+    "dur": 53.301,
+    "ph": "X",
+    "args": {}
+  },
+  {
+    "name": "Communication",
+    "pid": 3550586784,
+    "tid": 0,
+    "ts": "1773285899057336.304",
+    "dur": 52269.524,
+    "ph": "X",
+    "args": {}
+  },
+  {
+    "name": "Communication(Not Overlapped)",
+    "pid": 3550586784,
+    "tid": 1,
+    "ts": "1773285899057336.304",
+    "dur": 52269.524,
+    "ph": "X",
+    "args": {}
+  },
+  {
+    "name": "Free",
+    "pid": 3550586784,
+    "tid": 3,
+    "ts": "1773285899049161.720",
+    "dur": 6402.028,
+    "ph": "X",
+    "args": {}
+  }
+]
