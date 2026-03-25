@@ -37,7 +37,9 @@ class DataChecker:
 
     rules: dict[DataEnum, List[ValidationRule]] = {
         DataEnum.MULTI_JSON: [PathExistsRule()],
+        DataEnum.VERL_LOG: [],
         DataEnum.SUMMARY_EVENT: [],
+        DataEnum.UNKNOWN: [],
     }
 
     def __init__(self, data_type: DataEnum, data: Any):

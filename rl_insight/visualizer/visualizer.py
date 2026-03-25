@@ -66,8 +66,6 @@ class BaseVisualizer(ABC):
 
 
 class RLTimelineVisualizer(BaseVisualizer):
-    input_type: DataEnum = DataEnum.SUMMARY_EVENT
-
     def __init__(self, config: dict):
         super().__init__(config)
         self.output_path = config.get("output_path", None)

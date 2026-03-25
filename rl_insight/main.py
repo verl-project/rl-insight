@@ -29,8 +29,7 @@ def run_pipeline(config, pipeline_class=None):
 def main():
     arg_parser = argparse.ArgumentParser(description="Cluster scheduling visualization")
     arg_parser.add_argument(
-        "--input-path",
-        help="Raw path of profiling data",
+        "--input-path", required=True, help="Raw path of profiling data"
     )
     arg_parser.add_argument(
         "--input-type",
