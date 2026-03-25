@@ -1,4 +1,4 @@
-name: profiling_data_analysis_st
+name: special_e2e
 
 on:
   push:
@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 jobs:
-  profiling_data_analysis_st:
+  special_e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     strategy:
@@ -42,6 +42,6 @@ jobs:
           pip install -r requirements.txt
           pip install -e .
 
-      - name: Run profiling_data_analysis_st tests
+      - name: Run rl-insight e2e tests
         run: |
           pytest -s -x tests/special_e2e

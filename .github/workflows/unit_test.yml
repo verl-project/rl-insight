@@ -1,4 +1,4 @@
-name: run-ut
+name: unit_test
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
       - v0.*
     paths:
       - "**/*.py"
-      - .github/workflows/run-ut.yml
+      - .github/workflows/unit_test.yml
       - "tests/**"
 
 concurrency:
@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 jobs:
-  run-ut:
+  unit_test:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     strategy:

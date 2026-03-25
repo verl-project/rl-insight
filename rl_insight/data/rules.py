@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List
+from typing import List, Any
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional
-import pandas as pd
 
 
 class DataValidationError(Exception):
@@ -48,7 +47,7 @@ class ValidationRule(ABC):
 
 
 class PathExistsRule(ValidationRule):
-    def check(self, data: str | dict | pd.DataFrame) -> bool:
+    def check(self, data: Any) -> bool:
         if not isinstance(data, str):
             self._error_message = "Data object is not a path"
             return False

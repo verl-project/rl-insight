@@ -974,15 +974,12 @@ class TestIntegration:
                 }
             ]
         )
-        mock_parser_instance.get_output_type.return_value = DataEnum.SUMMARY_EVENT
-        mock_parser_instance.get_input_type.return_value = [DataEnum.MULTI_JSON]
         mock_parser_instance.input_type = DataEnum.MULTI_JSON
         mock_parser.return_value = mock_parser_instance
         mock_get_parser.return_value = mock_parser
 
         # Mock visualizer
         mock_visualizer_instance = MagicMock()
-        mock_visualizer_instance.get_input_type.return_value = [DataEnum.SUMMARY_EVENT]
         mock_visualizer_instance.input_type = DataEnum.SUMMARY_EVENT
         mock_visualizer_cls.return_value = mock_visualizer_instance
 

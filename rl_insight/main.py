@@ -29,7 +29,8 @@ def run_pipeline(config, pipeline_class=None):
 def main():
     arg_parser = argparse.ArgumentParser(description="Cluster scheduling visualization")
     arg_parser.add_argument(
-        "--input-path", default="test", help="Raw path of profiling data"
+        "--input-path",
+        help="Raw path of profiling data",
     )
     arg_parser.add_argument(
         "--input-type",
@@ -39,7 +40,7 @@ def main():
     arg_parser.add_argument(
         "--profiler-type", default="mstx", help="Profiler type, supported mstx/nvtx"
     )
-    arg_parser.add_argument("--output-path", default="test", help="Output path")
+    arg_parser.add_argument("--output-path", default="output", help="Output path")
     arg_parser.add_argument(
         "--vis-type", default="html", help="Visualization type, supported html"
     )
