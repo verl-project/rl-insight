@@ -15,11 +15,10 @@
 """
 Cluster scheduling analysis and visualization for RL workloads.
 
-This package exposes parser modules and a CLI entry helper.
+This package exposes built-in parser classes and a CLI entry helper.
 """
 
-from .parser import mstx_parser
-from .parser import torch_parser
+from .parser import MstxClusterParser, TorchClusterParser
 
 
 def main():
@@ -29,4 +28,4 @@ def main():
     return _main()
 
 
-__all__ = ["mstx_parser", "torch_parser", "main"]
+__all__ = ["MstxClusterParser", "TorchClusterParser", "main"]

@@ -11,20 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+from .mstx_parser import MstxClusterParser
+from .torch_parser import TorchClusterParser
 from .parser import (
     BaseClusterParser,
     get_cluster_parser_cls,
-    register_cluster_parser,
-    CLUSTER_PARSER_REGISTRY,
 )
-from .torch_parser import TorchClusterParser
-from .mstx_parser import MstxClusterParser
 
 __all__ = [
-    "get_cluster_parser_cls",
-    "TorchClusterParser",
-    "CLUSTER_PARSER_REGISTRY",
-    "MstxClusterParser",
-    "register_cluster_parser",
     "BaseClusterParser",
+    "get_cluster_parser_cls",
+    "MstxClusterParser",
+    "TorchClusterParser",
 ]
