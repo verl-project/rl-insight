@@ -22,7 +22,7 @@ echo "=========================================="
 
 echo ">>> Start mstx data preprocessing..."
 
-python -m rl_insight.utils.mstx_preprocessing "${MSXT_PROFILER_DATA_PATH}"
+python -m rl_insight.utils.mstx_preprocessing "${MSTX_PROFILER_DATA_PATH}"
 
 echo ">>> Mstx data preprocessing completed."
 
