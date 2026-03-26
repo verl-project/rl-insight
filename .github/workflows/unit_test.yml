@@ -1,4 +1,4 @@
-name: cluster_analyse
+name: unit_test
 
 on:
   push:
@@ -11,8 +11,8 @@ on:
       - v0.*
     paths:
       - "**/*.py"
-      - .github/workflows/cluster_analysis.yml
-      - "tests/cluster_analysis/**"
+      - .github/workflows/unit_test.yml
+      - "tests/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 jobs:
-  cluster_analyse:
+  unit_test:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     strategy:
@@ -42,6 +42,10 @@ jobs:
           pip install -r requirements.txt
           pip install -e .
 
-      - name: Run cluster_analyse tests
+      - name: Run parser tests
         run: |
-          pytest -s -x tests/cluster_analysis
+          pytest -s -x tests/parser
+      
+      - name: Run data_checker tests
+        run: |
+          pytest -s -x tests/data

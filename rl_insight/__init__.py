@@ -15,15 +15,18 @@
 """
 Cluster scheduling analysis and visualization for RL workloads.
 
-This package exposes:
-
-- ``main.main``: CLI entry point
-- ``mstx_parser.MstxClusterParser``: parser for Ascend MSTX traces
+This package exposes parser modules and a CLI entry helper.
 """
-
-from .main import main  # noqa: F401
 
 from .parser import mstx_parser
 from .parser import torch_parser
 
-__all__ = ["mstx_parser", "torch_parser"]
+
+def main():
+    # Lazy import avoids preloading rl_insight.main during package import.
+    from .main import main as _main
+
+    return _main()
+
+
+__all__ = ["mstx_parser", "torch_parser", "main"]

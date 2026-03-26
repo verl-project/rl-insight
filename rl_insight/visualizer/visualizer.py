@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
+from loguru import logger
 import os
 from typing import Callable
 from abc import ABC, abstractmethod
@@ -20,14 +20,8 @@ from abc import ABC, abstractmethod
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from rl_insight.data import DataEnum
 from rl_insight.utils.schema import FigureConfig
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()],
-)
-logger = logging.getLogger(__name__)
 
 ClusterVisualizerFn = Callable[
     [pd.DataFrame, str, dict],
@@ -61,11 +55,10 @@ def register_cluster_visualizer(
 
 
 class BaseVisualizer(ABC):
+    input_type: DataEnum = DataEnum.SUMMARY_EVENT
+
     def __init__(self, config: dict):
         self.config = config
-
-    def get_input_type(self):
-        pass
 
     @abstractmethod
     def run(self):
@@ -78,9 +71,6 @@ class RLTimelineVisualizer(BaseVisualizer):
         self.output_path = config.get("output_path", None)
         self.vis_type = config.get("vis_type", None)
         self.visualizer_fn = None
-
-    def get_input_type(self):
-        return pd.DataFrame
 
     def run(self, data):
         self.visualizer_fn = get_cluster_visualizer_fn(self.vis_type)

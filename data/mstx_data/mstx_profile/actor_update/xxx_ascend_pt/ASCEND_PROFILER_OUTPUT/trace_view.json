@@ -1,0 +1,137 @@
+[
+  {
+    "name": "process_name",
+    "pid": 3550586784,
+    "tid": 0,
+    "ph": "M",
+    "args": {
+      "name": "Overlap Analysis"
+    }
+  },
+  {
+    "name": "process_labels",
+    "pid": 3550586784,
+    "tid": 0,
+    "ph": "M",
+    "args": {
+      "labels": "NPU 0"
+    }
+  },
+  {
+    "name": "process_sort_index",
+    "pid": 3550586784,
+    "tid": 0,
+    "ph": "M",
+    "args": {
+      "sort_index": 29
+    }
+  },
+  {
+    "name": "thread_name",
+    "pid": 3550586784,
+    "tid": 0,
+    "ph": "M",
+    "args": {
+      "name": "Communication"
+    }
+  },
+  {
+    "name": "thread_sort_index",
+    "pid": 3550586784,
+    "tid": 0,
+    "ph": "M",
+    "args": {
+      "sort_index": 0
+    }
+  },
+  {
+    "name": "thread_name",
+    "pid": 3550586784,
+    "tid": 1,
+    "ph": "M",
+    "args": {
+      "name": "Communication(Not Overlapped)"
+    }
+  },
+  {
+    "name": "thread_sort_index",
+    "pid": 3550586784,
+    "tid": 1,
+    "ph": "M",
+    "args": {
+      "sort_index": 1
+    }
+  },
+  {
+    "name": "thread_name",
+    "pid": 3550586784,
+    "tid": 2,
+    "ph": "M",
+    "args": {
+      "name": "Computing"
+    }
+  },
+  {
+    "name": "thread_sort_index",
+    "pid": 3550586784,
+    "tid": 2,
+    "ph": "M",
+    "args": {
+      "sort_index": 2
+    }
+  },
+  {
+    "name": "thread_name",
+    "pid": 3550586784,
+    "tid": 3,
+    "ph": "M",
+    "args": {
+      "name": "Free"
+    }
+  },
+  {
+    "name": "thread_sort_index",
+    "pid": 3550586784,
+    "tid": 3,
+    "ph": "M",
+    "args": {
+      "sort_index": 3
+    }
+  },
+  {
+    "name": "Computing",
+    "pid": 3550586784,
+    "tid": 2,
+    "ts": "1773285904640626.314",
+    "dur": 145.623,
+    "ph": "X",
+    "args": {}
+  },
+  {
+    "name": "Communication",
+    "pid": 3550586784,
+    "tid": 0,
+    "ts": "1773285904641909.419",
+    "dur": 12782.896,
+    "ph": "X",
+    "args": {}
+  },
+  {
+    "name": "Communication(Not Overlapped)",
+    "pid": 3550586784,
+    "tid": 1,
+    "ts": "1773285904641909.419",
+    "dur": 12782.896,
+    "ph": "X",
+    "args": {}
+  },
+  {
+    "name": "Free",
+    "pid": 3550586784,
+    "tid": 3,
+    "ts": "1773285904639877.299",
+    "dur": 749.015,
+    "ph": "X",
+    "args": {}
+  }
+]

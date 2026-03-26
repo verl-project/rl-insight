@@ -29,6 +29,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
+from rl_insight.data import DataEnum
 from rl_insight.main import main
 from rl_insight.parser import MstxClusterParser
 from rl_insight.parser import (
@@ -594,7 +595,7 @@ class TestBaseClusterParser:
         )
 
         with patch("concurrent.futures.ProcessPoolExecutor"):
-            df = parser.run()
+            df = parser.run(mock_mstx_profiler_structure)
 
         assert df is not None
         assert len(df) >= 1
@@ -920,7 +921,7 @@ class TestIntegration:
         )
 
         with patch("concurrent.futures.ProcessPoolExecutor"):
-            df = parser.run()
+            df = parser.run(mock_mstx_profiler_structure)
 
         assert df is not None
         assert len(df) >= 1
@@ -946,10 +947,15 @@ class TestIntegration:
         "sys.argv",
         ["main.py", "--input-path", "/tmp", "--profiler-type", "mstx"],
     )
+    @patch("rl_insight.pipeline.offline_insight_pipeline.DataChecker.run")
     @patch("rl_insight.pipeline.offline_insight_pipeline.get_cluster_parser_cls")
     @patch("rl_insight.pipeline.offline_insight_pipeline.RLTimelineVisualizer")
     def test_main_function(
-        self, mock_visualizer_cls, mock_get_parser, mock_mstx_profiler_structure
+        self,
+        mock_visualizer_cls,
+        mock_get_parser,
+        mock_data_checker_run,
+        mock_mstx_profiler_structure,
     ):
         """Test main CLI entry point."""
         # Mock parser
@@ -968,14 +974,13 @@ class TestIntegration:
                 }
             ]
         )
-        mock_parser_instance.get_output_type.return_value = pd.DataFrame
-        mock_parser_instance.get_input_type.return_value = None
+        mock_parser_instance.input_type = DataEnum.MULTI_JSON
         mock_parser.return_value = mock_parser_instance
         mock_get_parser.return_value = mock_parser
 
         # Mock visualizer
         mock_visualizer_instance = MagicMock()
-        mock_visualizer_instance.get_input_type.return_value = pd.DataFrame
+        mock_visualizer_instance.input_type = DataEnum.SUMMARY_EVENT
         mock_visualizer_cls.return_value = mock_visualizer_instance
 
         # Run main

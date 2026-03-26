@@ -19,7 +19,6 @@ from loguru import logger
 
 from rl_insight.utils.schema import Constant
 
-
 def main():
     arg_parser = argparse.ArgumentParser(description="Run mstx offline analysis")
     arg_parser.add_argument("path", help="Path to profiling data")
