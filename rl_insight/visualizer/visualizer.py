@@ -105,11 +105,45 @@ def cluster_visualizer_html(data: pd.DataFrame, output_path: str, config: dict) 
     logger.info("in html")
 
 
-@register_cluster_visualizer("chart")
-def cluster_visualizer_chart(
-    data: pd.DataFrame, output_path: str, config: dict
-) -> None:
-    logger.info("in chart")
+@register_cluster_visualizer("png")
+def cluster_visualizer_png(data: pd.DataFrame, output_path: str, config: dict) -> None:
+    generate_rl_timeline_png(data, output_path)
+    logger.info("in png")
+
+
+def generate_rl_timeline_png(
+        input_data: pd.DataFrame,
+        output_dir=None,
+        output_filename="rl_timeline.png",
+        title_prefix="RL Timeline",
+):
+    """
+    Generate an RL event timeline Gantt chart with interactive Y-axis sorting by Rank ID.
+
+    Args:
+        input_data: A pandas DataFrame containing events_summary data.
+                    DataFrame should have columns: role, domain, rank_id, start_time_ms, end_time_ms
+        output_dir: Directory to save the PNG file
+        output_filename: Name of the output PNG file
+        title_prefix: Prefix for the chart title
+    """
+    df, t0 = load_and_preprocess(input_data)
+    df = merge_short_events(df)
+    df = downsample_if_needed(df)
+    y_mappings, y_axis_spacing = build_y_mappings(df)
+    traces = build_traces(df, y_mappings["default"])
+
+    cfg = FigureConfig(
+        title_prefix=title_prefix,
+        t0=t0,
+        y_mappings=y_mappings,
+        y_axis_spacing=y_axis_spacing,
+    )
+
+    fig = assemble_figure(traces, df, cfg)
+
+    save_png(fig, output_dir, output_filename)
+    return fig
 
 
 def generate_rl_timeline(
@@ -444,3 +478,18 @@ def save_html(fig: go.Figure, output_dir: str, output_filename: str):
             "toImageButtonOptions": {"format": "png", "scale": 2},
         },
     )
+
+
+def save_png(fig: go.Figure, output_dir: str, output_filename: str):
+    os.makedirs(output_dir, exist_ok=True)
+    out_path = os.path.join(output_dir, output_filename)
+
+    # 用 Plotly 原生方法输出高清 PNG
+    fig.write_image(
+        out_path,
+        format="png",
+        width=1200,        # 高清宽度
+        height=800,        # 自适应高度（也可自动计算）
+        scale=3,           # 3倍高清
+    )
+    logger.info(f"PNG saved to: {out_path}")
