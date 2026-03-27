@@ -35,3 +35,36 @@ def test_data_checker_multi_json_path_missing():
 def test_data_checker_summary_event_has_no_rule_with_dict_data():
     checker = DataChecker(data_type=DataEnum.SUMMARY_EVENT, data={"k": "v"})
     checker.run()
+
+
+def _minimal_verl_log_with_metric_keywords() -> str:
+    """Matches VERL_REQUIRED_LOG_KEYWORDS in rl_insight.data.rules (metric tensorboard-style names)."""
+    return "\n".join(
+        [
+            "python3 -m verl.trainer.main_ppo",
+            "(TaskRunner pid=1) step=0",
+            "(TaskRunner pid=1) 'critic/score/mean': 0.1",
+            "(TaskRunner pid=1) 'actor/loss': 0.2",
+            "(TaskRunner pid=1) 'response_length/mean': 128.0",
+            "(TaskRunner pid=1) 'actor/grad_norm': 0.99",
+            "(TaskRunner pid=1) 'critic/rewards/mean': 0.3",
+        ]
+    )
+
+
+def test_data_checker_verl_log_passes(tmp_path):
+    log = tmp_path / "run_verl.log"
+    log.write_text(_minimal_verl_log_with_metric_keywords(), encoding="utf-8")
+    checker = DataChecker(data_type=DataEnum.VERL_LOG, data=str(tmp_path))
+    checker.run()
+
+
+def test_data_checker_verl_log_fails_when_keywords_missing(tmp_path):
+    log = tmp_path / "run_verl.log"
+    log.write_text("verl stub without metric lines\n", encoding="utf-8")
+    checker = DataChecker(data_type=DataEnum.VERL_LOG, data=str(tmp_path))
+    with pytest.raises(DataValidationError) as exc_info:
+        checker.run()
+    err_text = str(exc_info.value)
+    assert "Data validation failed" in err_text
+    assert "critic/score/mean" in err_text

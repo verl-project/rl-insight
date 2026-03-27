@@ -12,7 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rl_insight.data.rules import DataValidationError, PathExistsRule
+from rl_insight.data.rules import (
+    DataValidationError,
+    PathExistsRule,
+    VerlLogKeyParamsRule,
+    VerlLogPresentRule,
+    VERL_REQUIRED_LOG_KEYWORDS,
+)
 
 
 def test_path_exists_rule_accepts_existing_directory(tmp_path):
@@ -37,3 +43,51 @@ def test_data_validation_error_string_includes_error_details():
     assert "Data validation failed" in text
     assert "line1" in text
     assert "line2" in text
+
+
+def test_verl_log_present_accepts_verl_named_log(tmp_path):
+    log = tmp_path / "train_verl_worker.log"
+    log.write_text("verl job\n", encoding="utf-8")
+    rule = VerlLogPresentRule()
+    assert rule.check(str(log)) is True
+
+
+def test_verl_log_present_rejects_empty_directory(tmp_path):
+    rule = VerlLogPresentRule()
+    assert rule.check(str(tmp_path)) is False
+
+
+def test_verl_log_key_params_requires_keywords(tmp_path):
+    log = tmp_path / "debug_verl.log"
+    log.write_text(
+        "\n".join(
+            [
+                "python3 -m verl.trainer.main_ppo",
+                "(TaskRunner pid=1) 'critic/score/mean': 0.1",
+                "(TaskRunner pid=1) 'actor/loss': 0.2",
+                "(TaskRunner pid=1) 'response_length/mean': 128.0",
+                "(TaskRunner pid=1) 'actor/grad_norm': 0.99",
+                "(TaskRunner pid=1) 'critic/rewards/mean': 0.3",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    rule = VerlLogKeyParamsRule(required_keywords=VERL_REQUIRED_LOG_KEYWORDS)
+    assert rule.check(str(log)) is True
+
+
+def test_verl_log_key_params_fails_when_missing_keyword(tmp_path):
+    log = tmp_path / "x_verl.log"
+    log.write_text(
+        "\n".join(
+            [
+                "python3 -m verl.trainer.main_ppo",
+                "(TaskRunner pid=1) 'critic/score/mean': 0.1",
+                "(TaskRunner pid=1) 'actor/loss': 0.2",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    rule = VerlLogKeyParamsRule(required_keywords=VERL_REQUIRED_LOG_KEYWORDS)
+    assert rule.check(str(log)) is False
+    assert "response_length/mean" in rule.error_message
