@@ -484,12 +484,12 @@ def save_png(fig: go.Figure, output_dir: str, output_filename: str):
     os.makedirs(output_dir, exist_ok=True)
     out_path = os.path.join(output_dir, output_filename)
 
-    # 用 Plotly 原生方法输出高清 PNG
+    # output high-resolution PNGs using Plotly's native method
     fig.write_image(
         out_path,
         format="png",
-        width=1200,        # 高清宽度
-        height=800,        # 自适应高度（也可自动计算）
-        scale=3,           # 3倍高清
+        width=1200,
+        height=800,
+        scale=3,
     )
     logger.info(f"PNG saved to: {out_path}")
