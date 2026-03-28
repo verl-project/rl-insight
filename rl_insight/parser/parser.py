@@ -75,7 +75,7 @@ class BaseClusterParser(ABC):
                 try:
                     result = future.result()
                     results.append(result)
-                    if completed % (total_ranks // 10) == 0:
+                    if total_ranks < 10 or completed % max(2, total_ranks // 10) == 0:
                         logger.info(
                             f"Completed rank {rank_id}: {completed}/{total_ranks} ({progress:.1f}%)"
                         )

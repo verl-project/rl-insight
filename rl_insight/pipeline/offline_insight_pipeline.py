@@ -15,7 +15,7 @@
 from rl_insight.data import DataChecker, DataEnum
 from rl_insight.parser import get_cluster_parser_cls
 from rl_insight.utils.schema import Constant
-from rl_insight.visualizer.visualizer import RLTimelineVisualizer
+from rl_insight.visualizer import get_cluster_visualizer_cls
 
 
 class OfflineInsightPipeline:
@@ -32,7 +32,8 @@ class OfflineInsightPipeline:
 
         # visualizer related
         visualizer_config = self._prepare_visualizer_config()
-        self.visualizer = RLTimelineVisualizer(visualizer_config)
+        visualizer_cls = get_cluster_visualizer_cls(self.config.vis_type)
+        self.visualizer = visualizer_cls(visualizer_config)
 
     def _prepare_parser_config(self):
         return {

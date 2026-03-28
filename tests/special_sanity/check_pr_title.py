@@ -20,19 +20,20 @@ pr_title = os.environ.get("PR_TITLE", "").strip()
 
 # Define rules
 allowed_modules = [
-    "mstx",
-    "mvtx",
-    "torch_profile",
+    "pipeline",
+    "parser",
+    "visualizer",
+    "data",
     "deployment",
     "perf",
     "algo",
     "env",
     "doc",
-    "data",
     "cfg",
     "ci",
     "misc",
 ]
+
 allowed_types = ["feat", "fix", "refactor", "chore", "test"]
 
 

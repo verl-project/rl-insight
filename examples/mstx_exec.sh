@@ -9,9 +9,9 @@ VIS_TYPE="${VIS_TYPE:-html}"
 RANK_LIST="${RANK_LIST:-all}"
 
 echo "=========================================="
-echo "Torch Profiler Cluster Analysis"
+echo "MSTX Profiler Cluster Analysis"
 echo "=========================================="
-echo "Input Path:    ${TORCH_PROFILER_DATA_PATH}"
+echo "Input Path:    ${MSTX_PROFILER_DATA_PATH}"
 echo "Output Path:   ${OUTPUT_PATH}"
 echo "Profiler Type: ${PROFILER_TYPE}"
 echo "Vis Type:      ${VIS_TYPE}"
@@ -22,12 +22,12 @@ echo "=========================================="
 
 echo ">>> Start mstx data preprocessing..."
 
-python -m rl_insight.utils.mstx_preprocessing "${TORCH_PROFILER_DATA_PATH}"
+python -m rl_insight.utils.mstx_preprocessing "${MSTX_PROFILER_DATA_PATH}"
 
 echo ">>> Mstx data preprocessing completed."
 
 python -m rl_insight.main \
-    --input-path "${TORCH_PROFILER_DATA_PATH}" \
+    --input-path "${MSTX_PROFILER_DATA_PATH}" \
     --profiler-type "${PROFILER_TYPE}" \
     --output-path "${OUTPUT_PATH}" \
     --vis-type "${VIS_TYPE}" \

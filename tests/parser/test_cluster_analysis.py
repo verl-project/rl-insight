@@ -31,25 +31,29 @@ import pytest
 
 from rl_insight.data import DataEnum
 from rl_insight.main import main
-from rl_insight.parser import MstxClusterParser
 from rl_insight.parser import (
-    CLUSTER_PARSER_REGISTRY,
     BaseClusterParser,
+    MstxClusterParser,
     get_cluster_parser_cls,
-    register_cluster_parser,
 )
+from rl_insight.parser.parser import CLUSTER_PARSER_REGISTRY, register_cluster_parser
 from rl_insight.utils.schema import Constant, DataMap, EventRow
+from rl_insight.visualizer import (
+    BaseVisualizer,
+    RLTimelineVisualizer,
+    get_cluster_visualizer_cls,
+)
 from rl_insight.visualizer.visualizer import (
     CLUSTER_VISUALIZER_REGISTRY,
-    build_traces,
-    build_y_mappings,
-    downsample_if_needed,
-    generate_rl_timeline,
-    get_cluster_visualizer_fn,
-    load_and_preprocess,
-    merge_short_events,
     register_cluster_visualizer,
 )
+
+
+def _timeline_viz(**kwargs):
+    cfg = {"output_path": "/tmp", "vis_type": "html"}
+    cfg.update(kwargs)
+    return RLTimelineVisualizer(cfg)
+
 
 # =============================================================================
 # Fixtures
@@ -212,6 +216,32 @@ class TestParserRegistry:
         """Test getting an unregistered parser raises ValueError."""
         with pytest.raises(ValueError, match="Unsupported cluster parser: unknown"):
             get_cluster_parser_cls("unknown")
+
+
+class TestVisualizerRegistry:
+    """Tests for visualizer registry functionality."""
+
+    def test_register_cluster_visualizer(self):
+        """Test registering a custom visualizer class."""
+
+        @register_cluster_visualizer("test_visualizer")
+        class TestVisualizer(BaseVisualizer):
+            def run(self, data):
+                pass
+
+        assert "test_visualizer" in CLUSTER_VISUALIZER_REGISTRY
+        assert CLUSTER_VISUALIZER_REGISTRY["test_visualizer"] == TestVisualizer
+
+        del CLUSTER_VISUALIZER_REGISTRY["test_visualizer"]
+
+    def test_get_cluster_visualizer_cls_success(self):
+        """Test getting a registered visualizer class."""
+        assert get_cluster_visualizer_cls("html") == RLTimelineVisualizer
+
+    def test_get_cluster_visualizer_cls_failure(self):
+        """Test getting an unregistered visualizer raises ValueError."""
+        with pytest.raises(ValueError, match="Unsupported cluster visualizer: unknown"):
+            get_cluster_visualizer_cls("unknown")
 
 
 # =============================================================================
@@ -634,35 +664,33 @@ class TestBaseClusterParser:
 
 
 # =============================================================================
-# Visualizer Registry Tests
+# RLTimelineVisualizer dispatch tests
 # =============================================================================
 
 
-class TestVisualizerRegistry:
-    """Tests for visualizer registry functionality."""
+class TestRLTimelineVisualizerRun:
+    """Tests for RLTimelineVisualizer.run vis_type dispatch."""
 
-    def test_register_cluster_visualizer(self):
-        """Test registering a custom visualizer."""
+    def test_run_html_delegates_to_generate_rl_timeline(self, sample_event_dataframe):
+        viz = _timeline_viz(output_path="/tmp/out", vis_type="html")
+        with patch.object(
+            RLTimelineVisualizer, "generate_rl_timeline", return_value=MagicMock()
+        ) as mock_gen:
+            viz.run(sample_event_dataframe)
+            mock_gen.assert_called_once_with(sample_event_dataframe)
 
-        @register_cluster_visualizer("test_visualizer")
-        def test_visualizer(data, output_path, config):
-            pass
+    def test_run_chart_logs(self, sample_event_dataframe):
+        viz = _timeline_viz(vis_type="chart")
+        with patch(
+            "rl_insight.visualizer.timeline_visualizer.logger.info"
+        ) as mock_info:
+            viz.run(sample_event_dataframe)
+        mock_info.assert_called()
 
-        assert "test_visualizer" in CLUSTER_VISUALIZER_REGISTRY
-        assert CLUSTER_VISUALIZER_REGISTRY["test_visualizer"] == test_visualizer
-
-        # Cleanup
-        del CLUSTER_VISUALIZER_REGISTRY["test_visualizer"]
-
-    def test_get_cluster_visualizer_fn_success(self):
-        """Test getting a registered visualizer function."""
-        visualizer_fn = get_cluster_visualizer_fn("html")
-        assert callable(visualizer_fn)
-
-    def test_get_cluster_visualizer_fn_failure(self):
-        """Test getting an unregistered visualizer raises ValueError."""
-        with pytest.raises(ValueError, match="Unsupported cluster visualizer: unknown"):
-            get_cluster_visualizer_fn("unknown")
+    def test_run_unsupported_vis_type_raises(self, sample_event_dataframe):
+        viz = _timeline_viz(vis_type="unknown")
+        with pytest.raises(ValueError, match="Unsupported vis_type"):
+            viz.run(sample_event_dataframe)
 
 
 # =============================================================================
@@ -671,11 +699,11 @@ class TestVisualizerRegistry:
 
 
 class TestVisualizerFunctions:
-    """Tests for visualizer utility functions."""
+    """Tests for RLTimelineVisualizer helper methods."""
 
     def test_load_and_preprocess_valid_data(self, sample_event_dataframe):
         """Test load_and_preprocess with valid DataFrame."""
-        df, t0 = load_and_preprocess(sample_event_dataframe)
+        df, t0 = _timeline_viz().load_and_preprocess(sample_event_dataframe)
 
         assert df is not None
         assert "Role" in df.columns
@@ -690,14 +718,14 @@ class TestVisualizerFunctions:
     def test_load_and_preprocess_none_input(self):
         """Test load_and_preprocess with None input."""
         with pytest.raises(ValueError, match="input_data: None is None"):
-            load_and_preprocess(None)
+            _timeline_viz().load_and_preprocess(None)
 
     def test_load_and_preprocess_missing_columns(self):
         """Test load_and_preprocess with missing required columns."""
         df_invalid = pd.DataFrame({"role": ["test"], "name": ["test"]})
 
         with pytest.raises(ValueError, match="Required column missing"):
-            load_and_preprocess(df_invalid)
+            _timeline_viz().load_and_preprocess(df_invalid)
 
     def test_load_and_preprocess_t0_offset(self):
         """Test load_and_preprocess calculates correct t0 offset."""
@@ -724,7 +752,7 @@ class TestVisualizerFunctions:
             ]
         )
 
-        df, t0 = load_and_preprocess(df_data)
+        df, t0 = _timeline_viz().load_and_preprocess(df_data)
 
         assert t0 == 1000.0
         assert df["Start"].min() == 0.0
@@ -763,7 +791,7 @@ class TestVisualizerFunctions:
             ]
         )
 
-        df_merged = merge_short_events(df_data, threshold_ms=10.0)
+        df_merged = _timeline_viz().merge_short_events(df_data, threshold_ms=10.0)
 
         # Should merge the two short events into one
         assert len(df_merged) == 2
@@ -798,30 +826,35 @@ class TestVisualizerFunctions:
             ]
         )
 
-        df_merged = merge_short_events(df_data, threshold_ms=10.0)
+        df_merged = _timeline_viz().merge_short_events(df_data, threshold_ms=10.0)
 
         # Should not merge anything
         assert len(df_merged) == 2
 
     def test_downsample_if_needed_small_df(self, sample_event_dataframe):
         """Test downsampling with small DataFrame (no downsampling)."""
-        df_downsampled = downsample_if_needed(sample_event_dataframe)
+        v = _timeline_viz()
+        df_prep, _ = v.load_and_preprocess(sample_event_dataframe)
+        df_downsampled = v.downsample_if_needed(df_prep)
 
         # Should not downsample
-        assert len(df_downsampled) == len(sample_event_dataframe)
+        assert len(df_downsampled) == len(df_prep)
 
     def test_downsample_if_needed_large_df(self, sample_large_dataframe):
         """Test downsampling with large DataFrame."""
         df_with_name = sample_large_dataframe.rename(columns={"name": "Name"})
-        df_downsampled = downsample_if_needed(df_with_name, max_records=5000)
+        df_downsampled = _timeline_viz().downsample_if_needed(
+            df_with_name, max_records=5000
+        )
 
         # Should downsample to at most max_records
         assert len(df_downsampled) <= 5000
 
     def test_build_y_mappings(self, sample_event_dataframe):
         """Test building Y-axis mappings."""
-        df_processed, _ = load_and_preprocess(sample_event_dataframe)
-        y_mappings, spacing = build_y_mappings(df_processed)
+        v = _timeline_viz()
+        df_processed, _ = v.load_and_preprocess(sample_event_dataframe)
+        y_mappings, spacing = v.build_y_mappings(df_processed)
 
         assert "default" in y_mappings
         assert "by_rank" in y_mappings
@@ -831,17 +864,18 @@ class TestVisualizerFunctions:
 
     def test_build_traces(self, sample_event_dataframe):
         """Test building Plotly traces."""
-        df_processed, _ = load_and_preprocess(sample_event_dataframe)
-        y_mappings, _ = build_y_mappings(df_processed)
+        v = _timeline_viz()
+        df_processed, _ = v.load_and_preprocess(sample_event_dataframe)
+        y_mappings, _ = v.build_y_mappings(df_processed)
 
-        traces = build_traces(df_processed, y_mappings)
+        traces = v.build_traces(df_processed, y_mappings)
 
         assert len(traces) > 0
         # Each trace should be a Plotly Bar object
         assert all(hasattr(trace, "base") for trace in traces)
 
-    @patch("rl_insight.visualizer.visualizer.go.Figure")
-    @patch("rl_insight.visualizer.visualizer.save_html")
+    @patch("rl_insight.visualizer.timeline_visualizer.go.Figure")
+    @patch.object(RLTimelineVisualizer, "save_html")
     def test_generate_rl_timeline(
         self, mock_save_html, mock_figure, sample_event_dataframe
     ):
@@ -849,11 +883,13 @@ class TestVisualizerFunctions:
         mock_fig = MagicMock()
         mock_figure.return_value = mock_fig
 
-        with patch(
-            "rl_insight.visualizer.visualizer.merge_short_events",
+        viz = _timeline_viz(output_path="/tmp/output")
+        with patch.object(
+            RLTimelineVisualizer,
+            "merge_short_events",
             side_effect=lambda df, threshold_ms=10.0: df,
         ):
-            result = generate_rl_timeline(sample_event_dataframe, "/tmp/output")
+            result = viz.generate_rl_timeline(sample_event_dataframe, "/tmp/output")
 
         # Should call save_html
         mock_save_html.assert_called_once()
@@ -866,7 +902,7 @@ class TestVisualizerFunctions:
             columns=["role", "name", "rank_id", "start_time_ms", "end_time_ms"]
         )
 
-        df, t0 = load_and_preprocess(df_empty)
+        df, t0 = _timeline_viz().load_and_preprocess(df_empty)
 
         assert df.empty
         assert t0 == 0.0
@@ -896,7 +932,7 @@ class TestVisualizerFunctions:
             ]
         )
 
-        df, t0 = load_and_preprocess(df_data)
+        df, t0 = _timeline_viz().load_and_preprocess(df_data)
 
         # Should filter out the invalid event
         assert len(df) == 1
@@ -929,16 +965,22 @@ class TestIntegration:
         # Visualize data
         output_dir = str(tmp_path / "output")
 
-        with patch("rl_insight.visualizer.visualizer.go.Figure") as mock_figure:
+        with patch(
+            "rl_insight.visualizer.timeline_visualizer.go.Figure"
+        ) as mock_figure:
             mock_fig = MagicMock()
             mock_figure.return_value = mock_fig
 
-            with patch("rl_insight.visualizer.visualizer.save_html"):
-                with patch(
-                    "rl_insight.visualizer.visualizer.merge_short_events",
+            with patch.object(RLTimelineVisualizer, "save_html"):
+                with patch.object(
+                    RLTimelineVisualizer,
+                    "merge_short_events",
                     side_effect=lambda frame, threshold_ms=10.0: frame,
                 ):
-                    generate_rl_timeline(df, output_dir)
+                    viz = RLTimelineVisualizer(
+                        {"output_path": output_dir, "vis_type": "html"}
+                    )
+                    viz.generate_rl_timeline(df)
 
             # Verify figure was created
             mock_figure.assert_called_once()
@@ -949,12 +991,12 @@ class TestIntegration:
     )
     @patch("rl_insight.pipeline.offline_insight_pipeline.DataChecker.run")
     @patch("rl_insight.pipeline.offline_insight_pipeline.get_cluster_parser_cls")
-    @patch("rl_insight.pipeline.offline_insight_pipeline.RLTimelineVisualizer")
+    @patch("rl_insight.pipeline.offline_insight_pipeline.get_cluster_visualizer_cls")
     def test_main_function(
         self,
-        mock_visualizer_cls,
+        mock_get_visualizer_cls,
         mock_get_parser,
-        mock_data_checker_run,
+        _mock_data_checker_run,
         mock_mstx_profiler_structure,
     ):
         """Test main CLI entry point."""
@@ -978,10 +1020,12 @@ class TestIntegration:
         mock_parser.return_value = mock_parser_instance
         mock_get_parser.return_value = mock_parser
 
-        # Mock visualizer
+        # Mock visualizer class -> instance
+        mock_visualizer = MagicMock()
         mock_visualizer_instance = MagicMock()
         mock_visualizer_instance.input_type = DataEnum.SUMMARY_EVENT
-        mock_visualizer_cls.return_value = mock_visualizer_instance
+        mock_visualizer.return_value = mock_visualizer_instance
+        mock_get_visualizer_cls.return_value = mock_visualizer
 
         # Run main
         main()
@@ -990,5 +1034,5 @@ class TestIntegration:
         mock_get_parser.assert_called_with("mstx")
         mock_parser_instance.run.assert_called_once()
 
-        # Verify visualizer was called
+        mock_get_visualizer_cls.assert_called_once_with("html")
         mock_visualizer_instance.run.assert_called_once()

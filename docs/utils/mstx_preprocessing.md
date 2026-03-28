@@ -38,7 +38,6 @@ python -m rl_insight.utils.mstx_preprocessing <profile-data-path>
 <profile-data-path>/
 └── <role>/
     └── *_ascend_pt/
-        └── ASCEND_PROFILER_OUTPUT/
 ```
 
 ## 依赖要求
@@ -46,10 +45,11 @@ python -m rl_insight.utils.mstx_preprocessing <profile-data-path>
 运行脚本前，需要满足以下条件：
 
 - Python 环境可用
-- 已安装 `torch_npu`
+- 如果确认需要解析，需要安装 `torch_npu`
 - 输入路径存在，且目录内容符合 Ascend profiler 离线解析要求
 
 ## 注意事项
 
-- `profile-data-path` 目录下需要包含 `<role>/*_ascend_pt/ASCEND_PROFILER_OUTPUT` 这一层级
+- `profile-data-path` 目录下需要包含 `<role>/*_ascend_pt/` 这一层级
+- 如果`<role>`或者 `<role>/*_ascend_pt`下存在ASCEND_PROFILER_OUTPUT，会认为该数据已经完成解析，从而跳过对应`<role>`的数据预处理过程
 - 如果解析失败，脚本会打印错误日志
