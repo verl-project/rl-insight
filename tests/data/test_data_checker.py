@@ -61,6 +61,13 @@ def test_data_checker_summary_event_fails_with_invalid_data_type():
     assert "Data validation failed" in str(exc_info.value)
 
 
+def test_data_checker_summary_event_fails_with_empty_data():
+    checker = DataChecker(data_type=DataEnum.SUMMARY_EVENT, data={})
+    with pytest.raises(DataValidationError) as exc_info:
+        checker.run()
+    assert "Data validation failed" in str(exc_info.value)
+
+
 def test_summary_event_raises_error_when_missing_required_columns():
     """
     Test that the validation rule raises ValueError when SUMMARY_EVENT DataFrame is missing required columns.
