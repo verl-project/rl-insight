@@ -92,3 +92,37 @@
   },
 ]
 ```
+
+## 三、生成summary_event数据 格式示例
+
+```
+<summary-event-data-path>/
+└── summary_event_dataframe_sample.json
+```
+
+解析后汇总生成的数据文件 summary_event_dataframe_sample.json，内容必须包含"role", "name", "rank_id", "start_time_ms", "end_time_ms"字段，文件内容示例：
+
+```
+[
+  {
+    "name":"agent_loop_rollout_replica_0",
+    "role":"agent_loop_rollout_replica_0",
+    "domain":"default",
+    "start_time_ms":1773285888698.7263183594,
+    "end_time_ms":1773285890928.7919921875,
+    "duration_ms":2230.06575,
+    "rank_id":1,
+    "tid":3555733409
+  },
+  {
+    "name":"agent_loop_rollout_replica_0",
+    "role":"agent_loop_rollout_replica_0",
+    "domain":"default",
+    "start_time_ms":1773285888698.7546386719,
+    "end_time_ms":1773285890928.1730957031,
+    "duration_ms":2229.4185,
+    "rank_id":0,
+    "tid":3555714976
+  },
+]
+```

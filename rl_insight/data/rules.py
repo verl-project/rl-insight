@@ -68,7 +68,7 @@ class PathExistsRule(ValidationRule):
 class ParserOutputValidatorRule(ValidationRule):
     def __init__(self, domains: List[str]):
         super().__init__()
-        self.domains = domains
+        self.domains = set(domains)
 
     def check(self, data: Any) -> bool:
         """
@@ -89,13 +89,9 @@ class ParserOutputValidatorRule(ValidationRule):
             return False
 
         # 3. Check if all key columns exist
-        try:
-            actual_columns = data.columns.tolist()
-            missing_cols = [col for col in self.domains if col not in actual_columns]
-            if missing_cols:
-                self._error_message = f"Parsing result validation failed: Missing key columns - {missing_cols}"
-                return False
-            return True
-        except ValueError as e:
-            self._error_message = f"Error checking parser output data {data}: {e}"
+        missing_cols = self.domains - set(data.columns)
+        if missing_cols:
+            # Sort for consistent error messages
+            self._error_message = f"Parsing result validation failed: Missing key columns - {sorted(list(missing_cols))}"
             return False
+        return True
