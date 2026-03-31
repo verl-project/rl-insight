@@ -16,13 +16,8 @@
 
 from typing import Any, List
 
-from .rules import (
-    DataValidationError,
-    PathExistsRule,
-    ValidationRule,
-    VerlLogKeyParamsRule,
-    VerlLogPresentRule,
-)
+from .rules import DataValidationError, PathExistsRule, ValidationRule
+from .verl_log_rules import VerlLogExistRule, VerlLogKeyParamsRule
 from enum import Enum
 from loguru import logger
 
@@ -44,7 +39,7 @@ class DataChecker:
 
     rules: dict[DataEnum, List[ValidationRule]] = {
         DataEnum.MULTI_JSON: [PathExistsRule()],
-        DataEnum.VERL_LOG: [VerlLogPresentRule(), VerlLogKeyParamsRule()],
+        DataEnum.VERL_LOG: [VerlLogExistRule(), VerlLogKeyParamsRule()],
         DataEnum.SUMMARY_EVENT: [],
         DataEnum.UNKNOWN: [],
     }

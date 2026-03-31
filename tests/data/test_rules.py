@@ -12,13 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rl_insight.data.rules import (
-    DataValidationError,
-    PathExistsRule,
-    VerlLogKeyParamsRule,
-    VerlLogPresentRule,
-    VERL_REQUIRED_LOG_KEYWORDS,
-)
+from rl_insight.data.rules import DataValidationError, PathExistsRule
+from rl_insight.data.verl_log_rules import VerlLogExistRule, VerlLogKeyParamsRule
 
 
 def test_path_exists_rule_accepts_existing_directory(tmp_path):
@@ -45,16 +40,24 @@ def test_data_validation_error_string_includes_error_details():
     assert "line2" in text
 
 
-def test_verl_log_present_accepts_verl_named_log(tmp_path):
+def test_verl_log_exist_accepts_verl_named_log(tmp_path):
     log = tmp_path / "train_verl_worker.log"
     log.write_text("verl job\n", encoding="utf-8")
-    rule = VerlLogPresentRule()
+    rule = VerlLogExistRule()
     assert rule.check(str(log)) is True
 
 
-def test_verl_log_present_rejects_empty_directory(tmp_path):
-    rule = VerlLogPresentRule()
+def test_verl_log_exist_rejects_directory(tmp_path):
+    rule = VerlLogExistRule()
     assert rule.check(str(tmp_path)) is False
+    assert "not a directory" in rule.error_message
+
+
+def test_verl_log_exist_rejects_non_log_extension(tmp_path):
+    log = tmp_path / "run_verl.txt"
+    log.write_text("verl job\n", encoding="utf-8")
+    rule = VerlLogExistRule()
+    assert rule.check(str(log)) is False
 
 
 def test_verl_log_key_params_requires_keywords(tmp_path):
@@ -72,7 +75,9 @@ def test_verl_log_key_params_requires_keywords(tmp_path):
         ),
         encoding="utf-8",
     )
-    rule = VerlLogKeyParamsRule(required_keywords=VERL_REQUIRED_LOG_KEYWORDS)
+    rule = VerlLogKeyParamsRule(
+        required_keywords=VerlLogKeyParamsRule.DEFAULT_REQUIRED_KEYWORDS
+    )
     assert rule.check(str(log)) is True
 
 
@@ -88,6 +93,8 @@ def test_verl_log_key_params_fails_when_missing_keyword(tmp_path):
         ),
         encoding="utf-8",
     )
-    rule = VerlLogKeyParamsRule(required_keywords=VERL_REQUIRED_LOG_KEYWORDS)
+    rule = VerlLogKeyParamsRule(
+        required_keywords=VerlLogKeyParamsRule.DEFAULT_REQUIRED_KEYWORDS
+    )
     assert rule.check(str(log)) is False
     assert "response_length/mean" in rule.error_message

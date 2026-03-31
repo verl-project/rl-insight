@@ -92,3 +92,25 @@
   },
 ]
 ```
+
+## 三、VeRL 训练日志（可选校验）
+
+`DataEnum.VERL_LOG` 用于对 **单个** VeRL 训练 `.log` 文件做存在性与关键指标子串校验（通过 `DataChecker` 或 `tests/data/check_verl_log.py`）。路径必须是文件，不能是目录。
+
+约定：
+
+- 文件扩展名为 `.log`，且非空。
+- 能被识别为 VeRL 日志：文件名中包含 `verl`（不区分大小写），或文件开头约 64KiB 内容中出现 `verl`。
+- 日志正文（不区分大小写的子串匹配）需包含 `VerlLogKeyParamsRule.DEFAULT_REQUIRED_KEYWORDS` 中配置的指标名，例如 `critic/score/mean`、`actor/loss` 等；可按项目日志格式在代码中调整该元组。
+
+示例日志放在 **`rl-insight/data/verl_sample/`** 下，例如：
+
+- `data/verl_sample/sample_verl_train.log` — 最小可过校验示例
+- `data/verl_sample/good_full_verl.log` — 完整风格日志
+- `data/verl_sample/bad_*.log` — 用于手工验证失败场景
+
+在 `rl-insight` 包根目录下手动校验示例：
+
+```bash
+python tests/data/check_verl_log.py data/verl_sample/sample_verl_train.log
+```

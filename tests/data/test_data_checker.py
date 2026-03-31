@@ -38,7 +38,7 @@ def test_data_checker_summary_event_has_no_rule_with_dict_data():
 
 
 def _minimal_verl_log_with_metric_keywords() -> str:
-    """Matches VERL_REQUIRED_LOG_KEYWORDS in rl_insight.data.rules (metric tensorboard-style names)."""
+    """Matches VerlLogKeyParamsRule.DEFAULT_REQUIRED_KEYWORDS (tensorboard-style metric names)."""
     return "\n".join(
         [
             "python3 -m verl.trainer.main_ppo",
@@ -55,14 +55,14 @@ def _minimal_verl_log_with_metric_keywords() -> str:
 def test_data_checker_verl_log_passes(tmp_path):
     log = tmp_path / "run_verl.log"
     log.write_text(_minimal_verl_log_with_metric_keywords(), encoding="utf-8")
-    checker = DataChecker(data_type=DataEnum.VERL_LOG, data=str(tmp_path))
+    checker = DataChecker(data_type=DataEnum.VERL_LOG, data=str(log))
     checker.run()
 
 
 def test_data_checker_verl_log_fails_when_keywords_missing(tmp_path):
     log = tmp_path / "run_verl.log"
     log.write_text("verl stub without metric lines\n", encoding="utf-8")
-    checker = DataChecker(data_type=DataEnum.VERL_LOG, data=str(tmp_path))
+    checker = DataChecker(data_type=DataEnum.VERL_LOG, data=str(log))
     with pytest.raises(DataValidationError) as exc_info:
         checker.run()
     err_text = str(exc_info.value)

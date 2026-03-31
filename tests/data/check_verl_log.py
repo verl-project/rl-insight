@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run RL-Insight VERL_LOG DataChecker on one log file or directory.
+"""Run RL-Insight VERL_LOG DataChecker on a single VeRL .log file.
 
 Lives under rl-insight/tests/data/; can be run without pip install -e:
 
@@ -37,7 +37,7 @@ def main() -> int:
     parser.add_argument(
         "path",
         type=str,
-        help="Log file or directory containing *.log",
+        help="Path to one non-empty .log file (VeRL training log)",
     )
     args = parser.parse_args()
 
@@ -45,12 +45,18 @@ def main() -> int:
     if not target.exists():
         print(f"ERROR: path does not exist: {target}", file=sys.stderr)
         return 2
+    if not target.is_file():
+        print(
+            "ERROR: VERL_LOG validation expects a single .log file, not a directory.",
+            file=sys.stderr,
+        )
+        return 2
 
     try:
         DataChecker(DataEnum.VERL_LOG, str(target)).run()
     except DataValidationError as e:
-        print("VERL_LOG validation FAILED")
-        print(e)
+        print("VERL_LOG validation FAILED", file=sys.stderr)
+        print(e, file=sys.stderr)
         return 1
 
     print("VERL_LOG validation OK")
