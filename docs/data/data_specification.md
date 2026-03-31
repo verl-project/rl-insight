@@ -135,8 +135,8 @@
 - 能识别为 VeRL 日志：文件名中含 `verl`（不区分大小写），或文件开头约 64KiB 内含 `verl`。
 - 正文需包含 `VerlLogKeyParamsRule.DEFAULT_REQUIRED_KEYWORDS` 中的子串（如 `critic/score/mean`、`actor/loss` 等）；可按项目日志格式在代码中调整。
 
-示例文件位于仓库 `data/verl_sample/`（其中 `*.log` 若被 `.gitignore` 忽略，需本地自备或使用 `-f` 纳入版本库）。最小校验示例：
+示例文件位于仓库 `data/verl_data/`（其中 `*.log` 若被 `.gitignore` 忽略，需本地自备或使用 `-f` 纳入版本库）。最小校验示例：
 
 ```bash
-python tests/data/check_verl_log.py data/verl_sample/sample_verl_train.log
+python tests/data/check_verl_log.py data/verl_data/good_full_verl.log
 ```
