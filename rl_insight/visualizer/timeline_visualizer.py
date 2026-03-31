@@ -17,6 +17,7 @@ import os
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from plotly.io import to_image
 
 from rl_insight.data import DataEnum
 from rl_insight.utils.schema import FigureConfig
@@ -385,3 +386,221 @@ class RLTimelineVisualizer(BaseVisualizer):
                 "toImageButtonOptions": {"format": "png", "scale": 2},
             },
         )
+
+@register_cluster_visualizer("png")
+class RLTimelineVisualizer(BaseVisualizer):
+
+    COLOR_PALETTE = [
+        "#4C78A8", "#F58518", "#E45756", "#72B7B2", "#54A24B",
+        "#EECA3B", "#B279A2", "#FF9DA6", "#9D755D", "#BAB0AB",
+    ]
+
+    input_type: DataEnum = DataEnum.SUMMARY_EVENT
+
+    def __init__(self, config: dict):
+        super().__init__(config)
+        self.output_path = config.get("output_path", None)
+        self.width = 2000
+        self.height = 1200
+        self.scale = 2
+
+    def run(self, data):
+        return self.generate_rl_timeline_png(data)
+
+    def generate_rl_timeline_png(
+        self,
+        input_data: pd.DataFrame,
+        output_dir: str | None = None,
+        output_filename: str = "rl_timeline_pretty.png",
+        title_prefix: str = "RL Training Timeline",
+    ):
+        out_dir = output_dir or self.output_path or "output"
+
+        df, t0 = self.load_and_preprocess(input_data)
+        df = self.merge_short_events(df)
+        df = self.downsample_if_needed(df)
+        y_mappings, y_axis_spacing = self.build_y_mappings(df)
+        traces = self.build_traces(df, y_mappings)
+
+        fig = self.assemble_static_figure(traces, df, t0, y_mappings, y_axis_spacing)
+        self.save_png(fig, out_dir, output_filename)
+        return fig
+
+
+    def load_and_preprocess(self, input_data: pd.DataFrame) -> tuple[pd.DataFrame, float]:
+        if input_data is None or input_data.empty:
+            raise ValueError(f"input_data: {input_data} is None!")
+
+        df = input_data.copy()
+        df = df.rename(columns={
+            "role": "Role",
+            "name": "Name",
+            "rank_id": "Rank ID",
+            "start_time_ms": "Start",
+            "end_time_ms": "Finish",
+        }, errors="ignore")
+
+        required = ["Role", "Name", "Rank ID", "Start", "Finish"]
+        for col in required:
+            if col not in df.columns:
+                raise ValueError(f"Required column missing: {col}")
+
+        df = df.dropna(subset=required)
+        df["Start"] = pd.to_numeric(df["Start"], errors="coerce")
+        df["Finish"] = pd.to_numeric(df["Finish"], errors="coerce")
+        df["Rank ID"] = pd.to_numeric(df["Rank ID"], errors="coerce").astype("Int64")
+        df = df[(df["Finish"] > df["Start"]) & (df["Rank ID"].notna())]
+
+        df["Duration"] = df["Finish"] - df["Start"]
+        t0 = df["Start"].min()
+        df["Start_rel"] = df["Start"] - t0
+        df["End_rel"] = df["Finish"] - t0
+
+        df = df.sort_values(by=["Rank ID", "Start_rel"]).reset_index(drop=True)
+        return df, t0
+
+
+    def merge_short_events(self, df: pd.DataFrame, threshold_ms: float = 8.0) -> pd.DataFrame:
+        def merge_single_group(g):
+            mask_short = g["Duration"] < threshold_ms
+            short = g[mask_short]
+            long = g[~mask_short]
+
+            if short.empty:
+                return long
+
+            merged = pd.DataFrame([{
+                "Role": g.name[0],
+                "Rank ID": g.name[1],
+                "Name": g.name[2],
+                "Start": short["Start"].min(),
+                "Finish": short["Finish"].max(),
+                "Duration": short["Finish"].max() - short["Start"].min(),
+                "Start_rel": short["Start_rel"].min(),
+                "End_rel": short["End_rel"].max(),
+            }])
+
+            return pd.concat([long, merged], ignore_index=True)
+
+        return df.groupby(["Role", "Rank ID", "Name"], group_keys=False, dropna=True).apply(merge_single_group).reset_index(drop=True)
+
+
+    def downsample_if_needed(self, df: pd.DataFrame, max_points: int = 3000) -> pd.DataFrame:
+        if len(df) <= max_points:
+            return df
+        n_tasks = df["Name"].nunique()
+        n_per_task = max(10, max_points // max(1, n_tasks))
+
+        def sample_task(g):
+            if len(g) <= n_per_task:
+                return g
+            return g.sort_values("Start_rel").head(n_per_task)
+
+        return df.groupby("Name", group_keys=False).apply(sample_task).reset_index(drop=True)
+
+
+    def build_y_mappings(self, df: pd.DataFrame) -> tuple[dict, int]:
+        df["y_label"] = "Rank " + df["Rank ID"].astype(str) + " | " + df["Role"]
+        unique_labels = sorted(df["y_label"].unique(), key=lambda x: int(x.split(" ")[1]))
+
+        y_step = 50
+        y_pos = {label: idx * y_step for idx, label in enumerate(unique_labels)}
+        df["y_pos"] = df["y_label"].map(y_pos)
+
+        bar_height = y_step * 0.42
+        y_map = {
+            "positions": y_pos,
+            "bar_height": bar_height,
+            "labels": unique_labels,
+        }
+        return y_map, y_step
+
+
+    def build_traces(self, df: pd.DataFrame, y_mappings: dict) -> list[go.Bar]:
+        tasks = sorted(df["Name"].unique())
+        color_map = {t: self.COLOR_PALETTE[i % len(self.COLOR_PALETTE)] for i, t in enumerate(tasks)}
+
+        traces = []
+        for task in tasks:
+            sub = df[df["Name"] == task]
+            traces.append(go.Bar(
+                name=task,
+                base=sub["Start_rel"],
+                x=sub["Duration"],
+                y=sub["y_pos"],
+                orientation="h",
+                marker=dict(
+                    color=color_map[task],
+                    line=dict(color="white", width=0.8),
+                ),
+                width=y_mappings["bar_height"],
+                showlegend=True,
+                hoverinfo="skip",
+            ))
+        return traces
+
+
+    def assemble_static_figure(self, traces, df, t0, y_mappings, y_step):
+        max_t = df["End_rel"].max() * 1.05
+        n_ranks = len(y_mappings["labels"])
+
+        fig = go.Figure(traces)
+        fig.update_layout(
+            title=dict(
+                text=f"RL Timeline (relative to t0 = {t0:.1f} ms)",
+                font=dict(size=24, family="Arial"),
+                x=0.5,
+            ),
+            width=self.width,
+            height=max(900, n_ranks * y_step + 200),
+            xaxis=dict(
+                title=dict(
+                    text="Time (ms)",
+                    font=dict(size=18)
+                ),
+                tickfont=dict(size=14),
+                range=[0, max_t],
+                tickformat=".0f",
+                showgrid=True,
+                gridcolor="#EAEAEA",
+                zeroline=False,
+            ),
+            yaxis=dict(
+                title=dict(
+                    text="Worker / Rank",
+                    font=dict(size=18)
+                ),
+                tickfont=dict(size=13),
+                tickvals=list(y_mappings["positions"].values()),
+                ticktext=list(y_mappings["positions"].keys()),
+                autorange="reversed",
+                showgrid=False,
+                zeroline=False,
+            ),
+            legend=dict(
+                title=dict(
+                    text="Task Type",
+                    font=dict(size=12)
+                ),
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="center",
+                x=0.5,
+            ),
+            plot_bgcolor="white",
+            paper_bgcolor="white",
+            margin=dict(l=240, r=60, t=120, b=80),
+            barmode="overlay",
+            hovermode=False,
+        )
+        return fig
+
+
+    def save_png(self, fig: go.Figure, out_dir, fname):
+        os.makedirs(out_dir, exist_ok=True)
+        path = os.path.join(out_dir, fname)
+        img = to_image(fig, format="png", scale=self.scale, width=self.width)
+        with open(path, "wb") as f:
+            f.write(img)
+        print(f"PNG SAVE SUCCESS: {path}")
