@@ -57,6 +57,9 @@ cover/
 
 # Django stuff:
 *.log
+# VeRL sample logs for docs / check_verl_log examples (override *.log)
+!data/verl_data/
+!data/verl_data/*.log
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
