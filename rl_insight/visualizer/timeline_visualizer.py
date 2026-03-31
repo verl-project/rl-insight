@@ -388,11 +388,19 @@ class RLTimelineVisualizer(BaseVisualizer):
         )
 
 @register_cluster_visualizer("png")
-class RLTimelineVisualizer(BaseVisualizer):
+class RLTimelinePNGVisualizer(BaseVisualizer):
 
     COLOR_PALETTE = [
-        "#4C78A8", "#F58518", "#E45756", "#72B7B2", "#54A24B",
-        "#EECA3B", "#B279A2", "#FF9DA6", "#9D755D", "#BAB0AB",
+        "#4e79a7",
+        "#f28e8b",
+        "#59a14f",
+        "#b07aa1",
+        "#9c755f",
+        "#76b7b2",
+        "#edc948",
+        "#bab0ab",
+        "#8cd17d",
+        "#ff9da7",
     ]
 
     input_type: DataEnum = DataEnum.SUMMARY_EVENT
@@ -412,7 +420,6 @@ class RLTimelineVisualizer(BaseVisualizer):
         input_data: pd.DataFrame,
         output_dir: str | None = None,
         output_filename: str = "rl_timeline_pretty.png",
-        title_prefix: str = "RL Training Timeline",
     ):
         out_dir = output_dir or self.output_path or "output"
 
@@ -429,7 +436,7 @@ class RLTimelineVisualizer(BaseVisualizer):
 
     def load_and_preprocess(self, input_data: pd.DataFrame) -> tuple[pd.DataFrame, float]:
         if input_data is None or input_data.empty:
-            raise ValueError(f"input_data: {input_data} is None!")
+            raise ValueError("input_data is None or empty!")
 
         df = input_data.copy()
         df = df.rename(columns={
@@ -452,10 +459,13 @@ class RLTimelineVisualizer(BaseVisualizer):
         df = df[(df["Finish"] > df["Start"]) & (df["Rank ID"].notna())]
 
         df["Duration"] = df["Finish"] - df["Start"]
+
+        if df.empty:
+            return df, 0.0
+
         t0 = df["Start"].min()
         df["Start_rel"] = df["Start"] - t0
         df["End_rel"] = df["Finish"] - t0
-
         df = df.sort_values(by=["Rank ID", "Start_rel"]).reset_index(drop=True)
         return df, t0
 
@@ -501,7 +511,12 @@ class RLTimelineVisualizer(BaseVisualizer):
 
     def build_y_mappings(self, df: pd.DataFrame) -> tuple[dict, int]:
         df["y_label"] = "Rank " + df["Rank ID"].astype(str) + " | " + df["Role"]
-        unique_labels = sorted(df["y_label"].unique(), key=lambda x: int(x.split(" ")[1]))
+        def _extract_rank(label: str):
+            try:
+                return int(label.split(" - Rank ")[-1])
+            except Exception:
+                return float("inf")
+        unique_labels = sorted(df["y_label"].unique(), key=lambda x: (_extract_rank(x), x))
 
         y_step = 50
         y_pos = {label: idx * y_step for idx, label in enumerate(unique_labels)}
@@ -547,7 +562,7 @@ class RLTimelineVisualizer(BaseVisualizer):
         fig = go.Figure(traces)
         fig.update_layout(
             title=dict(
-                text=f"RL Timeline (relative to t0 = {t0:.1f} ms)",
+                text=f"(Relative Time, Origin =  {t0:.1f} ms)",
                 font=dict(size=24, family="Arial"),
                 x=0.5,
             ),
@@ -567,7 +582,7 @@ class RLTimelineVisualizer(BaseVisualizer):
             ),
             yaxis=dict(
                 title=dict(
-                    text="Worker / Rank",
+                    text="Module - Rank",
                     font=dict(size=18)
                 ),
                 tickfont=dict(size=13),
@@ -582,11 +597,11 @@ class RLTimelineVisualizer(BaseVisualizer):
                     text="Task Type",
                     font=dict(size=12)
                 ),
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="center",
-                x=0.5,
+                orientation="v",
+                yanchor="middle",
+                y=0.5,
+                xanchor="left",
+                x=1.02,
             ),
             plot_bgcolor="white",
             paper_bgcolor="white",
