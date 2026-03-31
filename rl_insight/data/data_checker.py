@@ -15,14 +15,18 @@
 """Base data definitions for RL-Insight."""
 
 from typing import Any, List
+
+from enum import Enum
+
+from loguru import logger
+
 from .rules import (
-    ValidationRule,
-    PathExistsRule,
     DataValidationError,
     ParserOutputValidatorRule,
+    PathExistsRule,
+    ValidationRule,
 )
-from enum import Enum
-from loguru import logger
+from .verl_log_rules import VerlLogExistRule, VerlLogKeyParamsRule
 
 
 class DataEnum(Enum):
@@ -42,7 +46,7 @@ class DataChecker:
 
     rules: dict[DataEnum, List[ValidationRule]] = {
         DataEnum.MULTI_JSON: [PathExistsRule()],
-        DataEnum.VERL_LOG: [],
+        DataEnum.VERL_LOG: [VerlLogExistRule(), VerlLogKeyParamsRule()],
         DataEnum.SUMMARY_EVENT: [
             ParserOutputValidatorRule(
                 domains=["role", "name", "rank_id", "start_time_ms", "end_time_ms"]

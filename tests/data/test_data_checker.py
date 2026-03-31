@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+from pathlib import Path
+
+import pandas as pd
 import pytest
 
 from rl_insight.data.data_checker import DataChecker, DataEnum
 from rl_insight.data.rules import DataValidationError
-from pathlib import Path
-import pandas as pd
-import os
 
 CURRENT_FILE = Path(__file__).resolve()
 PROJECT_ROOT = CURRENT_FILE.parents[2]
@@ -86,3 +87,36 @@ def test_summary_event_raises_error_when_missing_required_columns():
     with pytest.raises(DataValidationError) as exc_info:
         checker.run()
     assert "Data validation failed" in str(exc_info.value)
+
+
+def _minimal_verl_log_with_metric_keywords() -> str:
+    """Matches VerlLogKeyParamsRule.DEFAULT_REQUIRED_KEYWORDS (tensorboard-style metric names)."""
+    return "\n".join(
+        [
+            "python3 -m verl.trainer.main_ppo",
+            "(TaskRunner pid=1) step=0",
+            "(TaskRunner pid=1) 'critic/score/mean': 0.1",
+            "(TaskRunner pid=1) 'actor/loss': 0.2",
+            "(TaskRunner pid=1) 'response_length/mean': 128.0",
+            "(TaskRunner pid=1) 'actor/grad_norm': 0.99",
+            "(TaskRunner pid=1) 'critic/rewards/mean': 0.3",
+        ]
+    )
+
+
+def test_data_checker_verl_log_passes(tmp_path):
+    log = tmp_path / "run_verl.log"
+    log.write_text(_minimal_verl_log_with_metric_keywords(), encoding="utf-8")
+    checker = DataChecker(data_type=DataEnum.VERL_LOG, data=str(log))
+    checker.run()
+
+
+def test_data_checker_verl_log_fails_when_keywords_missing(tmp_path):
+    log = tmp_path / "run_verl.log"
+    log.write_text("verl stub without metric lines\n", encoding="utf-8")
+    checker = DataChecker(data_type=DataEnum.VERL_LOG, data=str(log))
+    with pytest.raises(DataValidationError) as exc_info:
+        checker.run()
+    err_text = str(exc_info.value)
+    assert "Data validation failed" in err_text
+    assert "critic/score/mean" in err_text

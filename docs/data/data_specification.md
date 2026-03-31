@@ -2,7 +2,7 @@
 
 本文说明 RL-Insight 当前支持各种数据规格的目录布局和数据要求，便于采集与对接。
 
-流水线在校验阶段会使用 `rl_insight.data.DataChecker` 注册的规则；规则类定义在 [`rl_insight/data/rules.py`](../../rl_insight/data/rules.py)（例如 `PathExistsRule` 等）。**具体校验项以代码为准**，部分规则可能尚未接入 `DataChecker.rules`，文档仅描述数据侧约定。
+流水线在校验阶段会使用 `rl_insight.data.DataChecker` 注册的规则；通用规则见 [`rl_insight/data/rules.py`](../../rl_insight/data/rules.py)，VeRL 日志规则见 [`rl_insight/data/verl_log_rules.py`](../../rl_insight/data/verl_log_rules.py)。**具体校验项以代码为准**，部分规则可能尚未接入 `DataChecker.rules`，文档仅描述数据侧约定。
 
 ## 一、Torch Profiler 数据
 
@@ -125,4 +125,18 @@
     "tid":3555714976
   },
 ]
+```
+
+## 四、VeRL 训练日志（可选校验）
+
+`DataEnum.VERL_LOG` 对 **单个** VeRL 训练 `.log` 文件做存在性与关键指标子串校验（例如 `DataChecker` 或 `tests/data/check_verl_log.py`）。路径必须是文件，不能是目录。
+
+- 扩展名为 `.log`，且非空。
+- 能识别为 VeRL 日志：文件名中含 `verl`（不区分大小写），或文件开头约 64KiB 内含 `verl`。
+- 正文需包含 `VerlLogKeyParamsRule.DEFAULT_REQUIRED_KEYWORDS` 中的子串（如 `critic/score/mean`、`actor/loss` 等）；可按项目日志格式在代码中调整。
+
+示例文件位于仓库 `data/verl_sample/`（其中 `*.log` 若被 `.gitignore` 忽略，需本地自备或使用 `-f` 纳入版本库）。最小校验示例：
+
+```bash
+python tests/data/check_verl_log.py data/verl_sample/sample_verl_train.log
 ```
