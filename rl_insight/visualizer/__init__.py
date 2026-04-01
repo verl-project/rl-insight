@@ -23,4 +23,5 @@ __all__ = [
     "BaseVisualizer",
     "get_cluster_visualizer_cls",
     "RLTimelineVisualizer",
+    "RLTimelinePNGVisualizer",
 ]

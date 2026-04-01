@@ -409,7 +409,6 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
         super().__init__(config)
         self.output_path = config.get("output_path", None)
         self.width = 2000
-        self.height = 1200
         self.scale = 2
 
     def run(self, data):
@@ -419,7 +418,7 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
         self,
         input_data: pd.DataFrame,
         output_dir: str | None = None,
-        output_filename: str = "rl_timeline_pretty.png",
+        output_filename: str = "rl_timeline.png",
     ):
         out_dir = output_dir or self.output_path or "output"
 
@@ -513,7 +512,7 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
         df["y_label"] = "Rank " + df["Rank ID"].astype(str) + " | " + df["Role"]
         def _extract_rank(label: str):
             try:
-                return int(label.split(" - Rank ")[-1])
+                return int(label.split(" | ")[0].split(" ")[-1])
             except Exception:
                 return float("inf")
         unique_labels = sorted(df["y_label"].unique(), key=lambda x: (_extract_rank(x), x))
@@ -618,4 +617,3 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
         img = to_image(fig, format="png", scale=self.scale, width=self.width)
         with open(path, "wb") as f:
             f.write(img)
-        print(f"PNG SAVE SUCCESS: {path}")

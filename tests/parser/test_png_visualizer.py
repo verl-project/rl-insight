@@ -1,13 +1,24 @@
-import os
+# Copyright (c) 2025 verl-project authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import pytest
 import pandas as pd
 import plotly.graph_objects as go
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from rl_insight.data import DataEnum
 from rl_insight.visualizer import RLTimelinePNGVisualizer
-# Replace with your actual import path
-# from your_module import RLTimelinePNGVisualizer, BaseVisualizer, DataEnum
 
 @pytest.fixture
 def valid_test_data():
@@ -72,7 +83,6 @@ class TestRLTimelinePNGVisualizer:
         """Test constructor with given config"""
         assert visualizer.output_path == "test_output"
         assert visualizer.width == 2000
-        assert visualizer.height == 1200
         assert visualizer.scale == 2
         assert visualizer.input_type == DataEnum.SUMMARY_EVENT
 
