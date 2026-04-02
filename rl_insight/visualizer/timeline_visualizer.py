@@ -468,30 +468,64 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
         df = df.sort_values(by=["Rank ID", "Start_rel"]).reset_index(drop=True)
         return df, t0
 
+    def merge_short_events(
+            self,
+            df: pd.DataFrame,
+            duration_threshold_ms: float = 8.0,
+            gap_threshold_ms: float = 2.0
+    ) -> pd.DataFrame:
+        def merge_contiguous_short_events(g):
+            if len(g) <= 1:
+                return g.copy()
 
-    def merge_short_events(self, df: pd.DataFrame, threshold_ms: float = 8.0) -> pd.DataFrame:
-        def merge_single_group(g):
-            mask_short = g["Duration"] < threshold_ms
-            short = g[mask_short]
-            long = g[~mask_short]
+            g_sorted = g.sort_values("Start_rel").reset_index(drop=True)
+            merged_rows = []
+            current_group = []
 
-            if short.empty:
-                return long
+            for idx, row in g_sorted.iterrows():
+                duration = row["Duration"]
 
-            merged = pd.DataFrame([{
-                "Role": g.name[0],
-                "Rank ID": g.name[1],
-                "Name": g.name[2],
-                "Start": short["Start"].min(),
-                "Finish": short["Finish"].max(),
-                "Duration": short["Finish"].max() - short["Start"].min(),
-                "Start_rel": short["Start_rel"].min(),
-                "End_rel": short["End_rel"].max(),
-            }])
+                if duration > duration_threshold_ms:
+                    if current_group:
+                        merged_rows.append(_merge_group(current_group))
+                        current_group = []
+                    merged_rows.append(row.copy())
+                    continue
 
-            return pd.concat([long, merged], ignore_index=True)
+                if not current_group:
+                    current_group.append(row)
+                else:
+                    last_end = current_group[-1]["End_rel"]
+                    gap = row["Start_rel"] - last_end
 
-        return df.groupby(["Role", "Rank ID", "Name"], group_keys=False, dropna=True).apply(merge_single_group).reset_index(drop=True)
+                    if gap <= gap_threshold_ms:
+                        current_group.append(row)
+                    else:
+                        merged_rows.append(_merge_group(current_group))
+                        current_group = [row]
+
+            if current_group:
+                merged_rows.append(_merge_group(current_group))
+
+            return pd.DataFrame(merged_rows)
+
+        def _merge_group(rows):
+            return {
+                "Role": rows[0]["Role"],
+                "Rank ID": rows[0]["Rank ID"],
+                "Name": rows[0]["Name"],
+                "Start": min(r["Start"] for r in rows),
+                "Finish": max(r["Finish"] for r in rows),
+                "Duration": sum(r["Duration"] for r in rows),
+                "Start_rel": min(r["Start_rel"] for r in rows),
+                "End_rel": max(r["End_rel"] for r in rows),
+            }
+
+        return df.groupby(
+            ["Role", "Rank ID", "Name"],
+            group_keys=False,
+            dropna=True
+        ).apply(merge_contiguous_short_events).reset_index(drop=True)
 
 
     def downsample_if_needed(self, df: pd.DataFrame, max_points: int = 3000) -> pd.DataFrame:
@@ -503,7 +537,7 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
         def sample_task(g):
             if len(g) <= n_per_task:
                 return g
-            return g.sample(n=n_per_task, random_state=42).sort_values("Start_rel")
+            return g.nlargest(n_per_task, "Duration").sort_values("Start_rel")
 
         return df.groupby("Name", group_keys=False).apply(sample_task).reset_index(drop=True)
 
@@ -515,7 +549,8 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
                 return int(label.split(" - Rank ")[-1])
             except Exception:
                 return float("inf")
-        unique_labels = sorted(df["y_label"].unique(), key=lambda x: (_extract_rank(x), x))
+
+        unique_labels = df[["y_label", "Rank ID"]].drop_duplicates().sort_values(["Rank ID", "y_label"])["y_label"].tolist()
 
         y_step = 50
         y_pos = {label: idx * y_step for idx, label in enumerate(unique_labels)}

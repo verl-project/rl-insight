@@ -120,9 +120,9 @@ class TestRLTimelinePNGVisualizer:
     def test_merge_short_events(self, visualizer, short_event_data):
         """Test merging of short duration events"""
         merged_df = visualizer.merge_short_events(short_event_data)
-        assert len(merged_df) == 1
+        assert len(merged_df) == 2
         assert merged_df.iloc[0]["Start"] == 100
-        assert merged_df.iloc[0]["Finish"] == 115
+        assert merged_df.iloc[0]["Finish"] == 105
 
     def test_merge_short_events_no_short(self, visualizer, valid_test_data):
         """Test no merging when no short events exist"""
