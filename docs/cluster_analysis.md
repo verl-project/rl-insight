@@ -73,15 +73,15 @@ bash examples/torch_profiler_exec.sh
 
 以下说明与 `python -m rl_insight.main --help` 保持一致；若有出入以命令行帮助为准。
 
-| 参数 | 默认值 | 说明                      |
-|------|--------|-------------------------|
-| `--input-path` | （必填，无默认值） | Profiling 数据的根目录路径      |
-| `--input-type` | `multi_json` | 输入数据类型（多目录 JSON 布局等）    |
-| `--profiler-type` | `mstx` | 性能数据种类：`mstx`、`torch`   |
-| `--output-path` | `output` | 输出目录                    |
+| 参数 | 默认值 | 说明 |
+|------|--------|----|
+| `--input-path` | （必填，无默认值） | Profiling 数据的根目录路径 |
+| `--input-type` | `multi_json` | 输入数据类型（多目录 JSON 布局等）|
+| `--profiler-type` | `mstx` | 性能数据种类：`mstx`、`torch` |
+| `--output-path` | `output` | 输出目录 |
 | `--vis-type` | `html` | 可视化类型（当前支持 `html`、`png`） |
 | `--rank-list` | `all` | Rank ID 列表（当前仅支持 `all`） |
-| `--pipeline-type` | `OfflineInsightPipeline` | 流水线实现类型                 |
+| `--pipeline-type` | `OfflineInsightPipeline` | 流水线实现类型 |
 
 ## 四、输出说明
 
@@ -94,7 +94,7 @@ bash examples/torch_profiler_exec.sh
 
 当前支持指定生成 PNG 图片格式（文件名默认为 `rl_timeline.png`），包含：
 
-- **交互式 Timeline 甘特图**：展示各 Rank 在不同时间段的事件分布
+- **静态 Timeline 甘特图**：展示各 Rank 在不同时间段的事件分布
 - **样式规范**：白底高清、白色边框分隔任务条、网格线辅助对齐
 - **排序功能**：当前仅支持按 Rank ID 排序
 - **自适应高度**：根据节点数量自动调整图片高度，保证所有分层完整展示

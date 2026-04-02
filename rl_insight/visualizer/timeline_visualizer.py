@@ -408,8 +408,8 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
     def __init__(self, config: dict):
         super().__init__(config)
         self.output_path = config.get("output_path", None)
-        self.width = 2000
-        self.scale = 2
+        self.width = config.get("width", 2000)
+        self.scale = config.get("scale", 2)
 
     def run(self, data):
         return self.generate_rl_timeline_png(data)
@@ -512,7 +512,7 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
         df["y_label"] = df["Role"] + " - Rank " + df["Rank ID"].astype(str)
         def _extract_rank(label: str):
             try:
-                return int(label.split(" | ")[0].split(" ")[-1])
+                return int(label.split(" - Rank ")[-1])
             except Exception:
                 return float("inf")
         unique_labels = sorted(df["y_label"].unique(), key=lambda x: (_extract_rank(x), x))
