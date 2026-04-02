@@ -503,13 +503,13 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
         def sample_task(g):
             if len(g) <= n_per_task:
                 return g
-            return g.sort_values("Start_rel").head(n_per_task)
+            return g.sample(n=n_per_task, random_state=42).sort_values("Start_rel")
 
         return df.groupby("Name", group_keys=False).apply(sample_task).reset_index(drop=True)
 
 
     def build_y_mappings(self, df: pd.DataFrame) -> tuple[dict, int]:
-        df["y_label"] = "Rank " + df["Rank ID"].astype(str) + " | " + df["Role"]
+        df["y_label"] = df["Role"] + " - Rank " + df["Rank ID"].astype(str)
         def _extract_rank(label: str):
             try:
                 return int(label.split(" | ")[0].split(" ")[-1])
