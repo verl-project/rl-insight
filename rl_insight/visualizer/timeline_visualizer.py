@@ -516,7 +516,7 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
                 "Name": rows[0]["Name"],
                 "Start": min(r["Start"] for r in rows),
                 "Finish": max(r["Finish"] for r in rows),
-                "Duration": sum(r["Duration"] for r in rows),
+                "Duration": max(r["Finish"] for r in rows) - min(r["Start"] for r in rows),
                 "Start_rel": min(r["Start_rel"] for r in rows),
                 "End_rel": max(r["End_rel"] for r in rows),
             }
@@ -544,12 +544,6 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
 
     def build_y_mappings(self, df: pd.DataFrame) -> tuple[dict, int]:
         df["y_label"] = df["Role"] + " - Rank " + df["Rank ID"].astype(str)
-        def _extract_rank(label: str):
-            try:
-                return int(label.split(" - Rank ")[-1])
-            except Exception:
-                return float("inf")
-
         unique_labels = df[["y_label", "Rank ID"]].drop_duplicates().sort_values(["Rank ID", "y_label"])["y_label"].tolist()
 
         y_step = 50
