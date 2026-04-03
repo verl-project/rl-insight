@@ -493,7 +493,7 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
                     if current_group:
                         merged_rows.append(_merge_group(current_group))
                         current_group = []
-                    merged_rows.append(row.copy())
+                    merged_rows.append(row)
                     continue
 
                 if not current_group:
