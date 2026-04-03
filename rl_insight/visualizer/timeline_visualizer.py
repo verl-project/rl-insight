@@ -387,9 +387,9 @@ class RLTimelineVisualizer(BaseVisualizer):
             },
         )
 
+
 @register_cluster_visualizer("png")
 class RLTimelinePNGVisualizer(BaseVisualizer):
-
     COLOR_PALETTE = [
         "#4e79a7",
         "#f28e8b",
@@ -432,19 +432,23 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
         self.save_png(fig, out_dir, output_filename)
         return fig
 
-
-    def load_and_preprocess(self, input_data: pd.DataFrame) -> tuple[pd.DataFrame, float]:
+    def load_and_preprocess(
+        self, input_data: pd.DataFrame
+    ) -> tuple[pd.DataFrame, float]:
         if input_data is None or input_data.empty:
             raise ValueError("input_data is None or empty!")
 
         df = input_data.copy()
-        df = df.rename(columns={
-            "role": "Role",
-            "name": "Name",
-            "rank_id": "Rank ID",
-            "start_time_ms": "Start",
-            "end_time_ms": "Finish",
-        }, errors="ignore")
+        df = df.rename(
+            columns={
+                "role": "Role",
+                "name": "Name",
+                "rank_id": "Rank ID",
+                "start_time_ms": "Start",
+                "end_time_ms": "Finish",
+            },
+            errors="ignore",
+        )
 
         required = ["Role", "Name", "Rank ID", "Start", "Finish"]
         for col in required:
@@ -469,10 +473,10 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
         return df, t0
 
     def merge_short_events(
-            self,
-            df: pd.DataFrame,
-            duration_threshold_ms: float = 8.0,
-            gap_threshold_ms: float = 2.0
+        self,
+        df: pd.DataFrame,
+        duration_threshold_ms: float = 8.0,
+        gap_threshold_ms: float = 2.0,
     ) -> pd.DataFrame:
         def merge_contiguous_short_events(g):
             if len(g) <= 1:
@@ -516,19 +520,21 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
                 "Name": rows[0]["Name"],
                 "Start": min(r["Start"] for r in rows),
                 "Finish": max(r["Finish"] for r in rows),
-                "Duration": max(r["Finish"] for r in rows) - min(r["Start"] for r in rows),
+                "Duration": max(r["Finish"] for r in rows)
+                - min(r["Start"] for r in rows),
                 "Start_rel": min(r["Start_rel"] for r in rows),
                 "End_rel": max(r["End_rel"] for r in rows),
             }
 
-        return df.groupby(
-            ["Role", "Rank ID", "Name"],
-            group_keys=False,
-            dropna=True
-        ).apply(merge_contiguous_short_events).reset_index(drop=True)
+        return (
+            df.groupby(["Role", "Rank ID", "Name"], group_keys=False, dropna=True)
+            .apply(merge_contiguous_short_events)
+            .reset_index(drop=True)
+        )
 
-
-    def downsample_if_needed(self, df: pd.DataFrame, max_points: int = 3000) -> pd.DataFrame:
+    def downsample_if_needed(
+        self, df: pd.DataFrame, max_points: int = 3000
+    ) -> pd.DataFrame:
         if len(df) <= max_points:
             return df
         n_tasks = df["Name"].nunique()
@@ -539,12 +545,20 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
                 return g
             return g.nlargest(n_per_task, "Duration").sort_values("Start_rel")
 
-        return df.groupby("Name", group_keys=False).apply(sample_task).reset_index(drop=True)
-
+        return (
+            df.groupby("Name", group_keys=False)
+            .apply(sample_task)
+            .reset_index(drop=True)
+        )
 
     def build_y_mappings(self, df: pd.DataFrame) -> tuple[dict, int]:
         df["y_label"] = df["Role"] + " - Rank " + df["Rank ID"].astype(str)
-        unique_labels = df[["y_label", "Rank ID"]].drop_duplicates().sort_values(["Rank ID", "y_label"])["y_label"].tolist()
+        unique_labels = (
+            df[["y_label", "Rank ID"]]
+            .drop_duplicates()
+            .sort_values(["Rank ID", "y_label"])["y_label"]
+            .tolist()
+        )
 
         y_step = 50
         y_pos = {label: idx * y_step for idx, label in enumerate(unique_labels)}
@@ -558,30 +572,33 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
         }
         return y_map, y_step
 
-
     def build_traces(self, df: pd.DataFrame, y_mappings: dict) -> list[go.Bar]:
         tasks = sorted(df["Name"].unique())
-        color_map = {t: self.COLOR_PALETTE[i % len(self.COLOR_PALETTE)] for i, t in enumerate(tasks)}
+        color_map = {
+            t: self.COLOR_PALETTE[i % len(self.COLOR_PALETTE)]
+            for i, t in enumerate(tasks)
+        }
 
         traces = []
         for task in tasks:
             sub = df[df["Name"] == task]
-            traces.append(go.Bar(
-                name=task,
-                base=sub["Start_rel"],
-                x=sub["Duration"],
-                y=sub["y_pos"],
-                orientation="h",
-                marker=dict(
-                    color=color_map[task],
-                    line=dict(color="white", width=0.8),
-                ),
-                width=y_mappings["bar_height"],
-                showlegend=True,
-                hoverinfo="skip",
-            ))
+            traces.append(
+                go.Bar(
+                    name=task,
+                    base=sub["Start_rel"],
+                    x=sub["Duration"],
+                    y=sub["y_pos"],
+                    orientation="h",
+                    marker=dict(
+                        color=color_map[task],
+                        line=dict(color="white", width=0.8),
+                    ),
+                    width=y_mappings["bar_height"],
+                    showlegend=True,
+                    hoverinfo="skip",
+                )
+            )
         return traces
-
 
     def assemble_static_figure(self, traces, df, t0, y_mappings, y_step):
         max_t = df["End_rel"].max() * 1.05
@@ -597,10 +614,7 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
             width=self.width,
             height=max(900, n_ranks * y_step + 200),
             xaxis=dict(
-                title=dict(
-                    text="Time (ms)",
-                    font=dict(size=18)
-                ),
+                title=dict(text="Time (ms)", font=dict(size=18)),
                 tickfont=dict(size=14),
                 range=[0, max_t],
                 tickformat=".0f",
@@ -609,10 +623,7 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
                 zeroline=False,
             ),
             yaxis=dict(
-                title=dict(
-                    text="Module - Rank",
-                    font=dict(size=18)
-                ),
+                title=dict(text="Module - Rank", font=dict(size=18)),
                 tickfont=dict(size=13),
                 tickvals=list(y_mappings["positions"].values()),
                 ticktext=list(y_mappings["positions"].keys()),
@@ -621,10 +632,7 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
                 zeroline=False,
             ),
             legend=dict(
-                title=dict(
-                    text="Task Type",
-                    font=dict(size=12)
-                ),
+                title=dict(text="Task Type", font=dict(size=12)),
                 orientation="v",
                 yanchor="middle",
                 y=0.5,
@@ -638,7 +646,6 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
             hovermode=False,
         )
         return fig
-
 
     def save_png(self, fig: go.Figure, out_dir, fname):
         os.makedirs(out_dir, exist_ok=True)

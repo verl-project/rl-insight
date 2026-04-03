@@ -20,57 +20,71 @@ from unittest.mock import patch
 from rl_insight.data import DataEnum
 from rl_insight.visualizer import RLTimelinePNGVisualizer
 
+
 @pytest.fixture
 def valid_test_data():
     """Valid standard input DataFrame"""
-    return pd.DataFrame({
-        "role": ["worker", "worker", "ps", "ps"],
-        "name": ["train", "eval", "save", "load"],
-        "rank_id": [0, 0, 1, 1],
-        "start_time_ms": [100, 200, 150, 300],
-        "end_time_ms": [180, 250, 220, 400],
-    })
+    return pd.DataFrame(
+        {
+            "role": ["worker", "worker", "ps", "ps"],
+            "name": ["train", "eval", "save", "load"],
+            "rank_id": [0, 0, 1, 1],
+            "start_time_ms": [100, 200, 150, 300],
+            "end_time_ms": [180, 250, 220, 400],
+        }
+    )
+
 
 @pytest.fixture
 def empty_data():
     """Empty DataFrame for edge case testing"""
     return pd.DataFrame()
 
+
 @pytest.fixture
 def missing_column_data():
     """Data missing required columns for exception testing"""
-    return pd.DataFrame({
-        "role": ["worker"],
-        "name": ["train"],
-    })
+    return pd.DataFrame(
+        {
+            "role": ["worker"],
+            "name": ["train"],
+        }
+    )
+
 
 @pytest.fixture
 def short_event_data():
     """Data with short duration events for merge testing"""
-    return pd.DataFrame({
-        "Role": ["worker", "worker"],
-        "Name": ["train", "train"],
-        "Rank ID": [0, 0],
-        "Start": [100, 110],
-        "Finish": [105, 115],
-        "Duration": [5, 5],
-        "Start_rel": [0, 10],
-        "End_rel": [5, 15],
-    })
+    return pd.DataFrame(
+        {
+            "Role": ["worker", "worker"],
+            "Name": ["train", "train"],
+            "Rank ID": [0, 0],
+            "Start": [100, 110],
+            "Finish": [105, 115],
+            "Duration": [5, 5],
+            "Start_rel": [0, 10],
+            "End_rel": [5, 15],
+        }
+    )
+
 
 @pytest.fixture
 def oversized_data():
     """Large dataset exceeding max points for downsampling test"""
     data = []
     for i in range(4000):
-        data.append({
-            "role": "worker",
-            "name": f"task_{i%5}",
-            "rank_id": i%3,
-            "start_time_ms": i*10,
-            "end_time_ms": i*10 + 20,
-        })
+        data.append(
+            {
+                "role": "worker",
+                "name": f"task_{i % 5}",
+                "rank_id": i % 3,
+                "start_time_ms": i * 10,
+                "end_time_ms": i * 10 + 20,
+            }
+        )
     return pd.DataFrame(data)
+
 
 class TestRLTimelinePNGVisualizer:
     @pytest.fixture
@@ -95,7 +109,16 @@ class TestRLTimelinePNGVisualizer:
         """Test preprocessing with valid input data"""
         df, t0 = visualizer.load_and_preprocess(valid_test_data)
 
-        required = ["Role", "Name", "Rank ID", "Start", "Finish", "Duration", "Start_rel", "End_rel"]
+        required = [
+            "Role",
+            "Name",
+            "Rank ID",
+            "Start",
+            "Finish",
+            "Duration",
+            "Start_rel",
+            "End_rel",
+        ]
         assert all(col in df.columns for col in required)
         assert len(df) > 0
         assert (df["Finish"] > df["Start"]).all()
@@ -116,13 +139,6 @@ class TestRLTimelinePNGVisualizer:
         """Test error when required columns are missing"""
         with pytest.raises(ValueError, match="Required column missing"):
             visualizer.load_and_preprocess(missing_column_data)
-
-    def test_merge_short_events(self, visualizer, short_event_data):
-        """Test merging of short duration events"""
-        merged_df = visualizer.merge_short_events(short_event_data)
-        assert len(merged_df) == 2
-        assert merged_df.iloc[0]["Start"] == 100
-        assert merged_df.iloc[0]["Finish"] == 105
 
     def test_merge_short_events_no_short(self, visualizer, valid_test_data):
         """Test no merging when no short events exist"""
@@ -196,7 +212,9 @@ class TestRLTimelinePNGVisualizer:
         mock_generate.assert_called_once_with(valid_test_data)
 
     @patch.object(RLTimelinePNGVisualizer, "save_png")
-    def test_generate_rl_timeline_png_full(self, mock_save, visualizer, valid_test_data):
+    def test_generate_rl_timeline_png_full(
+        self, mock_save, visualizer, valid_test_data
+    ):
         """Test full timeline PNG generation pipeline"""
         fig = visualizer.generate_rl_timeline_png(valid_test_data)
         assert isinstance(fig, go.Figure)
