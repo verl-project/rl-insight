@@ -78,9 +78,7 @@ class ParserOutputValidatorRule(ValidationRule):
 
         # 1. Check if it's a DataFrame
         if not isinstance(data, pd.DataFrame):
-            self._error_message = (
-                f"Parsing result must be a DataFrame, got {type(data).__name__} instead."
-            )
+            self._error_message = f"Parsing result must be a DataFrame, got {type(data).__name__} instead."
             return False
 
         # 2. Check if data is not empty

@@ -121,7 +121,9 @@ class VerlLogKeyParamsRule(ValidationRule):
     ):
         super().__init__()
         self._required_keywords = (
-            required_keywords if required_keywords is not None else self.DEFAULT_REQUIRED_KEYWORDS
+            required_keywords
+            if required_keywords is not None
+            else self.DEFAULT_REQUIRED_KEYWORDS
         )
 
     def check(self, data: str) -> bool:
@@ -132,7 +134,9 @@ class VerlLogKeyParamsRule(ValidationRule):
 
         blob = _read_log_for_keywords(path).lower()
         if not blob:
-            self._error_message = f"No readable text in VeRL log for keyword check: {data}"
+            self._error_message = (
+                f"No readable text in VeRL log for keyword check: {data}"
+            )
             return False
 
         missing: List[str] = [
@@ -140,8 +144,7 @@ class VerlLogKeyParamsRule(ValidationRule):
         ]
         if missing:
             self._error_message = (
-                "VeRL log is missing required parameter markers: "
-                + ", ".join(missing)
+                "VeRL log is missing required parameter markers: " + ", ".join(missing)
             )
             return False
         return True
