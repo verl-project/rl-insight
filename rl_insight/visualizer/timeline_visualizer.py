@@ -478,57 +478,44 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
         duration_threshold_ms: float = 8.0,
         gap_threshold_ms: float = 2.0,
     ) -> pd.DataFrame:
-        def merge_contiguous_short_events(g):
+        def merge_group(rows):
+            row = rows.iloc[0].copy()
+            row["Start"] = rows["Start"].min()
+            row["Finish"] = rows["Finish"].max()
+            row["Duration"] = row["Finish"] - row["Start"]
+            row["Start_rel"] = rows["Start_rel"].min()
+            row["End_rel"] = rows["End_rel"].max()
+            return row
+
+        def process_group(g):
             if len(g) <= 1:
-                return g.copy()
+                return g
 
-            g_sorted = g.sort_values("Start_rel").reset_index(drop=True)
-            merged_rows = []
-            current_group = []
+            g = g.sort_values("Start_rel").reset_index(drop=True)
+            groups = []
+            current = [g.iloc[0]]
 
-            for idx, row in g_sorted.iterrows():
-                duration = row["Duration"]
+            for i in range(1, len(g)):
+                curr_row = g.iloc[i]
+                last = current[-1]
 
-                if duration > duration_threshold_ms:
-                    if current_group:
-                        merged_rows.append(_merge_group(current_group))
-                        current_group = []
-                    merged_rows.append(row)
-                    continue
-
-                if not current_group:
-                    current_group.append(row)
+                if (
+                    curr_row["Duration"] <= duration_threshold_ms
+                    and curr_row["Start_rel"] - last["End_rel"] <= gap_threshold_ms
+                ):
+                    current.append(curr_row)
                 else:
-                    last_end = current_group[-1]["End_rel"]
-                    gap = row["Start_rel"] - last_end
+                    groups.append(pd.concat(current, axis=1).T)
+                    current = [curr_row]
 
-                    if gap <= gap_threshold_ms:
-                        current_group.append(row)
-                    else:
-                        merged_rows.append(_merge_group(current_group))
-                        current_group = [row]
+            if current:
+                groups.append(pd.concat(current, axis=1).T)
 
-            if current_group:
-                merged_rows.append(_merge_group(current_group))
-
-            return pd.DataFrame(merged_rows)
-
-        def _merge_group(rows):
-            return {
-                "Role": rows[0]["Role"],
-                "Rank ID": rows[0]["Rank ID"],
-                "Name": rows[0]["Name"],
-                "Start": min(r["Start"] for r in rows),
-                "Finish": max(r["Finish"] for r in rows),
-                "Duration": max(r["Finish"] for r in rows)
-                - min(r["Start"] for r in rows),
-                "Start_rel": min(r["Start_rel"] for r in rows),
-                "End_rel": max(r["End_rel"] for r in rows),
-            }
+            return pd.DataFrame([merge_group(grp) for grp in groups])
 
         return (
-            df.groupby(["Role", "Rank ID", "Name"], group_keys=False)
-            .apply(merge_contiguous_short_events)
+            df.groupby(["Role", "Rank ID", "Name"], group_keys=False, dropna=True)
+            .apply(process_group)
             .reset_index(drop=True)
         )
 
