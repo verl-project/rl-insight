@@ -515,7 +515,7 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
 
         return (
             df.groupby(["Role", "Rank ID", "Name"], group_keys=False, dropna=True)
-            .apply(process_group)
+            .apply(process_group, include_groups=True)
             .reset_index(drop=True)
         )
 
@@ -534,7 +534,7 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
 
         return (
             df.groupby("Name", group_keys=False)
-            .apply(sample_task)
+            .apply(sample_task, include_groups=True)
             .reset_index(drop=True)
         )
 
