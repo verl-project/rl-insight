@@ -4,3 +4,4 @@ pandas
 plotly
 pytest
 loguru
+kaleido
