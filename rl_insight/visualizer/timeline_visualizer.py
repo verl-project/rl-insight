@@ -527,7 +527,7 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
             }
 
         return (
-            df.groupby(["Role", "Rank ID", "Name"], group_keys=False, dropna=True)
+            df.groupby(["Role", "Rank ID", "Name"], group_keys=False)
             .apply(merge_contiguous_short_events)
             .reset_index(drop=True)
         )
