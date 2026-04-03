@@ -1,0 +1,9 @@
+python3 -m verl.trainer.main_ppo
+(TaskRunner pid=1) step=1 - using bare step only; no tb-style global_step or epoch keys
+(TaskRunner pid=1) 'critic/score/mean': 0.1
+(TaskRunner pid=1) 'actor/loss': 0.2
+(TaskRunner pid=1) 'critic/rewards/mean': 0.3
+(TaskRunner pid=1) 'response_length/mean': 128.0
+(TaskRunner pid=1) 'actor/grad_norm': 0.99
+(TaskRunner pid=1) 'actor/lr': 1e-06
+(TaskRunner pid=1) 'actor/entropy': 0.5

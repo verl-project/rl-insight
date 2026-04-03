@@ -129,14 +129,47 @@
 
 ## 四、VeRL 训练日志（可选校验）
 
-`DataEnum.VERL_LOG` 对 **单个** VeRL 训练 `.log` 文件做存在性与关键指标子串校验（例如 `DataChecker` 或 `tests/data/check_verl_log.py`）。路径必须是文件，不能是目录。
+`DataEnum.VERL_LOG` 对 **单个** VeRL 训练 `.log` 文件做存在性与关键指标子串校验（例如 `DataChecker` 或 [`tests/data/check_verl_log.py`](../../tests/data/check_verl_log.py)）。路径必须是文件，不能是目录。
 
-- 扩展名为 `.log`，且非空。
-- 能识别为 VeRL 日志：文件名中含 `verl`（不区分大小写），或文件开头约 64KiB 内含 `verl`。
-- 正文需包含 `VerlLogKeyParamsRule.DEFAULT_REQUIRED_KEYWORDS` 中的子串（如 `critic/score/mean`、`actor/loss` 等）；可按项目日志格式在代码中调整。
+### 校验规则（以代码为准）
 
-示例文件位于仓库 `data/verl_data/`（其中 `*.log` 若被 `.gitignore` 忽略，需本地自备或使用 `-f` 纳入版本库）。最小校验示例：
+1. **存在与路径**（`VerlLogExistRule`）：扩展名为 `.log`，文件非空，且能被识别为 VeRL 日志：文件名中含 `verl`（不区分大小写），或文件开头约 64KiB 内容中含 `verl`。
+2. **关键子串**（`VerlLogKeyParamsRule`）：日志正文（读取至多约 2MiB，**不区分大小写**）须**同时包含**以下子串，定义见 [`rl_insight/data/verl_log_rules.py`](../../rl_insight/data/verl_log_rules.py) 中 `DEFAULT_REQUIRED_KEYWORDS`：
+
+   - `verl`
+   - `actor/loss`
+   - `critic/score/mean`
+   - `critic/rewards/mean`
+   - `response_length/mean`
+   - `actor/grad_norm`
+   - `training/global_step`
+   - `training/epoch`
+   - `actor/lr`
+   - `actor/entropy`
+   - `Training Progress:`（tqdm 类进度条前缀，完整日志中常见）
+
+   若仅存在 `step:` 而日志未打印 `training/global_step` / `training/epoch` 字面量，将不通过。可按业务在代码中传入自定义 `required_keywords` 放宽或收紧。
+
+### `data/verl_data/` 示例数据
+
+仓库 [`data/verl_data/`](../../data/verl_data/) 下提供：
+
+- **`good_minimal_verl.log`**：体量很小的合成日志，覆盖当前必填子串，**推荐**用于脚本/文档中的快速校验示例。
+- **负面样例**（用于手工跑 `check_verl_log.py` 或自测规则；说明文字已避免误包含上述关键字）：
+
+| 文件 | 典型失败原因 |
+| --- | --- |
+| `bad_exist_empty_verl.log` | 空文件 |
+| `bad_exist_unbranded.log` | 无 VeRL 标识（文件名与正文均不含 `verl`） |
+| `bad_keys_startup_only_verl.log` | 仅启动信息，缺指标类关键字 |
+| `bad_keys_five_legacy_metrics_verl.log` | 仅有部分指标，缺全局步进/epoch/lr/entropy 等 |
+| `bad_keys_no_training_step_tokens_verl.log` | 有 `step=` 但未出现 `training/global_step`、`training/epoch` 子串 |
+| `bad_keys_no_entropy_verl.log` | 缺 `actor/entropy` |
+
+`*.log` 若被根目录 `.gitignore` 忽略，需本地自备或使用 `git add -f` 将约定路径纳入版本库。
+
+### 命令示例
 
 ```bash
-python tests/data/check_verl_log.py data/verl_data/good_full_verl.log
+python tests/data/check_verl_log.py data/verl_data/good_minimal_verl.log
 ```

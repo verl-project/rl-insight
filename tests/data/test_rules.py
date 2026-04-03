@@ -66,11 +66,15 @@ def test_verl_log_key_params_requires_keywords(tmp_path):
         "\n".join(
             [
                 "python3 -m verl.trainer.main_ppo",
+                "Training Progress:   0%|          | 1/100 [00:01<00:00,  1.00s/it]",
+                "(TaskRunner pid=1) step=0 - training/global_step:1 - training/epoch:0",
                 "(TaskRunner pid=1) 'critic/score/mean': 0.1",
                 "(TaskRunner pid=1) 'actor/loss': 0.2",
+                "(TaskRunner pid=1) 'critic/rewards/mean': 0.3",
                 "(TaskRunner pid=1) 'response_length/mean': 128.0",
                 "(TaskRunner pid=1) 'actor/grad_norm': 0.99",
-                "(TaskRunner pid=1) 'critic/rewards/mean': 0.3",
+                "(TaskRunner pid=1) 'actor/lr': 1e-06",
+                "(TaskRunner pid=1) 'actor/entropy': 0.5",
             ]
         ),
         encoding="utf-8",

@@ -100,12 +100,19 @@ class VerlLogExistRule(ValidationRule):
 class VerlLogKeyParamsRule(ValidationRule):
     """Ensure the VeRL log text contains required metric / config markers."""
 
+    # Common VeRL training log substrings (tensorboard-style names); adjust per recipe.
     DEFAULT_REQUIRED_KEYWORDS: Tuple[str, ...] = (
-        "critic/score/mean",
+        "verl",
         "actor/loss",
+        "critic/score/mean",
+        "critic/rewards/mean",
         "response_length/mean",
         "actor/grad_norm",
-        "critic/rewards/mean",
+        "training/global_step",
+        "training/epoch",
+        "actor/lr",
+        "actor/entropy",
+        "Training Progress:",
     )
 
     def __init__(

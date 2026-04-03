@@ -1,0 +1,11 @@
+# RL-Insight: minimal synthetic VeRL training log for DataChecker(DataEnum.VERL_LOG).
+python3 -m verl.trainer.main_ppo
+Training Progress:   0%|          | 1/100 [00:01<00:00,  1.00s/it]
+(TaskRunner pid=99999) step=0 - training/global_step:1 - training/epoch:0
+(TaskRunner pid=99999) 'critic/score/mean': 0.1
+(TaskRunner pid=99999) 'actor/loss': 0.2
+(TaskRunner pid=99999) 'critic/rewards/mean': 0.3
+(TaskRunner pid=99999) 'response_length/mean': 128.0
+(TaskRunner pid=99999) 'actor/grad_norm': 0.99
+(TaskRunner pid=99999) 'actor/lr': 1e-06
+(TaskRunner pid=99999) 'actor/entropy': 0.5
