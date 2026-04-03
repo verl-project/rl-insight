@@ -104,7 +104,9 @@ def test_load_and_preprocess_missing_columns(visualizer):
 def test_merge_short_events(visualizer, short_event_data):
     """Test that consecutive short events are merged correctly."""
     df, _ = visualizer.load_and_preprocess(short_event_data)
-    merged = visualizer.merge_short_events(df)
+    df_records = df.to_dict("records")
+    df_fixed = pd.DataFrame(df_records)
+    merged = visualizer.merge_short_events(df_fixed)
 
     assert len(merged) == 2
     assert merged["Start"].min() == 100
