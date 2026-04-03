@@ -513,11 +513,15 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
 
             return pd.DataFrame([merge_group(grp) for grp in groups])
 
-        return (
-            df.groupby(["Role", "Rank ID", "Name"], group_keys=False, dropna=True)
-            .apply(process_group, include_groups=True)
-            .reset_index(drop=True)
-        )
+        result_groups = []
+        for _, group in df.groupby(["Role", "Rank ID", "Name"]):
+            processed = process_group(group)
+            result_groups.append(processed)
+
+        if result_groups:
+            return pd.concat(result_groups, ignore_index=True)
+        else:
+            return df
 
     def downsample_if_needed(
         self, df: pd.DataFrame, max_points: int = 3000
@@ -532,11 +536,15 @@ class RLTimelinePNGVisualizer(BaseVisualizer):
                 return g
             return g.nlargest(n_per_task, "Duration").sort_values("Start_rel")
 
-        return (
-            df.groupby("Name", group_keys=False)
-            .apply(sample_task, include_groups=True)
-            .reset_index(drop=True)
-        )
+        sampled_groups = []
+        for _, group in df.groupby("Name"):
+            sampled = sample_task(group)
+            sampled_groups.append(sampled)
+
+        if sampled_groups:
+            return pd.concat(sampled_groups, ignore_index=True)
+        else:
+            return df
 
     def build_y_mappings(self, df: pd.DataFrame) -> tuple[dict, int]:
         df["y_label"] = df["Role"] + " - Rank " + df["Rank ID"].astype(str)
