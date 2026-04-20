@@ -36,12 +36,38 @@ class OfflineInsightPipeline:
         self.visualizer = visualizer_cls(visualizer_config)
 
     def _prepare_parser_config(self):
-        return {
+        config = {
             Constant.RANK_LIST: self.config.rank_list,
         }
+        
+        # Add GMM-specific parameters only for GMM parser
+        if self.config.profiler_type == "gmm":
+            if hasattr(self.config, 'step') and self.config.step is not None:
+                config['step'] = self.config.step
+            if hasattr(self.config, 'role') and self.config.role is not None:
+                config['role'] = self.config.role
+        
+        return config
 
     def _prepare_visualizer_config(self):
-        return {"output_path": self.config.output_path}
+        config = {"output": self.config.output_path}
+        
+        # Add general parameters
+        if hasattr(self.config, 'rank'):
+            config['rank'] = self.config.rank
+        if hasattr(self.config, 'dpi'):
+            config['dpi'] = self.config.dpi
+        if hasattr(self.config, 'cmap'):
+            config['cmap'] = self.config.cmap
+        
+        # Add GMM-specific parameters only for GMM visualizer
+        if self.config.vis_type == "gmm_heatmap":
+            if hasattr(self.config, 'step') and self.config.step is not None:
+                config['step'] = self.config.step
+            if hasattr(self.config, 'role') and self.config.role is not None:
+                config['role'] = self.config.role
+        
+        return config
 
     def run(self):
         if self.input_data_type != self.parser.input_type:

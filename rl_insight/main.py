@@ -13,7 +13,10 @@
 # limitations under the License.
 
 import argparse
+
+from .parser import register_parser_specific_args
 from .pipeline.offline_insight_pipeline import OfflineInsightPipeline
+from .visualizer import register_visualizer_specific_args
 
 SUPPORTED_PIPELINE_TYPES = {"OfflineInsightPipeline": OfflineInsightPipeline}
 
@@ -34,16 +37,21 @@ def main():
     arg_parser.add_argument(
         "--input-type",
         default="multi_json_mstx",
-        help="Input data type. Supported: 'multi_json_mstx', 'multi_json_torch', 'multi_json_nvtx' ",
+        help=(
+            "Input data type. Supported: 'multi_json_mstx', 'multi_json_torch', "
+            "'multi_json_nvtx', 'gmm_data'"
+        ),
     )
     arg_parser.add_argument(
         "--profiler-type",
         default="mstx",
-        help="Profiler type: mstx, torch, nvtx",
+        help="Profiler type: mstx, torch, nvtx, gmm",
     )
     arg_parser.add_argument("--output-path", default="output", help="Output path")
     arg_parser.add_argument(
-        "--vis-type", default="html", help="Visualization type, supported html"
+        "--vis-type",
+        default="html",
+        help="Visualization type, supported: html, gmm_heatmap",
     )
     arg_parser.add_argument("--rank-list", type=str, help="Rank id list", default="all")
     arg_parser.add_argument(
@@ -52,6 +60,9 @@ def main():
         help="Tool pipeline type",
         default="OfflineInsightPipeline",
     )
+
+    register_parser_specific_args(arg_parser)
+    register_visualizer_specific_args(arg_parser)
     config = arg_parser.parse_args()
 
     # Validate pipeline type

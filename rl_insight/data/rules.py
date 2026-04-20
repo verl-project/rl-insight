@@ -454,3 +454,36 @@ class NvtxJsonFieldValidRule(ValidationRule):
     @property
     def error_message(self) -> str:
         return self._error_message
+
+
+class GmmDataRule(ValidationRule):
+    """Validation rule for GMM data."""
+
+    def check(self, data: Any) -> bool:
+        if not isinstance(data, str):
+            self._error_message = "Data object is not a path"
+            return False
+        try:
+            root_path = Path(data)
+
+            if not root_path.exists():
+                self._error_message = f"Source path does not exist: {data}"
+                return False
+
+            group_list_files = list(root_path.rglob("*group_list.pt"))
+            if not group_list_files:
+                self._error_message = f"No group_list.pt files found in: {data}"
+                return False
+
+            valid_files = [f for f in group_list_files if "dump_tensor_data" in f.parts]
+            if not valid_files:
+                self._error_message = (
+                    "No group_list.pt files found in dump_tensor_data directories "
+                    f"under: {data}"
+                )
+                return False
+
+            return True
+        except Exception as e:
+            self._error_message = f"Error checking GMM data: {e}"
+            return False

@@ -28,6 +28,7 @@ from .rules import (
     NvtxJsonFileExistsRule,
     NvtxJsonFieldValidRule,
     PathExistsRule,
+    GmmDataRule,
     ValidationRule,
     TorchJsonFileExistsRule,
     TorchJsonFieldValidRule,
@@ -43,6 +44,7 @@ class DataEnum(Enum):
     MULTI_JSON_TORCH = "multi_json_torch"
     MULTI_JSON_NVTX = "multi_json_nvtx"
     VERL_LOG = "verl_log"
+    GMM_DATA = "gmm_data"
     # output data type of parser, input data type of visualizer
     SUMMARY_EVENT = "summary_event"
     # other data type
@@ -69,6 +71,7 @@ class DataChecker:
             NvtxJsonFieldValidRule(),
         ],
         DataEnum.VERL_LOG: [VerlLogExistRule(), VerlLogKeyParamsRule()],
+        DataEnum.GMM_DATA: [PathExistsRule(), GmmDataRule()],
         DataEnum.SUMMARY_EVENT: [
             ParserOutputValidatorRule(
                 domains=["role", "name", "rank_id", "start_time_ms", "end_time_ms"]

@@ -15,16 +15,17 @@
 import os
 import stat
 from dataclasses import dataclass
-from typing import TypedDict, Literal
+from typing import TypedDict, Literal, Optional
 
 
 class DataMap(TypedDict):
     rank_id: int
     role: str
     profiler_data_path: str
+    step: Optional[int]
 
 
-class EventRow(TypedDict):
+class EventRow(TypedDict, total=False):
     name: str
     role: str
     domain: str
@@ -33,6 +34,10 @@ class EventRow(TypedDict):
     duration_ms: float
     rank_id: int
     tid: int | str
+    step: Optional[int]
+    stage: Optional[int]
+    expert_index: Optional[int]
+    load: Optional[float]
 
 
 @dataclass
