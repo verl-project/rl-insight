@@ -201,8 +201,6 @@ class GmmParser(BaseClusterParser):
         if not self.events_summary.empty:
             logger.info(f"DataFrame columns: {list(self.events_summary.columns)}")
             logger.info(f"Sample data: {self.events_summary.head()}")
-        # debug用，导出excel文件查看数据
-        self.events_summary.to_excel("gmm_group_list.xlsx", index=False)
 
     def get_data(self) -> pd.DataFrame:
         """Return the parsed DataFrame"""

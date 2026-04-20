@@ -1,45 +1,64 @@
-#!/bin/bash
-# Copyright (c) 2025 verl-project authors.
+#!/usr/bin/env bash
 
-# Configuration
-INPUT_PATH="/opt/tiger/Open-VeOmni/wjw/gmm_dump"
-OUTPUT_PATH="/opt/tiger/Open-VeOmni/wjw/output/gmm_group_list_heatmap.png"
-RANK=""
-DPI=200
-CMAP="viridis"
-# Optional: specify step and role
-STEP=""
-ROLE=""
+set -euo pipefail
 
-# Run through OfflineInsightPipeline
+# Configuration with environment variable defaults
+GMM_DATA_PATH="${GMM_DATA_PATH:-}"
+OUTPUT_PATH="${OUTPUT_PATH:-./output/gmm_heatmap.png}"
+RANK_LIST="${RANK_LIST:-all}"
+DPI="${DPI:-200}"
+CMAP="${CMAP:-viridis}"
+STEP="${STEP:-}"
+ROLE="${ROLE:-}"
+
+# Display configuration
+echo "=========================================="
+echo "GMM Expert Load Heatmap Visualization"
+echo "=========================================="
+echo "Input Path:    ${GMM_DATA_PATH}"
+echo "Output Path:   ${OUTPUT_PATH}"
+echo "Rank List:     ${RANK_LIST}"
+echo "DPI:           ${DPI}"
+echo "Colormap:      ${CMAP}"
+echo "Step:          ${STEP:-all}"
+echo "Role:          ${ROLE:-all}"
+echo "=========================================="
+
+# Build command
 cmd="python -m rl_insight.main \
-    --input-path \"$INPUT_PATH\" \
+    --input-path \"${GMM_DATA_PATH}\" \
     --input-type \"gmm_data\" \
     --profiler-type \"gmm\" \
     --vis-type \"gmm_heatmap\" \
-    --output-path \"$OUTPUT_PATH\" \
-    --rank-list \"$RANK\" \
-    --dpi \"$DPI\" \
-    --cmap \"$CMAP\""
+    --output-path \"${OUTPUT_PATH}\" \
+    --rank-list \"${RANK_LIST}\" \
+    --dpi \"${DPI}\" \
+    --cmap \"${CMAP}\""
 
 # Add step and role parameters if specified
-if [ -n "$STEP" ]; then
-    cmd="$cmd \
-    --step \"$STEP\""
+if [ -n "${STEP}" ]; then
+    cmd="${cmd} \
+    --step \"${STEP}\""
 fi
 
-if [ -n "$ROLE" ]; then
-    cmd="$cmd \
-    --role \"$ROLE\""
+if [ -n "${ROLE}" ]; then
+    cmd="${cmd} \
+    --role \"${ROLE}\""
 fi
 
 # Execute the command
-eval $cmd
+echo ">>> Generating GMM expert load heatmap..."
+eval ${cmd}
 
 # Check if the heatmap was generated successfully
-if [ -f "$OUTPUT_PATH" ]; then
-    echo "Heatmap generated successfully at: $OUTPUT_PATH"
+if [ -f "${OUTPUT_PATH}" ]; then
+    echo "=========================================="
+    echo ">>> Heatmap generated successfully!"
+    echo ">>> Output saved to: ${OUTPUT_PATH}"
+    echo "=========================================="
 else
-    echo "Failed to generate heatmap"
+    echo "=========================================="
+    echo ">>> Failed to generate heatmap"
+    echo "=========================================="
     exit 1
 fi
