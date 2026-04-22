@@ -33,7 +33,7 @@ class NvtxClusterParser(BaseClusterParser):
     def parse_analysis_data(
         self, profiler_data_path: str, rank_id: int, role: str
     ) -> list[EventRow]:
-        data: list[dict] = []
+        data: dict = {}
         events: list[EventRow] = []
         string_map: dict = {}
 
