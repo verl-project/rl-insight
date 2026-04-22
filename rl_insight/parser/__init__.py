@@ -14,6 +14,7 @@
 
 from .mstx_parser import MstxClusterParser
 from .torch_parser import TorchClusterParser
+from .nvtx_parser import NvtxClusterParser
 from .parser import (
     BaseClusterParser,
     get_cluster_parser_cls,
@@ -24,4 +25,5 @@ __all__ = [
     "get_cluster_parser_cls",
     "MstxClusterParser",
     "TorchClusterParser",
+    "NvtxClusterParser",
 ]

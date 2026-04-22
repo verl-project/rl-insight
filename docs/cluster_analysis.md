@@ -35,6 +35,8 @@ pip install -e .
 
 [VeRL NPU Profiling 教程](https://github.com/verl-project/verl/blob/main/docs/ascend_tutorial/profiling/ascend_profiling_zh.rst)
 
+[VeRL GPU Profiling 教程](https://github.com/verl-project/verl/blob/main/docs/perf/nsight_profiling.md)
+
 ### 2.2 执行分析脚本
 
 #### MSTX 使用示例
@@ -69,6 +71,23 @@ python -m rl_insight.main \
 bash examples/torch_profiler_exec.sh
 ```
 
+#### Nvtx Profiler 解析示例
+
+工具支持解析 PyTorch Profiler 采集的性能数据（`torch` 类型）。
+
+```bash
+python -m rl_insight.main \
+    --input-path <nvtx_profiling_data_path> \
+    --profiler-type nvtx \
+    --output-path <output_path>
+```
+
+或修改并直接使用 `examples/nvtx_exec.sh` 脚本:
+
+```bash
+bash examples/nvtx_exec.sh
+```
+
 ## 三、命令行参数
 
 以下说明与 `python -m rl_insight.main --help` 保持一致；若有出入以命令行帮助为准。
@@ -77,7 +96,7 @@ bash examples/torch_profiler_exec.sh
 |------|--------|----|
 | `--input-path` | （必填，无默认值） | Profiling 数据的根目录路径 |
 | `--input-type` | `multi_json` | 输入数据类型（多目录 JSON 布局等）|
-| `--profiler-type` | `mstx` | 性能数据种类：`mstx`、`torch` |
+| `--profiler-type` | `mstx` | 性能数据种类：`mstx`、`torch`、`nvtx` |
 | `--output-path` | `output` | 输出目录 |
 | `--vis-type` | `html` | 可视化类型（当前支持 `html`、`png`） |
 | `--rank-list` | `all` | Rank ID 列表（当前仅支持 `all`） |
@@ -127,5 +146,10 @@ bash examples/torch_profiler_exec.sh
    - 系统会自动过滤包含 `async_llm` 关键字的文件
    - 每个数据文件需包含有效的 `traceEvents` 和 `distributedInfo` 字段
    - Rank ID 将从 `distributedInfo.rank` 字段自动提取
+6. NVTX 数据满足以下要求：
+   - 需要设置discrete=True的方式进行profile数据采集，采集数据文件名后缀为nsys-rep
+   - 采集数据需要经过nsys解析为jsonl文件，文件格式为`worker_process_<PID>.<RID>.nsys-rep`都需要解析，解析命令为`nsys export --type jsonlines --force-overwrite=true -o "输出目录" "要转换的nsys-rep文件"`，更详细的解析命令请参考[Nvidia官方文档](https://docs.nvidia.com/nsight-systems/UserGuide/index.html#cli-export-command-switch-options)
+   - 输入路径下需包含文件名格式为 `worker_process_<PID>.<RID>.jsonl`的数据文件，即 上一步解析后的文件，且所有要解析的数据文件要在同一个目录下。
+   - 系统会自动筛选出满足`worker_process_<PID>.<RID>.jsonl`格式的文件
 
 目录与 JSON 字段的集中说明另见 [数据规格与格式说明](./data/data_specification.md)。运行时校验逻辑以 `rl_insight.data.DataChecker` 及 [`rl_insight/data/rules.py`](../rl_insight/data/rules.py) 中的规则定义为准。

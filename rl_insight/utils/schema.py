@@ -73,6 +73,9 @@ class Constant:
     TORCH_PROFILER_SUFFIX = ".json.gz"
     TORCH_PROFILER_ASYNC_LLM = "async_llm"
 
+    # for nvtx profile
+    NV_PROFILER_SUFFIX = ".jsonl"
+
     # result files type
     TEXT = "text"
     DB = "db"
