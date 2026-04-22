@@ -55,6 +55,7 @@ class DataChecker:
             MstxJsonFieldValidRule(),
         ],
         DataEnum.MULTI_JSON_TORCH: [],
+        DataEnum.MULTI_JSON_NVTX: [],
         DataEnum.VERL_LOG: [VerlLogExistRule(), VerlLogKeyParamsRule()],
         DataEnum.SUMMARY_EVENT: [
             ParserOutputValidatorRule(

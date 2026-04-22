@@ -33,9 +33,8 @@ class NvtxClusterParser(BaseClusterParser):
     def parse_analysis_data(
         self, profiler_data_path: str, rank_id: int, role: str
     ) -> list[EventRow]:
-        data: list[dict] = []
         events: list[EventRow] = []
-        string_map: dict = {}
+        string_map: dict[int, str] = {}
 
         # define regular expression for rank info search
         rank_pattern = re.compile(r'^RANK="?(\d+)"?$', re.IGNORECASE)
@@ -46,9 +45,13 @@ class NvtxClusterParser(BaseClusterParser):
                 line = line.strip()
                 if not line:
                     continue
-                data = json.loads(line)
+                data: dict = json.loads(line)
                 # id -> value
-                if data.get("table") == "StringIds" and "id" in data and "value" in data:
+                if (
+                    data.get("table") == "StringIds"
+                    and "id" in data
+                    and "value" in data
+                ):
                     string_map[data["id"]] = data["value"]
 
         global_start_time = None
@@ -67,8 +70,11 @@ class NvtxClusterParser(BaseClusterParser):
                 data = json.loads(line)
 
                 # get the rank info
-                if (data.get("table") == "META_DATA_CAPTURE" and
-                        "ENVIRONMENT_VARIABLE" in data.get("name", "")):
+                if data.get(
+                    "table"
+                ) == "META_DATA_CAPTURE" and "ENVIRONMENT_VARIABLE" in data.get(
+                    "name", ""
+                ):
                     value = data.get("value", "").strip()
                     match = rank_pattern.match(value)
                     if match:
@@ -86,21 +92,15 @@ class NvtxClusterParser(BaseClusterParser):
                     end_ids = data.get("end", None)
 
         if rank_id < 0:
-            logger.warning(
-                f"Path {profiler_data_path}: No valid rank for Analysis"
-            )
+            logger.warning(f"Path {profiler_data_path}: No valid rank for Analysis")
             return events
 
         if role is None:
-            logger.warning(
-                f"Path {profiler_data_path}: No valid role for Analysis"
-            )
+            logger.warning(f"Path {profiler_data_path}: No valid role for Analysis")
             return events
 
         if start_ids is None or end_ids is None:
-            logger.warning(
-                f"Path {profiler_data_path}: No valid timing for Analysis"
-            )
+            logger.warning(f"Path {profiler_data_path}: No valid timing for Analysis")
             return events
 
         # Convert to milliseconds
@@ -130,11 +130,12 @@ class NvtxClusterParser(BaseClusterParser):
         for root, dirs, files in os.walk(input_path):
             for file_name in files:
                 file_name_parts = file_name.split(".")
-                if file_name.endswith(Constant.NV_PROFILER_SUFFIX) and len(file_name_parts) == 3:
+                if (
+                    file_name.endswith(Constant.NV_PROFILER_SUFFIX)
+                    and len(file_name_parts) == 3
+                ):
                     path = os.path.join(root, file_name)
-                    nsight_dirs.append(
-                        {"role": file_name_parts[1], "path": path}
-                    )
+                    nsight_dirs.append({"role": file_name_parts[1], "path": path})
         data_map = self._get_data_map(nsight_dirs)
         data_maps = self._get_rank_path_with_role(data_map)
         return data_maps
@@ -174,7 +175,7 @@ class NvtxClusterParser(BaseClusterParser):
             for profiler_data_path in file_list:
                 data_path_dict: DataMap = {
                     Constant.RANK_ID: -1,  # rank_id will be loaded from jsonl file.
-                    Constant.ROLE: task_role, # real role name will be loaded from jsonl file
+                    Constant.ROLE: task_role,  # real role name will be loaded from jsonl file
                     Constant.PROFILER_DATA_PATH: "",
                 }
 

@@ -25,7 +25,6 @@ Tests cover:
 
 import json
 import os
-import tempfile
 import pytest
 from unittest.mock import patch
 
@@ -47,27 +46,28 @@ def create_test_nvtx_jsonl(tmp_path, filename: str = "worker_process_1234.5.json
         json.dumps({"id": 107, "table": "StringIds", "value": "compute_values"}),
         json.dumps({"id": 61, "table": "StringIds", "value": "test_func"}),
         # RANK environment variable
-        json.dumps({
-            "name": "PROCESS_0:ENVIRONMENT_VARIABLE",
-            "table": "META_DATA_CAPTURE",
-            "value": "RANK=\"0\""
-        }),
+        json.dumps(
+            {
+                "name": "PROCESS_0:ENVIRONMENT_VARIABLE",
+                "table": "META_DATA_CAPTURE",
+                "value": 'RANK="0"',
+            }
+        ),
         # Global start time
-        json.dumps({
-            "table": "ANALYSIS_DETAILS",
-            "startTime": 1000000
-        }),
+        json.dumps({"table": "ANALYSIS_DETAILS", "startTime": 1000000}),
         # Key NVTX event with eventType=60
-        json.dumps({
-            "domainId": 0,
-            "end": 2487364321,
-            "eventType": 60,
-            "globalTid": 282747880941798,
-            "rangeId": 2,
-            "start": 18624241,
-            "table": "NVTX_EVENTS",
-            "textId": 107
-        }),
+        json.dumps(
+            {
+                "domainId": 0,
+                "end": 2487364321,
+                "eventType": 60,
+                "globalTid": 282747880941798,
+                "rangeId": 2,
+                "start": 18624241,
+                "table": "NVTX_EVENTS",
+                "textId": 107,
+            }
+        ),
     ]
 
     with open(file_path, "w", encoding="utf-8") as f:
@@ -99,9 +99,7 @@ class TestNvtxClusterParser:
 
         # Execute parsing
         events = self.parser.parse_analysis_data(
-            profiler_data_path=file_path,
-            rank_id=-1,
-            role="test_role"
+            profiler_data_path=file_path, rank_id=-1, role="test_role"
         )
 
         # Validate results
@@ -134,7 +132,9 @@ class TestNvtxClusterParser:
         """Test parsing returns empty list when textId has no matching StringIds entry"""
         file_path = os.path.join(tmp_path, "worker_process_1234.5.jsonl")
         test_lines = [
-            json.dumps({"table": "META_DATA_CAPTURE", "name": "...", "value": "RANK=0"}),
+            json.dumps(
+                {"table": "META_DATA_CAPTURE", "name": "...", "value": "RANK=0"}
+            ),
             json.dumps({"table": "ANALYSIS_DETAILS", "startTime": 1000000}),
             json.dumps({"eventType": 60, "textId": 9999, "start": 100, "end": 200}),
         ]
@@ -187,7 +187,7 @@ class TestNvtxClusterParser:
         # Mock file paths (do not need to exist physically)
         test_map = {
             "actor": ["/tmp/test1.jsonl", "/tmp/test2.jsonl"],
-            "learner": ["/tmp/test3.jsonl"]
+            "learner": ["/tmp/test3.jsonl"],
         }
 
         # Mock os.path.exists to always return True for unit test
