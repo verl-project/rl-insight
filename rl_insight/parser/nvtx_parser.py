@@ -59,7 +59,7 @@ class NvtxClusterParser(BaseClusterParser):
         end_ids = None
 
         # process id can obtain from file name directly
-        process_id = profiler_data_path.split(".")[-3].split("_")[-1]
+        process_id = os.path.basename(profiler_data_path).split(".")[-3].split("_")[-1]
 
         # find the item that eventType=60，get the textId，than look up string_map to get the role name
         with open(profiler_data_path, "r", encoding="utf-8") as f:
