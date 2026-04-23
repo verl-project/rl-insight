@@ -73,7 +73,7 @@ bash examples/torch_profiler_exec.sh
 
 #### Nvtx Profiler 解析示例
 
-工具支持解析 PyTorch Profiler 采集的性能数据（`torch` 类型）。
+工具支持解析 Nvtx Profiler 采集的性能数据（'nvtx' 类型）。
 
 ```bash
 python -m rl_insight.main \
