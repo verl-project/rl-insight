@@ -86,8 +86,8 @@ class NvtxClusterParser(BaseClusterParser):
 
                 # get role, start_ids, end_ids
                 if data.get("eventType") == 60:
-                    text_id = data.get("textId", None)
-                    role = string_map.get(text_id, None)
+                    text_id = data.get("textId", -1)
+                    role = string_map.get(text_id, "")
                     start_ids = data.get("start", None)
                     end_ids = data.get("end", None)
 
@@ -95,7 +95,7 @@ class NvtxClusterParser(BaseClusterParser):
             logger.warning(f"Path {profiler_data_path}: No valid rank for Analysis")
             return events
 
-        if role is None:
+        if not role:
             logger.warning(f"Path {profiler_data_path}: No valid role for Analysis")
             return events
 

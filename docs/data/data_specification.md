@@ -93,7 +93,32 @@
 ]
 ```
 
-## 三、生成summary_event数据 格式示例
+## 三、NVTX Profiling 数据
+
+### 目录结构
+
+```text
+<profile-data-path>/
+  ├── worker_process_*.*.jsonl
+  └── worker_process_*.*.jsonl
+```
+
+### worker_process_*.*.jsonl 要点
+
+- jsonl文件包括以`color`开头的条目，条目中的`eventType`等于60，且包含`start`、`end`、`textId`字段
+- jsonl文件需有包括全局时间信息的条目，该条目中有`startTime`信息
+- jsonl文件需有包含RANK信息的条目，对应的，该条目的`value`中有`RANK`信息
+
+### 内容示例（节选）
+
+```jsonl
+{"id":38,"table":"StringIds","value":"compute_log_prob"}
+{"duration":21068815496,"globalVid":281474976710656,"startTime":6589107243593703,"stopTime":6589128312409199,"table":"ANALYSIS_DETAILS"}
+{"color":255,"domainId":0,"end":21019655556,"eventType":60,"globalTid":282747880941798,"rangeId":1,"start":20979323,"table":"NVTX_EVENTS","textId":38}
+{"name":"PROCESS_0:ENVIRONMENT_VARIABLE","table":"META_DATA_CAPTURE","value":"RANK=\"0\""}
+```
+
+## 四、生成summary_event数据 格式示例
 
 ```
 <summary-event-data-path>/
