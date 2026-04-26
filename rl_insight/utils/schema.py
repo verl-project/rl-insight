@@ -34,10 +34,16 @@ class EventRow(TypedDict, total=False):
     duration_ms: float
     rank_id: int
     tid: int | str
-    step: Optional[int]
-    stage: Optional[int]
-    expert_index: Optional[int]
-    load: Optional[float]
+
+
+
+class GmmRow(TypedDict, total=False):
+    role: str
+    rank_id: int # or optional?
+    step: int
+    stage: int
+    expert_index: int
+    load: float
 
 
 @dataclass

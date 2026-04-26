@@ -47,6 +47,7 @@ class DataEnum(Enum):
     GMM_DATA = "gmm_data"
     # output data type of parser, input data type of visualizer
     SUMMARY_EVENT = "summary_event"
+    GMM_SUMMARY = "gmm_summary"
     # other data type
     UNKNOWN = "unknown"
 
@@ -75,6 +76,11 @@ class DataChecker:
         DataEnum.SUMMARY_EVENT: [
             ParserOutputValidatorRule(
                 domains=["role", "name", "rank_id", "start_time_ms", "end_time_ms"]
+            )
+        ],
+        DataEnum.GMM_SUMMARY: [
+            ParserOutputValidatorRule(
+                domains=["role", "rank_id", "step", "stage", "expert_index", "load"]
             )
         ],
         DataEnum.UNKNOWN: [],
