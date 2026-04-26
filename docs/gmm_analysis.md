@@ -70,9 +70,9 @@ bash examples/gmm_exec.sh
 | `--vis-type` | `html` | 可视化类型，GMM 功能需设置为 `gmm_heatmap` |
 | `--rank-list` | `all` | Rank ID 列表，默认 `all` 表示所有 rank,可指定多个 rank 用逗号分隔 |
 | `--pipeline-type` | `OfflineInsightPipeline` | 流水线实现类型 |
-| `--step` | 无默认值 | 特定的 step 进行可视化（可选） |
+| `--step` | 无默认值 | 特定的 step 进行可视化（可选，支持 `1` 或 `1,2`） |
 | `--role` | 无默认值 | 特定的 role 进行可视化（可选） |
-| `--rank` | 无默认值 | 特定的 rank 进行可视化（可选） |
+| `--gmm-per-layer` | 3 | 每个 MoE layer 前向阶段预期的 grouped_matmul 次数，用于 actor_update 前向截断判定 |
 | `--dpi` | 150 | 热力图输出的 DPI（默认 150） |
 | `--cmap` | viridis | 热力图的颜色映射（默认 viridis） |
 
@@ -106,8 +106,9 @@ bash examples/gmm_exec.sh
 
 1. GMM 热力图功能需要使用 `--input-type gmm_data` 和 `--profiler-type gmm` 参数
 2. 当 `--output-path` 只指定文件夹路径时，会在该文件夹中生成 `gmm_heatmap.png` 文件
-3. 当不指定 `--step`、`--role` 或 `--rank` 参数时，默认显示所有数据
+3. 当不指定 `--step`、`--role` 或 `--rank-list` 参数时，默认显示所有数据
 4. 对于大量数据，工具会自动调整图表大小和标签显示密度，确保可读性
 5. 数据文件需包含有效的专家负载数据，包括 step、role、rank_id、stage、expert_index 和 load 等字段
+6. 若你的模型实现中每层 grouped_matmul 次数不等于 3，请显式设置 `--gmm-per-layer` 以获得更准确的 actor_update 前向阶段截断结果
 
 目录与 JSON 字段的集中说明另见 [数据规格与格式说明](./data/data_specification.md)。运行时校验逻辑以 `rl_insight.data.DataChecker` 及 [`rl_insight/data/rules.py`](../rl_insight/data/rules.py) 中的规则定义为准。

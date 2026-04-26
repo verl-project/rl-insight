@@ -13,8 +13,9 @@ and visualization.
    :maxdepth: 2
    :caption: Overview
 
+   Architecture <overview/architecture>
    RL Timeline quickstart <overview/RL_Timeline_quickstart>
-   Architecture<overview/architecture>
+   GMM Expert Load Heatmap <gmm_analysis>
 
 .. toctree::
    :maxdepth: 2

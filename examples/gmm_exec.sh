@@ -8,6 +8,7 @@ OUTPUT_PATH="${OUTPUT_PATH:-./output/gmm_heatmap.png}"
 RANK_LIST="${RANK_LIST:-all}"
 DPI="${DPI:-200}"
 CMAP="${CMAP:-viridis}"
+GMM_PER_LAYER="${GMM_PER_LAYER:-3}"
 STEP="${STEP:-}"
 ROLE="${ROLE:-}"
 
@@ -20,6 +21,7 @@ echo "Output Path:   ${OUTPUT_PATH}"
 echo "Rank List:     ${RANK_LIST}"
 echo "DPI:           ${DPI}"
 echo "Colormap:      ${CMAP}"
+echo "GMM/Layer:     ${GMM_PER_LAYER}"
 echo "Step:          ${STEP:-all}"
 echo "Role:          ${ROLE:-all}"
 echo "=========================================="
@@ -33,7 +35,8 @@ cmd="python -m rl_insight.main \
     --output-path \"${OUTPUT_PATH}\" \
     --rank-list \"${RANK_LIST}\" \
     --dpi \"${DPI}\" \
-    --cmap \"${CMAP}\""
+    --cmap \"${CMAP}\" \
+    --gmm-per-layer \"${GMM_PER_LAYER}\""
 
 # Add step and role parameters if specified
 if [ -n "${STEP}" ]; then
