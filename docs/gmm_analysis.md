@@ -35,6 +35,35 @@ pip install -e .
 [VeRL 集成 msprobe 数据采集](https://github.com/verl-project/verl/pull/5186)
 [VeRL 采集专家负载数据实践](https://github.com/verl-project/verl/issues/5985)
 
+#### 输入目录结构说明
+
+`gmm_parser` 当前按 `step -> role -> rank -> dump_tensor_data -> group_list.pt` 的目录语义解析数据。推荐输入目录结构如下：
+
+```text
+gmm_dump/
+├── step_1/                                # 训练步骤
+│   ├── actor_compute_log_prob/            # 角色/阶段
+│   │   └── rank0/                         # Rank ID
+│   │       └── dump_tensor_data/          # 张量数据目录
+│   │           ├── NPU.npu_grouped_matmul.0.forward.kwargs.group_list.pt
+│   │           ├── NPU.npu_grouped_matmul.1.forward.kwargs.group_list.pt
+│   │           └── ...                    # 多个 GMM 算子的 group_list.pt 文件
+│   └── actor_update/
+│       └── rank0/
+│           └── dump_tensor_data/
+│               ├── NPU.npu_grouped_matmul.0.forward.kwargs.group_list.pt
+│               └── ...
+├── step_2/
+└── ...
+```
+
+路径字段含义：
+
+- `step_<n>`：训练 step（对应 `--step` 过滤）
+- `<role>`：角色名（对应 `--role` 过滤）
+- `rank<n>`：rank id（对应 `--rank-list` 过滤）
+- `dump_tensor_data/*.group_list.pt`：MoE grouped_matmul 的专家负载张量文件
+
 ### 2.2 执行分析脚本
 
 #### GMM 热力图使用示例
