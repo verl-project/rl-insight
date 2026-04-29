@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import glob
+import gzip
 import json
 import os
 from typing import Any, List, Optional
@@ -240,6 +241,110 @@ class ParserOutputValidatorRule(ValidationRule):
             )
             return False
         return True
+
+
+class TorchJsonFileExistsRule(ValidationRule):
+    """valid Torch *.json.gz files is existed in 'torch_profile' sub path"""
+
+    def check(self, data) -> bool:
+        if not isinstance(data, str):
+            self._error_message = "Data object is not a path"
+            return False
+        self._error_message = ""
+        try:
+            root_path = Path(data)  # 路径：torch_profile
+            is_success = True
+            sub_dirs_no_json: List = []
+
+            if not root_path.exists():
+                self._error_message = f"Source path does not exist: {data}"
+                return False
+            for subdir in root_path.iterdir():
+                if subdir.is_dir():
+                    gz_files = list(subdir.glob("*.json.gz"))
+                    if not gz_files:
+                        sub_dirs_no_json.append(str(subdir))
+                        is_success = False
+            if len(sub_dirs_no_json) > 0:
+                paths = "; ".join(sub_dirs_no_json)
+                self._error_message = f"The path '{paths}' has no prof_*.json.gz file"
+            return is_success
+
+        except Exception as e:
+            self._error_message = f"Error checking path {data}: {e}"
+            return False
+
+    @property
+    def error_message(self) -> str:
+        return self._error_message
+
+
+class TorchJsonFieldValidRule(ValidationRule):
+    """valid torch *.json.gz files JSON format"""
+
+    def check(self, data) -> bool:
+        if not isinstance(data, str):
+            self._error_message = "Data object is not a path"
+            return False
+        self._error_message = ""
+        try:
+            root_path = Path(data)
+
+            if not root_path.exists():
+                self._error_message = f"Source path does not exist: {data}"
+                return False
+            for item in os.listdir(root_path):
+                item_path = os.path.join(root_path, item)
+                # 检查是否为目录
+                if os.path.isdir(item_path):
+                    # 查找该子目录下所有.json.gz文件
+                    json_gz_pattern = os.path.join(item_path, "*.json.gz")
+                    json_gz_files = glob.glob(json_gz_pattern)
+                    for json_gz_file in json_gz_files:
+                        # 打开并读取.json.gz文件
+                        with gzip.open(json_gz_file, "rt", encoding="utf-8") as f:
+                            # 加载JSON数据
+                            json_data = json.load(f)
+                        if len(json_data) == 0:
+                            self._error_message = f"File is empty: {json_gz_file}"
+                            return False
+
+                        distributed_info = json_data.get("distributedInfo", {})
+                        required_keys = {"rank", "world_size", "backend"}
+                        missing_keys = required_keys - distributed_info.keys()
+                        if missing_keys:
+                            self._error_message = (
+                                f"The 'distributedInfo' field missing: {missing_keys} in FilePath: "
+                                f"{json_gz_file}"
+                            )
+                            return False
+                        trace_events = json_data.get("traceEvents", [])
+                        trace_valid = (
+                            isinstance(trace_events, list) and len(trace_events) > 0
+                        )
+                        if not trace_valid:
+                            self._error_message = f"The 'traceEvents' field is empty in FilePath: {json_gz_file}"
+                            return False
+
+                        required_keys = {"ph", "name", "pid", "tid", "ts"}
+
+                        for event in trace_events:
+                            missing_keys = required_keys - event.keys()
+                            if missing_keys:
+                                self._error_message = (
+                                    f"The 'traceEvents' field missing: {missing_keys} in FilePath: "
+                                    f"{json_gz_file}"
+                                )
+                                return False
+            return True
+
+        except Exception as e:
+            self._error_message = f"Error checking path {data}: {e}"
+            return False
+
+    @property
+    def error_message(self) -> str:
+        return self._error_message
 
 
 class NvtxJsonFileExistsRule(ValidationRule):

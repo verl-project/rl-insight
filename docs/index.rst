@@ -13,20 +13,28 @@ and visualization.
    :maxdepth: 2
    :caption: Overview
 
-   Architecture & developer guideline <architecture_and_guideline>
-   RL Timeline quickstart <cluster_analysis>
+   RL Timeline quickstart <overview/RL_Timeline_quickstart>
+   Architecture<overview/architecture>
 
 .. toctree::
    :maxdepth: 2
    :caption: Data Specification
 
-   data/data_specification
+   Data Specification and Format Guide <data/data_specification>
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Getting Started
+   :maxdepth: 2
+   :caption: Utils
 
-   README <../README.md>
+   MSTX Preprocessing <utils/mstx_preprocessing>
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Developer Guides
+
+   Extending Guide <developer_guides/extending_guide>
+   BaseClusterParser Interface<developer_guides/baseclusterparser_interface>
+   DataRule Extending Guide <developer_guides/rule_extending_guide>
 
 Contribution
 -------------

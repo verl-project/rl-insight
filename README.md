@@ -8,7 +8,7 @@
 
 </div>
 
-In RL-Insight, we define [a general pipeline](https://github.com/verl-project/rl-insight/blob/main/docs/architecture_and_guideline.md) for performance insights. A series of capabilities will be built based on this framework. With a well-defined data protocol, these capabilities can generalize across training frameworks.
+In RL-Insight, we define [a general pipeline](https://github.com/verl-project/rl-insight/blob/main/docs/overview/architecture.md) for performance insights. A series of capabilities will be built based on this framework. With a well-defined data protocol, these capabilities can generalize across training frameworks.
 
 <div align="center">
  <img src="https://github.com/verl-project/rl-insight/blob/main/assets/rl_insight_framework.svg" width="600" alt="rl-insight-arch.png">
@@ -30,8 +30,8 @@ In RL-Insight, we define [a general pipeline](https://github.com/verl-project/rl
 
 **Quickstart:**
 
-- [Offline Cluster Analysis Quickstart](https://github.com/verl-project/rl-insight/blob/main/docs/cluster_analysis.md)
+- [Offline Cluster Analysis Quickstart](https://github.com/verl-project/rl-insight/blob/main/docs/overview/RL_Timeline_quickstart.md)
 
 ## Contribution Guide
 
-See [contributions guide](https://github.com/verl-project/rl-insight/blob/main/CONTRIBUTING.md) and [architecture & guideline](https://github.com/verl-project/rl-insight/blob/main/docs/architecture_and_guideline.md)
+See [contributions guide](https://github.com/verl-project/rl-insight/blob/main/CONTRIBUTING.md) and [architecture & guideline](https://github.com/verl-project/rl-insight/blob/main/docs/overview/architecture.md)
