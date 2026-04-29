@@ -138,7 +138,7 @@ class NvtxClusterParser(BaseClusterParser):
         data_maps = self._get_rank_path_with_role(data_map)
         return data_maps
 
-    def _get_data_map(self, nsight_dirs) -> dict[tuple[str, int], list[str]]:
+    def _get_data_map(self, nsight_dirs) -> dict[str, list[str]]:
         data_map = {}
         role_map = defaultdict(list)
 
