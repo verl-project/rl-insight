@@ -35,11 +35,15 @@ class NvtxClusterParser(BaseClusterParser):
     ) -> list[EventRow]:
         events: list[EventRow] = []
         string_map: dict[int, str] = {}
+        raw_events = []
+        global_start_time = None
 
         # define regular expression for rank info search
         rank_pattern = re.compile(r'^RANK="?(\d+)"?$', re.IGNORECASE)
 
-        # read jsonl file, get the mapping relation between id and value (for role searching)
+        # process id can obtain from file name directly
+        process_id = os.path.basename(profiler_data_path).split(".")[-3].split("_")[-1]
+
         with open(profiler_data_path, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
@@ -53,22 +57,6 @@ class NvtxClusterParser(BaseClusterParser):
                     and "value" in data
                 ):
                     string_map[data["id"]] = data["value"]
-
-        global_start_time = None
-        start_ids = None
-        end_ids = None
-
-        # process id can obtain from file name directly
-        process_id = os.path.basename(profiler_data_path).split(".")[-3].split("_")[-1]
-
-        # find the item that eventType=60，get the textId，than look up string_map to get the role name
-        with open(profiler_data_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                data = json.loads(line)
-
                 # get the rank info
                 if data.get(
                     "table"
@@ -79,48 +67,58 @@ class NvtxClusterParser(BaseClusterParser):
                     match = rank_pattern.match(value)
                     if match:
                         rank_id = int(match.group(1))
-
                 # get the global start time
                 if data.get("table") == "ANALYSIS_DETAILS":
                     global_start_time = data.get("startTime", None)
-
                 # get role, start_ids, end_ids
                 if data.get("eventType") == 60:
-                    text_id = data.get("textId", -1)
-                    role = string_map.get(text_id, "")
-                    start_ids = data.get("start", None)
-                    end_ids = data.get("end", None)
+                    raw_events.append(data)
 
         if rank_id < 0:
             logger.warning(f"Path {profiler_data_path}: No valid rank for Analysis")
             return events
 
-        if not role:
-            logger.warning(f"Path {profiler_data_path}: No valid role for Analysis")
+        if global_start_time is None:
+            logger.warning(
+                f"Path {profiler_data_path}: No valid global start time for Analysis"
+            )
             return events
 
-        if start_ids is None or end_ids is None:
-            logger.warning(f"Path {profiler_data_path}: No valid timing for Analysis")
-            return events
-
-        # Convert to milliseconds
         us_to_ms = Constant.US_TO_MS
         ns_to_us = Constant.NS_TO_US
-        start_time_ms = (start_ids + global_start_time) / us_to_ms / ns_to_us
-        duration_ms = (end_ids - start_ids) / us_to_ms / ns_to_us
-        end_time_ms = start_time_ms + duration_ms
 
-        event_data: EventRow = {
-            "name": role,
-            "role": role,
-            "domain": "default",
-            "start_time_ms": start_time_ms,
-            "end_time_ms": end_time_ms,
-            "duration_ms": duration_ms,
-            "rank_id": rank_id,
-            "tid": process_id,
-        }
-        events.append(event_data)
+        for raw_event in raw_events:
+            text_id = raw_event.get("textId", -1)
+            role = string_map.get(text_id, "")
+            start_ids = raw_event.get("start")
+            end_ids = raw_event.get("end")
+
+            if not role:
+                logger.warning(f"Path {profiler_data_path}: No valid role for Analysis")
+                return events
+
+            if start_ids is None or end_ids is None:
+                logger.warning(
+                    f"Path {profiler_data_path}: No valid timing for Analysis"
+                )
+                return events
+
+            # Convert to milliseconds
+            start_time_ms = (start_ids + global_start_time) / us_to_ms / ns_to_us
+            duration_ms = (end_ids - start_ids) / us_to_ms / ns_to_us
+            end_time_ms = start_time_ms + duration_ms
+
+            event_data: EventRow = {
+                "name": role,
+                "role": role,
+                "domain": "default",
+                "start_time_ms": start_time_ms,
+                "end_time_ms": end_time_ms,
+                "duration_ms": duration_ms,
+                "rank_id": rank_id,
+                "tid": process_id,
+            }
+            events.append(event_data)
 
         return events
 

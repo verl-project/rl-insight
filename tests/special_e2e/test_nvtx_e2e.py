@@ -34,7 +34,7 @@ def test_nvtx_e2e_with_input_path(monkeypatch, tmp_path):
         "main.py",
         f"--input-path={input_dir}",
         f"--output-path={output_dir}",
-        "--profiler-type=torch",
+        "--profiler-type=nvtx",
         "--input-type=multi_json_nvtx",
     ]
     monkeypatch.setattr(sys, "argv", test_args)
