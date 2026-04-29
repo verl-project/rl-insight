@@ -25,6 +25,8 @@ from .rules import (
     ParserOutputValidatorRule,
     MstxJsonFileExistsRule,
     MstxJsonFieldValidRule,
+    NvtxJsonFileExistsRule,
+    NvtxJsonFieldValidRule,
     PathExistsRule,
     ValidationRule,
 )
@@ -55,7 +57,11 @@ class DataChecker:
             MstxJsonFieldValidRule(),
         ],
         DataEnum.MULTI_JSON_TORCH: [],
-        DataEnum.MULTI_JSON_NVTX: [],
+        DataEnum.MULTI_JSON_NVTX: [
+            PathExistsRule(),
+            NvtxJsonFileExistsRule(),
+            NvtxJsonFieldValidRule(),
+        ],
         DataEnum.VERL_LOG: [VerlLogExistRule(), VerlLogKeyParamsRule()],
         DataEnum.SUMMARY_EVENT: [
             ParserOutputValidatorRule(

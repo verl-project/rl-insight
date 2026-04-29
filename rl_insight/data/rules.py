@@ -240,3 +240,112 @@ class ParserOutputValidatorRule(ValidationRule):
             )
             return False
         return True
+
+
+class NvtxJsonFileExistsRule(ValidationRule):
+    """valid worker_process.*.*.jsonl files is existed in 'nvtx_profile' sub path"""
+
+    def check(self, data) -> bool:
+        if not isinstance(data, str):
+            self._error_message = "Data object is not a path"
+            return False
+        self._error_message = ""
+        try:
+            root_path = Path(data)
+
+            if not root_path.exists():
+                self._error_message = f"Source path does not exist: {data}"
+                return False
+
+            profiler_info_filename = "worker_process_*.*.jsonl"
+
+            worker_pattern = str(root_path / profiler_info_filename)
+            worker_files = glob.glob(worker_pattern)
+
+            if not worker_files:
+                self._error_message = (
+                    f"No worker_process_*.*.jsonl file found in: {data}"
+                )
+                return False
+
+            return True
+        except Exception as e:
+            self._error_message = f"Error checking path {data}: {e}"
+            return False
+
+    @property
+    def error_message(self) -> str:
+        return self._error_message
+
+
+class NvtxJsonFieldValidRule(ValidationRule):
+    """valid nvtx worker_process_*.*.jsonl files JSON format"""
+
+    def check(self, data) -> bool:
+        if not isinstance(data, str):
+            self._error_message = "Data object is not a path"
+            return False
+        self._error_message = ""
+        try:
+            root_path = Path(data)
+
+            if not root_path.exists():
+                self._error_message = f"Source path does not exist: {data}"
+                return False
+
+            profiler_info_filename = "worker_process_*.*.jsonl"
+
+            worker_pattern = str(root_path / profiler_info_filename)
+            worker_files = glob.glob(worker_pattern)
+
+            required_for_event = {"start", "end", "textId"}
+
+            for worker_file in worker_files:
+                worker_file_obj = Path(worker_file)
+
+                if worker_file_obj.stat().st_size == 0:
+                    self._error_message = f"JSONL file is empty: {worker_file}"
+                    return False
+
+                start_time_is_exist = False
+                specific_event_type_is_exist = False
+                missing_keys = []
+
+                with open(worker_file, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        json_data = json.loads(line)
+
+                        if "startTime" in json_data:
+                            start_time_is_exist = True
+
+                        if json_data.get("eventType") == 60:
+                            specific_event_type_is_exist = True
+                            for key in required_for_event:
+                                if key not in json_data:
+                                    missing_keys.append(key)
+                            if missing_keys:
+                                self._error_message = (
+                                    f"File field is missing: {missing_keys} in FilePath: "
+                                    f"{worker_file}"
+                                )
+                                return False
+
+                if not start_time_is_exist:
+                    self._error_message = f"No 'startTime' found in file: {worker_file}"
+                    return False
+                if not specific_event_type_is_exist:
+                    self._error_message = f"No 'eventType' which equals to 60 found in file: {worker_file}"
+                    return False
+
+            return True
+
+        except Exception as e:
+            self._error_message = f"Error checking path {data}: {e}"
+            return False
+
+    @property
+    def error_message(self) -> str:
+        return self._error_message

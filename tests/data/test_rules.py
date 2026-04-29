@@ -17,9 +17,11 @@ from rl_insight.data.rules import (
     PathExistsRule,
     MstxJsonFileExistsRule,
     MstxJsonFieldValidRule,
+    NvtxJsonFileExistsRule,
+    NvtxJsonFieldValidRule,
 )
 from rl_insight.data.verl_log_rules import VerlLogExistRule, VerlLogKeyParamsRule
-from test_data_checker import MSTX_PROFILE_PATH
+from test_data_checker import MSTX_PROFILE_PATH, NVTX_PROFILE_PATH
 
 
 def test_path_exists_rule_accepts_existing_directory():
@@ -134,3 +136,23 @@ def test_verl_log_key_params_fails_when_missing_keyword(tmp_path):
     )
     assert rule.check(str(log)) is False
     assert "response_length/mean" in rule.error_message
+
+
+def test_nvtx_jsonfile_exists():
+    path_rule = PathExistsRule()
+    file_rule = NvtxJsonFileExistsRule()
+    assert path_rule.check(str(NVTX_PROFILE_PATH)) is True
+    assert file_rule.check(str(NVTX_PROFILE_PATH)) is True
+
+
+def test_nvtx_jsonfile_exists_with_fake_path():
+    file_rule = NvtxJsonFileExistsRule()
+    fake_path = "fake_path"
+    assert file_rule.check(fake_path) is False
+
+
+def test_nvtx_json_fields_valid():
+    path_rule = PathExistsRule()
+    field_rule = NvtxJsonFieldValidRule()
+    assert path_rule.check(str(NVTX_PROFILE_PATH)) is True
+    assert field_rule.check(str(NVTX_PROFILE_PATH)) is True
