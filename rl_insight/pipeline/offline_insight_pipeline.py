@@ -41,10 +41,7 @@ class OfflineInsightPipeline:
         return config
 
     def _prepare_visualizer_config(self):
-        config = vars(self.config).copy()
-        # Compatibility key consumed by existing visualizers.
-        config["output"] = config.get("output_path")
-        return config
+        return vars(self.config).copy()
 
     def run(self):
         if self.input_data_type != self.parser.input_type:
