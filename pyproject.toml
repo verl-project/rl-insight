@@ -15,6 +15,7 @@ dependencies = [
   "numpy<2.0.0",
   "pandas",
   "plotly",
+  "matplotlib",
   "pytest",
   "loguru"
 ]

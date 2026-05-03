@@ -36,10 +36,9 @@ class EventRow(TypedDict, total=False):
     tid: int | str
 
 
-
 class GmmRow(TypedDict, total=False):
     role: str
-    rank_id: int # or optional?
+    rank_id: int
     step: int
     stage: int
     expert_index: int

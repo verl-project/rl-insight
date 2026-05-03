@@ -233,3 +233,45 @@ MSTX 输入当前包含三类检查：
 ```bash
 python tests/data/check_verl_log.py data/verl_data/good_minimal_verl.log
 ```
+
+## 5. GMM 专家负载dump数据
+
+GMM 热力图输入类型为 `DataEnum.GMM_DATA`（CLI：`--input-type gmm_data`、`--profiler-type gmm`）。**路径约定、参数与示意图**见 [`docs/gmm_analysis.md`](../gmm_analysis.md)。本节补充数据侧目录与文件格式说明。
+
+### 5.1 目录结构
+
+解析器会递归查找文件名后缀为 `group_list.pt` 的文件，且**必须**位于名为 `dump_tensor_data` 的目录下；路径中需能匹配 `step_{整数}` 与 `rank{整数}`，并与正式采集层级一致（与常见训练 dump 目录相同，例如本地完整数据可放在 `gmm_dump/` 等任意根目录名之下，只要子目录层级符合下述约定即可。
+
+```text
+<gmm-root>/
+├── step_1/                                # 训练步骤
+│   ├── actor_compute_log_prob/            # 角色/阶段（文件夹名即 role）
+│   │   └── rank0/                         # Rank ID
+│   │       └── dump_tensor_data/          # 张量 dump 目录（必填层级名）
+│   │           ├── NPU.npu_grouped_matmul.0.forward.kwargs.group_list.pt
+│   │           ├── NPU.npu_grouped_matmul.1.forward.kwargs.group_list.pt
+│   │           └── ...
+│   └── actor_update/
+│       └── rank0/
+│           └── dump_tensor_data/
+│               ├── NPU.npu_grouped_matmul.0.forward.kwargs.group_list.pt
+│               └── ...
+├── step_2/
+└── ...
+```
+
+参考（仓库内**最小可解析**示例，体量极小，便于测试与文档对照）：[`../../data/gmm_data`](../../data/gmm_data)
+
+### 5.2 `group_list.pt` 文件内容
+
+- 文件为 PyTorch `torch.save` 序列化对象；解析侧优先以 `weights_only=True` 加载，需为 **`torch.Tensor` 或 `numpy.ndarray`**，语义为一维 **expert 负载**：`reshape(-1)` 后第 `i` 个元素对应 `expert_index == i` 分到该 expert 的 **token 数（非负整数）**。
+- 文件名需能被解析器识别为 GMM 算子序号，典型 pattern 为  
+  `NPU.npu_grouped_matmul.<op_index>.forward.kwargs.group_list.pt`  
+  其中 `<op_index>` 会映射为汇总表中的 `stage`（层/算子序号）。
+
+### 5.3 输入数据校验
+
+`GmmDataRule`（见 [`rl_insight/data/rules.py`](../../rl_insight/data/rules.py)）要求：
+
+- 输入为已存在的目录路径；
+- 其下至少存在一个位于 `dump_tensor_data` 路径段中的 `*group_list.pt` 文件。

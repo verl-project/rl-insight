@@ -18,9 +18,10 @@ from loguru import logger
 import os
 from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 from .parser import BaseClusterParser, register_cluster_parser
-from rl_insight.utils.schema import Constant, DataMap, EventRow
+from rl_insight.utils.schema import Constant, DataMap
 from rl_insight.data import DataEnum
 
 
@@ -33,9 +34,9 @@ class TorchClusterParser(BaseClusterParser):
 
     def parse_analysis_data(
         self, profiler_data_path: str, rank_id: int, role: str
-    ) -> list[EventRow]:
+    ) -> list[dict[str, Any]]:
         data: dict = {}
-        events: list[EventRow] = []
+        events: list[dict[str, Any]] = []
 
         with gzip.open(profiler_data_path, "rt", encoding="utf-8") as f:
             data = json.load(f)
@@ -91,7 +92,7 @@ class TorchClusterParser(BaseClusterParser):
         duration_ms = (end_ids - start_ids) / us_to_ms
         end_time_ms = start_time_ms + duration_ms
 
-        event_data: EventRow = {
+        event_data: dict[str, Any] = {
             "name": role,
             "role": role,
             "domain": "default",
@@ -161,6 +162,7 @@ class TorchClusterParser(BaseClusterParser):
                     Constant.RANK_ID: -1,  # rank_id for torch will be loaded from json file.
                     Constant.ROLE: task_role,
                     Constant.PROFILER_DATA_PATH: "",
+                    "step": None,
                 }
 
                 if os.path.exists(profiler_data_path):

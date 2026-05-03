@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import List, Tuple
+from typing import Any, List, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -45,28 +45,28 @@ class GmmVisualizer(BaseVisualizer):
     def _load_signature(stage_data: pd.DataFrame) -> np.ndarray:
         """Build deterministic load signature vector for one stage."""
         return stage_data.sort_values("expert_index")["load"].to_numpy(dtype=np.float64)
-    
+
     def run(self, data):
         """Run GMM heatmap visualization from parsed data."""
         # Extract parameters from config
-        output_cfg = self.config.get("output") or self.config.get(
+        output_cfg = self.config.get(
             "output_path", "./output/gmm_group_list_heatmap.png"
         )
         output = self._resolve_output_path(output_cfg)
         dpi = self.config.get("dpi", 150)
         cmap = self.config.get("cmap", "viridis")
         gmm_per_layer = int(self.config.get("gmm_per_layer", 3))
-        
+
         if not isinstance(data, pd.DataFrame):
             raise ValueError(f"Expected DataFrame, got {type(data).__name__}")
-        
+
         logger.info(f"GmmVisualizer received DataFrame with {len(data)} rows")
         logger.info(f"DataFrame columns: {list(data.columns)}")
-        
+
         if data.empty:
             raise ValueError("No GMM data provided")
         logger.info("Visualizer consumes parser-filtered GMM summary data.")
-        
+
         # For actor_update, filter out backward/recompute data by detecting
         # consecutive identical expert loads.
         #
@@ -77,20 +77,20 @@ class GmmVisualizer(BaseVisualizer):
         # This works regardless of whether gradient recomputation is enabled:
         #   - With recomputation: forward runs of 3, then a run >3 triggers cutoff
         #   - Without recomputation: forward runs of 3, then a run of 3+3=6 triggers cutoff
-        is_actor_update = 'actor_update' in data['role'].unique()
+        is_actor_update = "actor_update" in data["role"].unique()
         if is_actor_update:
-            grouped = data.groupby(['step', 'role', 'rank_id'])
+            grouped = data.groupby(["step", "role", "rank_id"])
             filtered_data = []
             for name, group in grouped:
                 step_val, role_val, rank_val = name
-                if role_val == 'actor_update':
-                    sorted_group = group.sort_values('stage')
-                    unique_stages = sorted(sorted_group['stage'].unique())
+                if role_val == "actor_update":
+                    sorted_group = group.sort_values("stage")
+                    unique_stages = sorted(sorted_group["stage"].unique())
 
                     # Build load signature for each stage
                     stage_loads = {}
                     for stage in unique_stages:
-                        stage_data = sorted_group[sorted_group['stage'] == stage]
+                        stage_data = sorted_group[sorted_group["stage"] == stage]
                         load_sig = self._load_signature(stage_data)
                         stage_loads[stage] = load_sig
 
@@ -115,7 +115,9 @@ class GmmVisualizer(BaseVisualizer):
                         else:
                             backward_detected = True
 
-                    filtered_group = sorted_group[sorted_group['stage'].isin(forward_stages)]
+                    filtered_group = sorted_group[
+                        sorted_group["stage"].isin(forward_stages)
+                    ]
                     filtered_data.append(filtered_group)
                     logger.info(
                         f"For actor_update (step={step_val}, rank={rank_val}): "
@@ -124,20 +126,22 @@ class GmmVisualizer(BaseVisualizer):
                     )
                 else:
                     filtered_data.append(group)
-            
+
             if filtered_data:
                 data = pd.concat(filtered_data)
-                logger.info(f"After filtering actor_update forward-only data, now {len(data)} rows")
+                logger.info(
+                    f"After filtering actor_update forward-only data, now {len(data)} rows"
+                )
             else:
                 logger.warning("No data left after filtering")
                 raise ValueError("No data left after filtering")
-        
+
         # Build matrix
         mat, rec_list, boundaries = self._build_matrix_from_data(data)
         logger.info(f"Built matrix with shape {mat.shape}")
-        
+
         segments = self._segment_labels(rec_list, boundaries)
-        
+
         # Generate title
         unique_ranks = sorted(data["rank_id"].unique())
         if len(unique_ranks) == 1:
@@ -145,63 +149,69 @@ class GmmVisualizer(BaseVisualizer):
         else:
             rank_str = f" ranks={len(unique_ranks)}"
         title = f"GMM expert load (group_list){rank_str} — {len(rec_list)} snapshots, {mat.shape[0]} experts"
-        
+
         # Plot heatmap
         self._plot_heatmap(mat, rec_list, segments, title, output, dpi, cmap)
-        
+
         return str(output)
-    
-    def _build_matrix_from_data(self, data: pd.DataFrame) -> Tuple[np.ndarray, List[dict], List[int]]:
+
+    def _build_matrix_from_data(
+        self, data: pd.DataFrame
+    ) -> Tuple[np.ndarray, List[dict], List[int]]:
         """Build a matrix from the parsed data."""
         # Group data by step, role, rank_id, stage
         # First sort the data to ensure consistent ordering
-        sorted_data = data.sort_values(['step', 'role', 'rank_id', 'stage'])
-        grouped = sorted_data.groupby(['step', 'role', 'rank_id', 'stage'])
-        
+        sorted_data = data.sort_values(["step", "role", "rank_id", "stage"])
+        grouped = sorted_data.groupby(["step", "role", "rank_id", "stage"])
+
         # Get unique steps, roles, ranks and stages
-        steps = sorted(data['step'].unique())
-        roles = sorted(data['role'].unique())
-        ranks = sorted(data['rank_id'].unique())
-        stages = sorted(data['stage'].unique())
-        max_expert = data['expert_index'].max()
-        
+        steps = sorted(data["step"].unique())
+        roles = sorted(data["role"].unique())
+        ranks = sorted(data["rank_id"].unique())
+        stages = sorted(data["stage"].unique())
+        max_expert = data["expert_index"].max()
+
         logger.info(f"Steps: {steps}")
         logger.info(f"Roles: {roles}")
         logger.info(f"Ranks: {ranks}")
         logger.info(f"Stages: {stages}")
         logger.info(f"Max expert index: {max_expert}")
-        
+
         # Build matrix and detect duplicate stages
         vecs = []
         rec_list = []
-        
+
         # Track layer mapping per (step, role, rank) group
         current_group = None
-        seen_vectors = {}  # To track unique vectors per group
+        seen_vectors: dict[tuple[Any, ...], int] = {}
         layer_counter = 0
-        
+
         for name, group in grouped:
             step, role, rank, stage_idx = name
-            logger.info(f"Processing step: {step}, role: {role}, rank: {rank}, stage: {stage_idx}")
-            
+            logger.info(
+                f"Processing step: {step}, role: {role}, rank: {rank}, stage: {stage_idx}"
+            )
+
             # Check if we're in a new (step, role, rank) group
             new_group = (step, role, rank)
             if new_group != current_group:
                 # Reset layer counter and seen vectors for new group
                 current_group = new_group
-                seen_vectors = {}
+                seen_vectors.clear()
                 layer_counter = 0
-                logger.info(f"New group detected: {new_group}, resetting layer counter to 0")
-            
+                logger.info(
+                    f"New group detected: {new_group}, resetting layer counter to 0"
+                )
+
             # Create a vector for this step, role, rank and stage
             vec = np.full(max_expert + 1, np.nan, dtype=np.float64)
             for _, row in group.iterrows():
-                expert_idx = row['expert_index']
-                vec[expert_idx] = row['load']
-            
+                expert_idx = row["expert_index"]
+                vec[expert_idx] = row["load"]
+
             # Convert vector to tuple for hashing (handle NaN values)
             vec_tuple = tuple(v if not np.isnan(v) else -1 for v in vec)
-            
+
             # Check if this vector has been seen before in current group
             if vec_tuple not in seen_vectors:
                 # New layer
@@ -211,23 +221,25 @@ class GmmVisualizer(BaseVisualizer):
             else:
                 # Duplicate layer
                 layer_idx = seen_vectors[vec_tuple]
-            
+
             vecs.append(vec)
-            rec_list.append({
-                'step': step,
-                'role': role,
-                'rank_id': rank,
-                'stage': stage_idx,
-                'op_index': stage_idx,  # Original op index
-                'layer_idx': layer_idx  # Mapped layer index
-            })
-        
+            rec_list.append(
+                {
+                    "step": step,
+                    "role": role,
+                    "rank_id": rank,
+                    "stage": stage_idx,
+                    "op_index": stage_idx,  # Original op index
+                    "layer_idx": layer_idx,  # Mapped layer index
+                }
+            )
+
         if not vecs:
             raise ValueError("No data available to build matrix")
-        
+
         mat = np.stack(vecs, axis=1)  # [n_experts, n_time]
         logger.info(f"Matrix shape: {mat.shape}")
-        
+
         # Boundaries: split when training step, RL role, or rank changes.
         # Each rec_list column is one (step, role, rank_id, stage) snapshot;
         # grouping by step/role/rank for segments, while keeping stage for individual columns.
@@ -245,22 +257,22 @@ class GmmVisualizer(BaseVisualizer):
                     cur_key = new_key
         boundaries.append(mat.shape[1])
         logger.info(f"Boundaries (step/role/rank): {boundaries}")
-        
+
         return mat, rec_list, boundaries
-    
-    def _segment_labels(self, rec_list: List[dict], boundaries: List[int]) -> List[Tuple[int, int, int, str, int]]:
+
+    def _segment_labels(
+        self, rec_list: List[dict], boundaries: List[int]
+    ) -> List[Tuple[int, int, int, str, int]]:
         """Generate segment labels: (x0, x1, step, role, rank_id)."""
         segments = []
         for a, b in zip(boundaries[:-1], boundaries[1:]):
             if a >= b:
                 continue
             rec = rec_list[a]
-            segments.append(
-                (a, b, rec["step"], rec["role"], rec["rank_id"])
-            )
+            segments.append((a, b, rec["step"], rec["role"], rec["rank_id"]))
         logger.info(f"Segments: {segments}")
         return segments
-    
+
     def _plot_heatmap(
         self,
         mat: np.ndarray,
@@ -294,7 +306,9 @@ class GmmVisualizer(BaseVisualizer):
         palette = plt.cm.viridis(np.linspace(0, 1, len(segments)))
         for i, (a, b, step, role, rank_id) in enumerate(segments):
             color = palette[i]
-            ax_bar.axhspan(a - 0.5, b - 0.5, facecolor=color, alpha=0.55, edgecolor="none")
+            ax_bar.axhspan(
+                a - 0.5, b - 0.5, facecolor=color, alpha=0.55, edgecolor="none"
+            )
 
         # Add separator lines between segments
         for a, b, step, role, rank_id in segments:
@@ -307,8 +321,7 @@ class GmmVisualizer(BaseVisualizer):
         ax_bar.set_xticks([])
         ax_bar.set_yticks([])
         ax_bar.set_title(
-            "Row: layerK (K = merged layer index)\n"
-            "step · role · rank",
+            "Row: layerK (K = merged layer index)\nstep · role · rank",
             fontsize=10,
             pad=8,
         )
@@ -331,16 +344,16 @@ class GmmVisualizer(BaseVisualizer):
         layer_positions = []
         layer_labels = []
         if n_time > 0:
-            current_layer = rec_list[0]['layer_idx']
+            current_layer = rec_list[0]["layer_idx"]
             layer_positions.append(0)
             layer_labels.append(f"layer{current_layer}")
-            
+
             for j in range(1, n_time):
-                if rec_list[j]['layer_idx'] != current_layer:
-                    current_layer = rec_list[j]['layer_idx']
+                if rec_list[j]["layer_idx"] != current_layer:
+                    current_layer = rec_list[j]["layer_idx"]
                     layer_positions.append(j)
                     layer_labels.append(f"layer{current_layer}")
-        
+
         # Add the last position if needed
         if n_time > 0 and layer_positions[-1] != n_time - 1:
             layer_positions.append(n_time - 1)
@@ -349,7 +362,9 @@ class GmmVisualizer(BaseVisualizer):
         # Downsample layer ticks when snapshots are too many.
         max_layer_labels = 40
         if len(layer_positions) > max_layer_labels:
-            sel_idx = np.linspace(0, len(layer_positions) - 1, max_layer_labels, dtype=int)
+            sel_idx = np.linspace(
+                0, len(layer_positions) - 1, max_layer_labels, dtype=int
+            )
             layer_positions = [layer_positions[i] for i in sel_idx]
             layer_labels = [layer_labels[i] for i in sel_idx]
 

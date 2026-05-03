@@ -62,7 +62,7 @@ gmm_dump/
 - `step_<n>`：训练 step（对应 `--step` 过滤）
 - `<role>`：角色名（对应 `--role` 过滤）
 - `rank<n>`：rank id（对应 `--rank-list` 过滤）
-- `dump_tensor_data/*.group_list.pt`：MoE grouped_matmul 的专家负载张量文件
+- `dump_tensor_data/*.group_list.pt`：MoE grouped_matmul 的专家负载；典型为一维整型张量，第 `i` 个元素表示第 `i` 个 expert 分到的 **token 数**
 
 ### 2.2 执行分析脚本
 
@@ -109,8 +109,8 @@ bash examples/gmm_exec.sh
 
 工具会在指定的输出路径下生成 PNG 文件（文件名默认为 `gmm_heatmap.png`），包含：
 
-- **专家负载热力图**：展示不同专家在不同时间点的负载情况
-- **Segments 图**：顶部显示按 step、role、rank 分组的时间段
+- **专家负载热力图**：横轴为专家索引，纵轴为合并后的 layer；颜色表示各 expert 的 token 负载
+- **Segments 色条**：位于热力图左侧，与各行对齐，按 step、role、rank 分段着色
 - **颜色编码**：使用 viridis 颜色映射，负载越高颜色越深
 - **分隔线**：清晰分隔不同的 step、role、rank 组合
 - **图例**：显示各个 segment 对应的 step、role、rank 信息
@@ -118,18 +118,17 @@ bash examples/gmm_exec.sh
 ### 图表解读
 
 1. **热力图区域**：
-   - Y 轴：专家索引
-   - X 轴：时间点（按 op 索引）
-   - 颜色深度：表示专家负载程度（tokens per expert）
+   - **横轴（X）**：专家索引（`expert_index`）
+   - **纵轴（Y）**：**layer**（图中刻度为 `layer0`、`layer1`、…，表示解析阶段合并后的层序号）
 
-2. **Segments 图**：
-   - 显示按 step、role、rank 分组的时间段
-   - 每个 segment 有独特的颜色
-   - 分隔线清晰标识不同分组的边界
+2. **左侧 Segments 色条**：
+   - 与热力图 **逐行对齐**（共用同一垂直范围）
+   - 按 **step、role、rank** 分段着色；段内文字为 `step · role · rank` 摘要
+   - 段与段之间有分隔线，便于区分不同上下文
 
-3. **X 轴标签**：
-   - 显示 op 索引（MoE layer / fused matmul id）
-   - 当时间点较多时会自动调整显示密度
+3. **刻度密度**：
+   - **X 轴**：专家数较多时会稀疏采样刻度，避免重叠
+   - **Y 轴**：layer / 行数较多时会自动降低 `layerK` 标签数量（约上限 40），保持可读
 
 ## 五、注意事项
 

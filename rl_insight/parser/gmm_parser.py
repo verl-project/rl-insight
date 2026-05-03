@@ -15,20 +15,20 @@
 from loguru import logger
 import re
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 import pandas as pd
 import numpy as np
 import torch
 
 from rl_insight.parser.parser import BaseClusterParser, register_cluster_parser
-from rl_insight.utils.schema import DataMap, GmmRow, Constant
+from rl_insight.utils.schema import DataMap, Constant
 from rl_insight.data import DataEnum
 
 
 @register_cluster_parser("gmm")
 class GmmParser(BaseClusterParser):
     input_type = DataEnum.GMM_DATA
-    
+
     def __init__(self, params) -> None:
         super().__init__(params)
         self.events_summary: Optional[pd.DataFrame] = None
@@ -36,7 +36,11 @@ class GmmParser(BaseClusterParser):
         self._rank_list = (
             rank_list
             if rank_list == "all"
-            else [int(rank.strip()) for rank in rank_list.split(",") if rank.strip().isdigit()]
+            else [
+                int(rank.strip())
+                for rank in rank_list.split(",")
+                if rank.strip().isdigit()
+            ]
         )
         # Get step filter(s) if provided. Supports "1" or "1,2".
         step = params.get("step", None)
@@ -47,9 +51,7 @@ class GmmParser(BaseClusterParser):
         else:
             step_tokens = str(step).split(",")
             self._step_list = [
-                int(token.strip())
-                for token in step_tokens
-                if token.strip().isdigit()
+                int(token.strip()) for token in step_tokens if token.strip().isdigit()
             ]
             if not self._step_list:
                 logger.warning(
@@ -58,42 +60,42 @@ class GmmParser(BaseClusterParser):
                 )
                 self._step_list = None
         # Get role filter if provided
-        self._role = params.get('role', None)
-    
+        self._role = params.get("role", None)
+
     def allocate_prof_data(self, input_path: str) -> List[DataMap]:
         """Allocate and organize GMM profiling data from the input path."""
         data_maps: List[DataMap] = []
         root = Path(input_path)
-        
+
         if not root.is_dir():
             logger.warning(f"Input path is not a directory: {input_path}")
             return data_maps
-        
+
         # Find all group_list.pt files
         group_list_files = list(root.rglob("*group_list.pt"))
         logger.info(f"Found {len(group_list_files)} group_list.pt files")
-        
+
         for file_path in group_list_files:
             # Skip files not in dump_tensor_data directory
             if "dump_tensor_data" not in file_path.parts:
                 continue
-            
+
             # Parse rank, step, stage from path
             parts = file_path.parts
             text = str(file_path)
-            
+
             # Extract rank
             m_rank = re.search(r"/rank(\d+)/", text)
             if not m_rank:
                 continue
             rank_id = int(m_rank.group(1))
-            
+
             # Extract step
             m_step = re.search(r"/step_(\d+)/", text)
             if not m_step:
                 continue
             step = int(m_step.group(1))
-            
+
             # Extract stage
             stage = None
             for i, p in enumerate(parts):
@@ -102,30 +104,30 @@ class GmmParser(BaseClusterParser):
                     break
             if stage is None or not stage or stage.startswith("step"):
                 continue
-            
+
             # Check if rank is in the specified rank list
             if self._rank_list != "all" and rank_id not in self._rank_list:
                 continue
-            
+
             # Check if step matches the specified step filter(s)
             if self._step_list is not None and step not in self._step_list:
                 continue
-            
+
             # Check if role matches the specified role
             if self._role is not None and stage != self._role:
                 continue
-            
+
             data_map: DataMap = {
                 "rank_id": rank_id,
                 "role": stage,
                 "step": step,
-                "profiler_data_path": str(file_path)
+                "profiler_data_path": str(file_path),
             }
             data_maps.append(data_map)
-        
+
         logger.info(f"Allocated {len(data_maps)} data maps for GMM parsing")
         return data_maps
-    
+
     def _load_group_list(self, file_path: str) -> np.ndarray:
         """Load a group_list.pt file into a numpy array."""
         try:
@@ -139,39 +141,53 @@ class GmmParser(BaseClusterParser):
         else:
             raise ValueError(f"Unexpected object in {file_path}: {type(obj)}")
         return arr
-    
-    def parse_analysis_data(self, profiler_data_path: str, rank_id: int, role: str, step: int = 0) -> List[GmmRow]:
+
+    @staticmethod
+    def _training_step_from_path(profiler_data_path: str) -> int:
+        m = re.search(r"/step_(\d+)/", profiler_data_path)
+        return int(m.group(1)) if m else 0
+
+    def parse_analysis_data(
+        self, profiler_data_path: str, rank_id: int, role: str
+    ) -> list[dict[str, Any]]:
         """Parse GMM profiling data for a specific rank and return GMM row information."""
-        events = []
+        step = self._training_step_from_path(profiler_data_path)
+        events: list[dict[str, Any]] = []
         try:
             # Load group_list data
             group_list = self._load_group_list(profiler_data_path)
-            logger.info(f"Loaded group_list with {len(group_list)} experts from {profiler_data_path}")
-            
+            logger.info(
+                f"Loaded group_list with {len(group_list)} experts from {profiler_data_path}"
+            )
+
             # Extract op index (stage) from file name
             file_name = Path(profiler_data_path).name
-            m_op = re.search(r"npu_grouped_matmul\.(\d+)\.forward\.kwargs\.group_list\.pt$", file_name)
+            m_op = re.search(
+                r"npu_grouped_matmul\.(\d+)\.forward\.kwargs\.group_list\.pt$",
+                file_name,
+            )
             op_index = int(m_op.group(1)) if m_op else 0
             stage_idx = op_index  # Use op_index as stage index
-            
+
             # Create GmmRow for each expert
             for expert_idx, load in enumerate(group_list):
-                # Create a dictionary directly (GmmRow is a TypedDict)
-                event = {
+                event: dict[str, Any] = {
                     "role": role,
                     "rank_id": rank_id,
                     "step": step,
                     "stage": stage_idx,
                     "expert_index": expert_idx,
-                    "load": load
+                    "load": load,
                 }
                 events.append(event)
-            logger.info(f"Created {len(events)} GmmRow entries for {profiler_data_path}")
+            logger.info(
+                f"Created {len(events)} GmmRow entries for {profiler_data_path}"
+            )
         except Exception as e:
             logger.warning(f"Failed to parse {profiler_data_path}: {e}")
-        
+
         return events
-    
+
     def reducer_func(self, mapper_res):
         """Process data collected from all ranks"""
         # Flatten valid results from all ranks
@@ -213,16 +229,3 @@ class GmmParser(BaseClusterParser):
         """Return the parsed DataFrame"""
         ## debug print pd.DataFrame to excel
         return self.events_summary
-    
-    def _mapper_func(self, data_map: DataMap) -> list[GmmRow]:
-        """Collect GMM data from a single rank"""
-        profiler_data_path = data_map.get("profiler_data_path", "")
-        rank_id = data_map.get("rank_id", -1)
-        role = data_map.get("role", "")
-        step = data_map.get("step", 0)
-
-        if not profiler_data_path:
-            logger.warning(f"Rank {rank_id}: profiler_data_path not found")
-            return []
-
-        return self.parse_analysis_data(profiler_data_path, rank_id, role, step)

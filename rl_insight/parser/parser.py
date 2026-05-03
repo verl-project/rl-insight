@@ -16,11 +16,11 @@ from loguru import logger
 import multiprocessing
 from abc import ABC, abstractmethod
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 import pandas as pd
 
-from rl_insight.utils.schema import Constant, DataMap, EventRow
+from rl_insight.utils.schema import Constant, DataMap
 
 
 class BaseClusterParser(ABC):
@@ -84,7 +84,7 @@ class BaseClusterParser(ABC):
         )
         return results
 
-    def _mapper_func(self, data_map: DataMap) -> list[EventRow]:
+    def _mapper_func(self, data_map: DataMap) -> list[dict[str, Any]]:
         """Collect RL performance data from a single rank"""
         profiler_data_path = data_map.get(Constant.PROFILER_DATA_PATH, "")
         rank_id = data_map.get(Constant.RANK_ID, -1)
@@ -153,7 +153,7 @@ class BaseClusterParser(ABC):
     @abstractmethod
     def parse_analysis_data(
         self, profiler_data_path: str, rank_id: int, role: str
-    ) -> list[EventRow]:
+    ) -> list[dict[str, Any]]:
         """
         Parse profiling data for a specific rank and return event information.
 
@@ -168,7 +168,7 @@ class BaseClusterParser(ABC):
             role: The RL role name (e.g., 'rollout_generate', 'actor_compute_log_prob')
 
         Returns:
-            list[EventRow]: A list of event dictionaries, where each dict contains:
+            Row dictionaries (e.g. EventRow for MSTX/Torch). Each dict contains:
                 - name (str): Event name (e.g., 'generate_sequence', 'compute_log_prob')
                 - role (str): The RL role name (same as input parameter)
                 - domain (str): Event domain (e.g., 'default', 'communication_group')

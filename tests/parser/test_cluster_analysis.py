@@ -24,6 +24,7 @@ Tests cover:
 import json
 import os
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -37,7 +38,7 @@ from rl_insight.parser import (
     get_cluster_parser_cls,
 )
 from rl_insight.parser.parser import CLUSTER_PARSER_REGISTRY, register_cluster_parser
-from rl_insight.utils.schema import Constant, DataMap, EventRow
+from rl_insight.utils.schema import Constant, DataMap
 from rl_insight.visualizer import (
     BaseVisualizer,
     RLTimelineVisualizer,
@@ -198,7 +199,7 @@ class TestParserRegistry:
 
             def parse_analysis_data(
                 self, profiler_data_path: str, rank_id: int, role: str
-            ) -> list[EventRow]:
+            ) -> list[dict[str, Any]]:
                 return []
 
         assert "test_parser" in CLUSTER_PARSER_REGISTRY

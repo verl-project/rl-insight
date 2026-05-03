@@ -13,29 +13,24 @@
 # limitations under the License.
 
 import sys
-import torch
+from pathlib import Path
+
+import pytest
+
+pytest.importorskip("torch")
+pytest.importorskip("matplotlib")
+
 from rl_insight.main import main
 
 
-def _write_group_list(path, loads):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # group_list.pt is a 1-D tensor: [num_expert], each value is expert load.
-    torch.save(torch.tensor(loads, dtype=torch.float32), path)
+def test_gmm_e2e_with_repo_sample_data(monkeypatch, tmp_path):
+    current_file = Path(__file__).resolve()
+    project_root = current_file.parents[2]
 
-
-def test_gmm_e2e_with_input_path(monkeypatch, tmp_path):
-    input_dir = tmp_path / "gmm_input"
+    input_dir = project_root / "data" / "gmm_data"
     output_dir = tmp_path / "gmm_output"
 
-    base = input_dir / "rank0" / "step_1" / "actor_update" / "dump_tensor_data"
-    _write_group_list(
-        base / "npu_grouped_matmul.0.forward.kwargs.group_list.pt",
-        [10.0, 3.0, 7.0, 2.0],
-    )
-    _write_group_list(
-        base / "npu_grouped_matmul.1.forward.kwargs.group_list.pt",
-        [6.0, 5.0, 3.0, 8.0],
-    )
+    assert input_dir.is_dir(), f"Sample GMM data missing: {input_dir}"
 
     test_args = [
         "main.py",
@@ -44,8 +39,6 @@ def test_gmm_e2e_with_input_path(monkeypatch, tmp_path):
         "--profiler-type=gmm",
         "--input-type=gmm_data",
         "--vis-type=gmm_heatmap",
-        "--step=1",
-        "--role=actor_update",
     ]
     monkeypatch.setattr(sys, "argv", test_args)
 
