@@ -8,3 +8,9 @@ loguru
 kaleido
 torch==2.7.1
 requests
+ray
+omegaconf
+prometheus_client
+opentelemetry-sdk
+opentelemetry-exporter-otlp-proto-http
+pyyaml

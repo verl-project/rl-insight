@@ -1,0 +1,46 @@
+# docker-compose.yaml
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${RLINSIGHT_PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - "${RLINSIGHT_PROMETHEUS_CONFIG:-./prometheus.yml}:/etc/prometheus/prometheus.yml:ro"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--web.enable-lifecycle"
+
+  tempo:
+    image: grafana/tempo:2.10.0
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - "${RLINSIGHT_TEMPO_CONFIG:-./tempo.yaml}:/etc/tempo.yaml:ro"
+    ports:
+      - "${RLINSIGHT_TEMPO_QUERY_PORT:-3200}:3200"
+      # Host-side port parsed from the same URL by CLI as ``OTEL_EXPORTER_OTLP_TRACES_PORT`` (defaults 4318).
+      - "${OTEL_EXPORTER_OTLP_TRACES_PORT:-4318}:4318"
+
+  grafana:
+    image: grafana/grafana:latest
+    depends_on:
+      - prometheus
+      - tempo
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${RLINSIGHT_GRAFANA_PORT:-3000}:3000"
+    environment:
+      RLINSIGHT_PROMETHEUS_PORT: "${RLINSIGHT_PROMETHEUS_PORT:-9090}"
+      RLINSIGHT_TEMPO_QUERY_PORT: "${RLINSIGHT_TEMPO_QUERY_PORT:-3200}"
+    volumes:
+      - "${RLINSIGHT_GRAFANA_CONFIG:-./grafana.ini}:/etc/grafana/grafana.ini:ro"
+      - "${RLINSIGHT_GRAFANA_PROVISIONING:-./provisioning}:/etc/grafana/provisioning:ro"
+      - "${RLINSIGHT_GRAFANA_DASHBOARDS:-./dashboards}:/etc/grafana/dashboards:ro"
+    command: >
+      grafana-server
+      --config /etc/grafana/grafana.ini
+      --homepath /usr/share/grafana
+      web

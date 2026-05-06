@@ -1,4 +1,4 @@
-# Copyright (c) 2025 verl-project authors.
+# Copyright (c) 2026 verl-project authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,13 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Cluster scheduling analysis and visualization for RL workloads.
+"""Experimental online monitoring: Ray hub, Prometheus ``/metrics``, and OTLP trace export."""
 
-This package exposes built-in parser classes and a CLI entry helper.
-"""
-
-from experimental import (
+from .api import (
     close,
     init,
     metric_count,
@@ -26,28 +22,29 @@ from experimental import (
     metric_value,
     trace_op,
     trace_state,
-    update_prometheus_config,
 )
-from .parser import MstxClusterParser, TorchClusterParser, NvtxClusterParser
-
-
-def main():
-    # Lazy import avoids preloading rl_insight.main during package import.
-    from .main import main as _main
-
-    return _main()
+from .config import (
+    MONITOR_HUB_ACTOR_NAME,
+    MONITOR_RAY_NAMESPACE,
+    load_monitor_config,
+    load_server_config_file,
+    resolve_monitor_stack_paths,
+)
+from .utils import PROMETHEUS_SCRAPE_JOB_NAME, update_prometheus_config
 
 
 __all__ = [
-    "MstxClusterParser",
-    "TorchClusterParser",
-    "NvtxClusterParser",
-    "main",
-    "init",
     "close",
+    "init",
+    "load_monitor_config",
+    "load_server_config_file",
+    "MONITOR_HUB_ACTOR_NAME",
+    "MONITOR_RAY_NAMESPACE",
     "metric_count",
-    "metric_value",
     "metric_distribution",
+    "metric_value",
+    "PROMETHEUS_SCRAPE_JOB_NAME",
+    "resolve_monitor_stack_paths",
     "trace_op",
     "trace_state",
     "update_prometheus_config",
