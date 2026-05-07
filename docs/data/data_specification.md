@@ -236,7 +236,7 @@ python tests/data/check_verl_log.py data/verl_data/good_minimal_verl.log
 
 ## 5. GMM 专家负载dump数据
 
-GMM 热力图输入类型为 `DataEnum.GMM_DATA`（CLI：`--input-type gmm_data`、`--profiler-type gmm`）。**路径约定、参数与示意图**见 [`docs/gmm_analysis.md`](../gmm_analysis.md)。本节补充数据侧目录与文件格式说明。
+GMM 热力图输入类型为 `DataEnum.GMM_DATA`（CLI：`--input-type gmm_data`、`--profiler-type gmm`）。**路径约定、参数与示意图**见 [`docs/overview/gmm_heatmap_quickstart.md`](../overview/gmm_heatmap_quickstart.md)。本节补充数据侧目录与文件格式说明。
 
 ### 5.1 目录结构
 

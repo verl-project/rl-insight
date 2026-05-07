@@ -34,6 +34,7 @@ from .rules import (
     TorchJsonFieldValidRule,
 )
 from .verl_log_rules import VerlLogExistRule, VerlLogKeyParamsRule
+from rl_insight.utils.schema import EVENTKEYS, GMMKEYS
 
 
 class DataEnum(Enum):
@@ -74,14 +75,10 @@ class DataChecker:
         DataEnum.VERL_LOG: [VerlLogExistRule(), VerlLogKeyParamsRule()],
         DataEnum.GMM_DATA: [PathExistsRule(), GmmDataRule()],
         DataEnum.SUMMARY_EVENT: [
-            ParserOutputValidatorRule(
-                domains=["role", "name", "rank_id", "start_time_ms", "end_time_ms"]
-            )
+            ParserOutputValidatorRule(domains=list(EVENTKEYS)),
         ],
         DataEnum.GMM_SUMMARY: [
-            ParserOutputValidatorRule(
-                domains=["role", "rank_id", "step", "stage", "expert_index", "load"]
-            )
+            ParserOutputValidatorRule(domains=list(GMMKEYS)),
         ],
         DataEnum.UNKNOWN: [],
     }

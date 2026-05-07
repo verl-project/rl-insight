@@ -4,7 +4,7 @@
 
 RL-Insight 是一个强化学习性能数据快速分析的可视化工具，基于 VeRL 框架采集的 profiling 数据、GMM 专家负载数据进行解析。其中 GMM 专家负载热力图功能用于可视化 MoE（Mixture of Experts）模型中专家的负载分布情况。
 
-模块划分、流水线与扩展步骤见 [架构与开发指导](./architecture_and_guideline.md)。更完整的数据目录与 JSON 字段约定见 [数据规格与格式说明](./data/data_specification.md)。
+模块划分、流水线与扩展步骤见 [架构说明](./architecture.md)。更完整的数据目录与 JSON 字段约定见 [数据规格与格式说明](../data/data_specification.md)。
 
 ### 主要功能
 
@@ -14,7 +14,7 @@ RL-Insight 是一个强化学习性能数据快速分析的可视化工具，基
 
 ### 软件依赖
 
-依赖版本以仓库根目录 [`requirements.txt`](../requirements.txt) 为准（含 **pandas、plotly、numpy、loguru** 等）。开发/运行前请安装：
+依赖版本以仓库根目录 [`requirements.txt`](../../requirements.txt) 为准（含 **pandas、plotly、numpy、loguru** 等）。开发/运行前请安装：
 
 ```bash
 pip install -r requirements.txt
@@ -139,4 +139,4 @@ bash examples/gmm_exec.sh
 5. 数据文件需包含有效的专家负载数据，包括 step、role、rank_id、stage、expert_index 和 load 等字段
 6. 若你的模型实现中每层 grouped_matmul 次数不等于 3，请显式设置 `--gmm-per-layer` 以获得更准确的 actor_update 前向阶段截断结果
 
-目录与 JSON 字段的集中说明另见 [数据规格与格式说明](./data/data_specification.md)。运行时校验逻辑以 `rl_insight.data.DataChecker` 及 [`rl_insight/data/rules.py`](../rl_insight/data/rules.py) 中的规则定义为准。
+目录与 JSON 字段的集中说明另见 [数据规格与格式说明](../data/data_specification.md)。运行时校验逻辑以 `rl_insight.data.DataChecker` 及 [`rl_insight/data/rules.py`](../../rl_insight/data/rules.py) 中的规则定义为准。

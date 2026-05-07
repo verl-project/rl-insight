@@ -45,6 +45,27 @@ class GmmRow(TypedDict, total=False):
     load: float
 
 
+# Required DataFrame columns for SUMMARY_EVENT validation (timeline visualizer).
+# EventRow may also carry optional fields (e.g. domain, duration_ms, tid); we only
+# enforce the minimum columns the downstream pipeline needs, not full TypedDict parity.
+EVENTKEYS: tuple[str, ...] = (
+    "role",
+    "name",
+    "rank_id",
+    "start_time_ms",
+    "end_time_ms",
+)
+# Required columns for GMM_SUMMARY; aligns with GmmRow fields used by gmm_heatmap.
+GMMKEYS: tuple[str, ...] = (
+    "role",
+    "rank_id",
+    "step",
+    "stage",
+    "expert_index",
+    "load",
+)
+
+
 @dataclass
 class FigureConfig:
     title_prefix: str

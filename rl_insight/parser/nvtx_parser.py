@@ -17,9 +17,10 @@ from loguru import logger
 import os
 import re
 from collections import defaultdict
+from typing import Any
 
 from .parser import BaseClusterParser, register_cluster_parser
-from rl_insight.utils.schema import Constant, DataMap, EventRow
+from rl_insight.utils.schema import Constant, DataMap
 from rl_insight.data import DataEnum
 
 
@@ -32,8 +33,8 @@ class NvtxClusterParser(BaseClusterParser):
 
     def parse_analysis_data(
         self, profiler_data_path: str, rank_id: int, role: str
-    ) -> list[EventRow]:
-        events: list[EventRow] = []
+    ) -> list[dict[str, Any]]:
+        events: list[dict[str, Any]] = []
         string_map: dict[int, str] = {}
         raw_events = []
         global_start_time = None
@@ -108,7 +109,7 @@ class NvtxClusterParser(BaseClusterParser):
             duration_ms = (end_ids - start_ids) / us_to_ms / ns_to_us
             end_time_ms = start_time_ms + duration_ms
 
-            event_data: EventRow = {
+            event_data: dict[str, Any] = {
                 "name": role,
                 "role": role,
                 "domain": "default",
@@ -175,6 +176,7 @@ class NvtxClusterParser(BaseClusterParser):
                     Constant.RANK_ID: -1,  # rank_id will be loaded from jsonl file.
                     Constant.ROLE: task_role,  # real role name will be loaded from jsonl file
                     Constant.PROFILER_DATA_PATH: "",
+                    "step": None,
                 }
 
                 if os.path.exists(profiler_data_path):

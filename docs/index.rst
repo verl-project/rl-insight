@@ -15,7 +15,7 @@ and visualization.
 
    Architecture <overview/architecture>
    RL Timeline quickstart <overview/RL_Timeline_quickstart>
-   GMM Expert Load Heatmap <gmm_analysis>
+   GMM Expert Load visualization quickstart <overview/gmm_heatmap_quickstart>
 
 .. toctree::
    :maxdepth: 2
