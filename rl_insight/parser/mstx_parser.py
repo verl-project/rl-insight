@@ -139,6 +139,8 @@ class MstxClusterParser(BaseClusterParser):
         """Extract the timestamp-like segment using the legacy underscore layout."""
         dir_name = Path(path_value).name
         parts = dir_name.split("_")
+        if len(parts) >= 4:
+            return "_".join(parts[-4:-2])
         if len(parts) >= 3:
             return parts[-3]
         return dir_name

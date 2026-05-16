@@ -71,13 +71,13 @@ def is_url_valid(url: str) -> bool:
         if 200 <= response.status_code < 400:
             return True
         if response.status_code in {403, 405, 429}:
-            response = requests.get(
+            with requests.get(
                 url,
                 timeout=TIMEOUT,
                 allow_redirects=True,
                 stream=True,
-            )
-            return 200 <= response.status_code < 400
+            ) as response:
+                return 200 <= response.status_code < 400
         return False
     except requests.exceptions.RequestException:
         return False
