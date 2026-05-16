@@ -13,19 +13,18 @@
 # limitations under the License.
 
 import os
-from pathlib import Path
 
 import pandas as pd
 import pytest
 
 from rl_insight.data.data_checker import DataChecker, DataEnum
 from rl_insight.data.rules import DataValidationError
-
-CURRENT_FILE = Path(__file__).resolve()
-PROJECT_ROOT = CURRENT_FILE.parents[2]
-MSTX_PROFILE_PATH = PROJECT_ROOT / "data/mstx_data/mstx_profile"
-NVTX_PROFILE_PATH = PROJECT_ROOT / "data/nvtx_data/nvtx_profile"
-TORCH_PROFILE_PATH = PROJECT_ROOT / "data/torch_data/torch_profile"
+from tests.data.test_paths import (
+    MSTX_PROFILE_PATH,
+    NVTX_PROFILE_PATH,
+    PROJECT_ROOT,
+    TORCH_PROFILE_PATH,
+)
 
 
 def test_data_checker_multi_json_path_exists():

@@ -57,6 +57,7 @@ class BaseClusterParser(ABC):
 
         results = []
         completed = 0
+        failed_ranks = []
 
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             # Submit all tasks
@@ -77,11 +78,17 @@ class BaseClusterParser(ABC):
                             f"Completed rank {rank_id}: {completed}/{total_ranks} ({progress:.1f}%)"
                         )
                 except Exception as e:
+                    failed_ranks.append(rank_id)
                     logger.error(f"Failed to process rank {rank_id}: {e}")
 
         logger.info(
             f"Parallel processing completed: {completed}/{total_ranks} ranks processed"
         )
+        if failed_ranks and not results:
+            logger.error(
+                "All rank parsing tasks failed during parallel processing. "
+                f"Failed ranks: {failed_ranks}"
+            )
         return results
 
     def _mapper_func(self, data_map: DataMap) -> list[dict[str, Any]]:

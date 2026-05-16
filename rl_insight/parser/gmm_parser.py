@@ -62,6 +62,22 @@ class GmmParser(BaseClusterParser):
         # Get role filter if provided
         self._role = params.get("role", None)
 
+    @staticmethod
+    def _normalize_path_text(path_value: str | Path) -> str:
+        return str(path_value).replace("\\", "/")
+
+    @classmethod
+    def _extract_rank_id_from_path(cls, path_value: str | Path) -> int:
+        normalized = cls._normalize_path_text(path_value)
+        m_rank = re.search(r"(?:^|/)rank(\d+)(?:/|$)", normalized)
+        return int(m_rank.group(1)) if m_rank else -1
+
+    @classmethod
+    def _extract_step_from_path(cls, path_value: str | Path) -> int:
+        normalized = cls._normalize_path_text(path_value)
+        m_step = re.search(r"(?:^|/)step_(\d+)(?:/|$)", normalized)
+        return int(m_step.group(1)) if m_step else -1
+
     def allocate_prof_data(self, input_path: str) -> List[DataMap]:
         """Allocate and organize GMM profiling data from the input path."""
         data_maps: List[DataMap] = []
@@ -82,19 +98,12 @@ class GmmParser(BaseClusterParser):
 
             # Parse rank, step, stage from path
             parts = file_path.parts
-            text = str(file_path)
-
-            # Extract rank
-            m_rank = re.search(r"/rank(\d+)/", text)
-            if not m_rank:
+            rank_id = self._extract_rank_id_from_path(file_path)
+            if rank_id < 0:
                 continue
-            rank_id = int(m_rank.group(1))
-
-            # Extract step
-            m_step = re.search(r"/step_(\d+)/", text)
-            if not m_step:
+            step = self._extract_step_from_path(file_path)
+            if step < 0:
                 continue
-            step = int(m_step.group(1))
 
             # Extract stage
             stage = None
@@ -144,7 +153,8 @@ class GmmParser(BaseClusterParser):
 
     @staticmethod
     def _training_step_from_path(profiler_data_path: str) -> int:
-        m = re.search(r"/step_(\d+)/", profiler_data_path)
+        normalized = str(profiler_data_path).replace("\\", "/")
+        m = re.search(r"(?:^|/)step_(\d+)(?:/|$)", normalized)
         return int(m.group(1)) if m else 0
 
     def parse_analysis_data(

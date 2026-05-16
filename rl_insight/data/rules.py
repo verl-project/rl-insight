@@ -23,6 +23,17 @@ from pathlib import Path
 import pandas as pd
 
 
+def _coerce_path(data: Any) -> Optional[Path]:
+    if isinstance(data, Path):
+        return data
+    if isinstance(data, str):
+        try:
+            return Path(data)
+        except TypeError:
+            return None
+    return None
+
+
 class DataValidationError(Exception):
     """Exception raised when data validation fails."""
 
@@ -53,19 +64,19 @@ class ValidationRule(ABC):
 
 class PathExistsRule(ValidationRule):
     def check(self, data: Any) -> bool:
-        if not isinstance(data, str):
+        path = _coerce_path(data)
+        if path is None:
             self._error_message = "Data object is not a path"
             return False
         try:
-            path = Path(data)
             if not path.is_dir():
                 self._error_message = (
-                    f"Source path is not a directory or does not exist: {data}"
+                    f"Source path is not a directory or does not exist: {path}"
                 )
                 return False
             return True
         except TypeError as e:
-            self._error_message = f"Error checking path {data}: {e}"
+            self._error_message = f"Error checking path {path}: {e}"
             return False
 
 
@@ -73,15 +84,14 @@ class MstxJsonFileExistsRule(ValidationRule):
     """valid Mstx trace_view.json and profiler_info_*.json files is existed in "ASCEND_PROFILER_OUTPUT" path"""
 
     def check(self, data) -> bool:
-        if not isinstance(data, str):
+        root_path = _coerce_path(data)
+        if root_path is None:
             self._error_message = "Data object is not a path"
             return False
         self._error_message = ""
         try:
-            root_path = Path(data)
-
             if not root_path.exists():
-                self._error_message = f"Source path does not exist: {data}"
+                self._error_message = f"Source path does not exist: {root_path}"
                 return False
 
             ascend_profiler_output = "ASCEND_PROFILER_OUTPUT"
@@ -93,7 +103,7 @@ class MstxJsonFileExistsRule(ValidationRule):
             ascend_pt_folders = glob.glob(ascend_pt_pattern)
 
             if not ascend_pt_folders:
-                self._error_message = f"No *_ascend_pt path in {data}"
+                self._error_message = f"No *_ascend_pt path in {root_path}"
                 return False
 
             for ascend_pt_folder in ascend_pt_folders:
@@ -121,7 +131,7 @@ class MstxJsonFileExistsRule(ValidationRule):
                     return False
             return True
         except Exception as e:
-            self._error_message = f"Error checking path {data}: {e}"
+            self._error_message = f"Error checking path {root_path}: {e}"
             return False
 
     @property
@@ -133,20 +143,23 @@ class MstxJsonFieldValidRule(ValidationRule):
     """valid Mstx trace_view.json and profiler_info_*.json files JSON format"""
 
     def check(self, data) -> bool:
-        if not isinstance(data, str):
+        root_path = _coerce_path(data)
+        if root_path is None:
             self._error_message = "Data object is not a path"
             return False
         self._error_message = ""
         try:
-            root_path = Path(data)
-
             if not root_path.exists():
-                self._error_message = f"Source path does not exist: {data}"
+                self._error_message = f"Source path does not exist: {root_path}"
                 return False
 
             # get all *_ascend_pt path
             ascend_pt_pattern = str(root_path / "*" / "*_ascend_pt")
             ascend_pt_folders = glob.glob(ascend_pt_pattern)
+
+            if not ascend_pt_folders:
+                self._error_message = f"No *_ascend_pt path in {root_path}"
+                return False
 
             for ascend_pt_folder in ascend_pt_folders:
                 ascend_pt_path = Path(ascend_pt_folder)
@@ -155,11 +168,22 @@ class MstxJsonFieldValidRule(ValidationRule):
                 trace_view_path = (
                     ascend_pt_path / "ASCEND_PROFILER_OUTPUT" / "trace_view.json"
                 )
+                if not trace_view_path.exists():
+                    self._error_message = (
+                        f"Missing trace_view.json in: {trace_view_path.parent}"
+                    )
+                    return False
                 if os.path.getsize(trace_view_path) == 0:
                     self._error_message = f"File is empty: {trace_view_path}"
                     return False
-                with open(trace_view_path, "r", encoding="utf-8") as f:
-                    trace_view_data = json.load(f)
+                try:
+                    with open(trace_view_path, "r", encoding="utf-8") as f:
+                        trace_view_data = json.load(f)
+                except Exception as exc:
+                    self._error_message = (
+                        f"Failed to parse JSON file {trace_view_path}: {exc}"
+                    )
+                    return False
 
                 if len(trace_view_data) == 0:
                     self._error_message = f"File is empty: {trace_view_path}"
@@ -175,12 +199,21 @@ class MstxJsonFieldValidRule(ValidationRule):
                 # valid profiler_info_*.json format
                 profiler_pattern = str(ascend_pt_path / "profiler_info_*.json")
                 profiler_info_files = glob.glob(profiler_pattern)
+                if not profiler_info_files:
+                    self._error_message = (
+                        f"profiler_info_*.json does not exist in: {ascend_pt_path}"
+                    )
+                    return False
                 for file in profiler_info_files:
-                    if os.path.getsize(trace_view_path) == 0:
-                        self._error_message = f"File is empty: {trace_view_path}"
+                    if os.path.getsize(file) == 0:
+                        self._error_message = f"File is empty: {file}"
                         return False
-                    with open(file, "r", encoding="utf-8") as f:
-                        profiler_info_data = json.load(f)
+                    try:
+                        with open(file, "r", encoding="utf-8") as f:
+                            profiler_info_data = json.load(f)
+                    except Exception as exc:
+                        self._error_message = f"Failed to parse JSON file {file}: {exc}"
+                        return False
                     if len(profiler_info_data) == 0:
                         self._error_message = f"File is empty: {file}"
                         return False
@@ -200,7 +233,7 @@ class MstxJsonFieldValidRule(ValidationRule):
                         return False
             return True
         except Exception as e:
-            self._error_message = f"Error checking path {data}: {e}"
+            self._error_message = f"Error checking path {root_path}: {e}"
             return False
 
     @property

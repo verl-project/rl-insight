@@ -134,6 +134,15 @@ class MstxClusterParser(BaseClusterParser):
             data_path, Constant.ASCEND_PROFILER_OUTPUT, "trace_view.json"
         )
 
+    @staticmethod
+    def _extract_timestamp_key(path_value: str) -> str:
+        """Extract the timestamp-like segment using the legacy underscore layout."""
+        dir_name = Path(path_value).name
+        parts = dir_name.split("_")
+        if len(parts) >= 3:
+            return parts[-3]
+        return dir_name
+
     def _get_rank_path_with_role(self, data_map) -> list[DataMap]:
         """Get json path information for all ranks.
 
@@ -187,7 +196,7 @@ class MstxClusterParser(BaseClusterParser):
             rank_id_map[(task_role, rank_id)].append(dir_name)
         try:
             for map_key, dir_list in rank_id_map.items():
-                dir_list.sort(key=lambda x: x.split("_")[-3])
+                dir_list.sort(key=self._extract_timestamp_key)
                 data_map[map_key] = dir_list
         except Exception as e:
             raise RuntimeError("Found invalid directory name!") from e

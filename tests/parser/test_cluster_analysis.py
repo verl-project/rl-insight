@@ -439,6 +439,32 @@ class TestMstxClusterParser:
         assert ("rollout_generate", 0) in data_map
         assert len(data_map[("rollout_generate", 0)]) == 1
 
+    def test_get_data_map_sorts_by_legacy_underscore_segment(self, tmp_path):
+        """Directory ordering should follow the legacy third-from-last segment."""
+        parser = MstxClusterParser(
+            {
+                Constant.INPUT_PATH: str(tmp_path),
+                Constant.RANK_LIST: "all",
+            }
+        )
+
+        first = tmp_path / "role_a" / "20250101_110000_ascend_pt"
+        second = tmp_path / "role_a" / "20250102_120000_ascend_pt"
+        first.mkdir(parents=True)
+        second.mkdir(parents=True)
+        (first / "profiler_info_0.json").write_text('{"rank_id": 0}')
+        (second / "profiler_info_0.json").write_text('{"rank_id": 0}')
+
+        path_list = [
+            {"role": "role_a", "path": str(second)},
+            {"role": "role_a", "path": str(first)},
+        ]
+
+        data_map = parser._get_data_map(path_list)
+        sorted_dirs = data_map[("role_a", 0)]
+
+        assert sorted_dirs == [str(first), str(second)]
+
 
 # =============================================================================
 # BaseClusterParser Tests

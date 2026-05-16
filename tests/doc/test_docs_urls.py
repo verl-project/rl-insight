@@ -26,8 +26,9 @@ The main features include:
 
 import os
 import re
-import requests
 from pathlib import Path
+
+import requests
 
 # Configuration Constants
 CURRENT_FILE = Path(__file__).resolve()
@@ -67,7 +68,17 @@ def is_url_valid(url: str) -> bool:
     """
     try:
         response = requests.head(url, timeout=TIMEOUT, allow_redirects=True)
-        return 200 <= response.status_code < 400
+        if 200 <= response.status_code < 400:
+            return True
+        if response.status_code in {403, 405, 429}:
+            response = requests.get(
+                url,
+                timeout=TIMEOUT,
+                allow_redirects=True,
+                stream=True,
+            )
+            return 200 <= response.status_code < 400
+        return False
     except requests.exceptions.RequestException:
         return False
 
