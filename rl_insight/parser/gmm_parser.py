@@ -153,9 +153,8 @@ class GmmParser(BaseClusterParser):
 
     @staticmethod
     def _training_step_from_path(profiler_data_path: str) -> int:
-        normalized = str(profiler_data_path).replace("\\", "/")
-        m = re.search(r"(?:^|/)step_(\d+)(?:/|$)", normalized)
-        return int(m.group(1)) if m else 0
+        step = GmmParser._extract_step_from_path(profiler_data_path)
+        return step if step >= 0 else 0
 
     def parse_analysis_data(
         self, profiler_data_path: str, rank_id: int, role: str

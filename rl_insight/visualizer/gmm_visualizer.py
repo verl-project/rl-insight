@@ -18,7 +18,7 @@ from typing import Any, List, Tuple
 import numpy as np
 import pandas as pd
 from loguru import logger
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 from rl_insight.visualizer.visualizer import BaseVisualizer, register_cluster_visualizer
 from rl_insight.data import DataEnum
@@ -127,7 +127,7 @@ class GmmVisualizer(BaseVisualizer):
         mat, rec_list, boundaries = self._build_matrix_from_data(data)
         logger.info(f"Built matrix with shape {mat.shape}")
         segments = self._segment_labels(rec_list, boundaries)
-        self._plot_heatmap(mat, segments, output)
+        self._plot_heatmap(mat, rec_list, segments, output)
         return str(output)
 
     def _build_matrix_from_data(
@@ -244,25 +244,56 @@ class GmmVisualizer(BaseVisualizer):
     def _plot_heatmap(
         self,
         mat: np.ndarray,
+        rec_list: List[dict],
         segments: List[Tuple[int, int, int, str, int]],
         out_path: Path,
     ) -> None:
         """Plot the heatmap."""
         n_exp, n_time = mat.shape
-        cell_w = 28
-        cell_h = 28
-        left_bar_w = 120
-        pad = 24
+        layout = self._compute_layout(n_exp, n_time)
+        pad = layout["pad"]
+        title_h = layout["title_h"]
+        left_bar_w = layout["left_bar_w"]
+        layer_axis_w = layout["layer_axis_w"]
+        colorbar_gap = layout["colorbar_gap"]
+        colorbar_w = layout["colorbar_w"]
+        heatmap_w = layout["heatmap_w"]
+        heatmap_h = layout["heatmap_h"]
+        img_w = layout["img_w"]
+        img_h = layout["img_h"]
+        title = self._build_title(rec_list, n_exp)
 
         finite_vals = mat[np.isfinite(mat)]
         vmin = float(finite_vals.min()) if finite_vals.size else 0.0
         vmax = float(finite_vals.max()) if finite_vals.size else 1.0
         scale = vmax - vmin if vmax > vmin else 1.0
 
-        img_w = pad * 2 + left_bar_w + n_exp * cell_w
-        img_h = pad * 2 + n_time * cell_h
         image = Image.new("RGB", (img_w, img_h), "white")
         draw = ImageDraw.Draw(image)
+        font = ImageFont.load_default()
+        title_font = ImageFont.load_default()
+        heatmap_x0 = pad + left_bar_w + layer_axis_w
+        heatmap_y0 = pad + title_h
+        heatmap_x1 = heatmap_x0 + heatmap_w
+        heatmap_y1 = heatmap_y0 + heatmap_h
+        colorbar_x0 = heatmap_x1 + colorbar_gap
+        colorbar_x1 = colorbar_x0 + colorbar_w
+
+        draw.text((pad, pad), title, fill="black", font=title_font)
+        draw.text((pad, pad + 16), "step | role | rank", fill="black", font=font)
+        draw.text(
+            (heatmap_x0 + max(0, heatmap_w // 2 - 35), heatmap_y1 + 22),
+            "Expert index",
+            fill="black",
+            font=font,
+        )
+        self._draw_rotated_text(
+            image,
+            (pad + left_bar_w + 8, heatmap_y0 + max(0, heatmap_h // 2 - 28)),
+            "Layer index",
+            font,
+            "black",
+        )
 
         # Segment bar: one color per (step, role, rank), shown on left side.
         segment_colors = [
@@ -270,32 +301,239 @@ class GmmVisualizer(BaseVisualizer):
             for i in range(len(segments))
         ]
 
-        for idx, (a, b, _step, _role, _rank) in enumerate(segments):
-            y0 = pad + a * cell_h
-            y1 = pad + b * cell_h
+        for idx, segment in enumerate(segments):
+            a, b, _step, _role, _rank = segment
+            y0 = self._scaled_position(a, n_time, heatmap_h, heatmap_y0)
+            y1 = self._scaled_position(b, n_time, heatmap_h, heatmap_y0)
+            if y1 <= y0:
+                y1 = min(heatmap_y1, y0 + 1)
             draw.rectangle(
                 [pad, y0, pad + left_bar_w - 1, y1 - 1],
                 fill=segment_colors[idx],
             )
+            label = self._segment_legend_label(segment)
+            label = self._fit_text(draw, label, left_bar_w - 10, font)
+            if label and (y1 - y0) >= 12:
+                text_bbox = draw.textbbox((0, 0), label, font=font)
+                text_y = y0 + max(0, (y1 - y0 - (text_bbox[3] - text_bbox[1])) // 2)
+                draw.text((pad + 4, text_y), label, fill="black", font=font)
+
+        draw.rectangle(
+            [heatmap_x0 - 1, heatmap_y0 - 1, heatmap_x1, heatmap_y1],
+            outline=(200, 200, 200),
+        )
+
+        layer_ticks = self._layer_ticks(rec_list)
+        for pos, label in layer_ticks:
+            y = self._scaled_position(pos, n_time, heatmap_h, heatmap_y0)
+            draw.line([(heatmap_x0 - 6, y), (heatmap_x0 - 1, y)], fill="black", width=1)
+            draw.text((pad + left_bar_w + 14, max(heatmap_y0, y - 6)), label, fill="black", font=font)
 
         # Main heatmap is rendered as a stable bitmap to avoid backend-specific crashes.
-        for t in range(n_time):
-            for e in range(n_exp):
-                value = mat[e, t]
-                if np.isnan(value):
-                    color = (235, 235, 235)
-                else:
-                    color = self._viridis_rgb((float(value) - vmin) / scale)
-                x0 = pad + left_bar_w + e * cell_w
-                y0 = pad + t * cell_h
-                draw.rectangle(
-                    [x0, y0, x0 + cell_w - 1, y0 + cell_h - 1],
-                    fill=color,
-                    outline=(255, 255, 255),
-                )
+        heatmap_rgb = self._heatmap_rgb(mat, vmin, scale)
+        heatmap_image = Image.fromarray(heatmap_rgb, mode="RGB")
+        if heatmap_image.size != (heatmap_w, heatmap_h):
+            heatmap_image = heatmap_image.resize(
+                (heatmap_w, heatmap_h), resample=Image.Resampling.NEAREST
+            )
+        image.paste(heatmap_image, (heatmap_x0, heatmap_y0))
+
+        self._draw_expert_ticks(draw, font, heatmap_x0, heatmap_y1, heatmap_w, n_exp)
+        self._draw_colorbar(
+            draw,
+            font,
+            colorbar_x0,
+            colorbar_x1,
+            heatmap_y0,
+            heatmap_y1,
+            vmin,
+            vmax,
+        )
 
         out_path.parent.mkdir(parents=True, exist_ok=True)
         image.save(out_path)
+
+    def _compute_layout(self, n_exp: int, n_time: int) -> dict[str, int]:
+        pad = 24
+        title_h = 46
+        bottom_h = 58
+        left_bar_w = 150
+        layer_axis_w = 62
+        colorbar_gap = 16
+        colorbar_w = 44
+        target_cell_w = int(self.config.get("cell_width", 28))
+        target_cell_h = int(self.config.get("cell_height", 28))
+        max_img_w = int(self.config.get("max_image_width", 4096))
+        max_img_h = int(self.config.get("max_image_height", 8192))
+
+        available_w = max(
+            1,
+            max_img_w
+            - (pad * 2 + left_bar_w + layer_axis_w + colorbar_gap + colorbar_w),
+        )
+        available_h = max(1, max_img_h - (pad * 2 + title_h + bottom_h))
+
+        heatmap_w = min(available_w, max(1, n_exp * target_cell_w))
+        heatmap_h = min(available_h, max(1, n_time * target_cell_h))
+
+        img_w = pad * 2 + left_bar_w + layer_axis_w + heatmap_w + colorbar_gap + colorbar_w
+        img_h = pad * 2 + title_h + heatmap_h + bottom_h
+        return {
+            "pad": pad,
+            "title_h": title_h,
+            "bottom_h": bottom_h,
+            "left_bar_w": left_bar_w,
+            "layer_axis_w": layer_axis_w,
+            "colorbar_gap": colorbar_gap,
+            "colorbar_w": colorbar_w,
+            "heatmap_w": heatmap_w,
+            "heatmap_h": heatmap_h,
+            "img_w": img_w,
+            "img_h": img_h,
+        }
+
+    @staticmethod
+    def _scaled_position(index: int, total: int, extent: int, offset: int) -> int:
+        if total <= 0:
+            return offset
+        return offset + int(round(index * extent / total))
+
+    @staticmethod
+    def _segment_legend_label(segment: Tuple[int, int, int, str, int]) -> str:
+        _, _, step, role, rank_id = segment
+        return f"st{step} | {role} | r{rank_id}"
+
+    @staticmethod
+    def _build_title(rec_list: List[dict], n_exp: int) -> str:
+        ranks = sorted({rec["rank_id"] for rec in rec_list})
+        snapshots = len(rec_list)
+        if len(ranks) == 1:
+            rank_text = f"rank={ranks[0]}"
+        else:
+            rank_text = f"ranks={len(ranks)}"
+        return f"GMM expert load ({rank_text}, {snapshots} snapshots, {n_exp} experts)"
+
+    @staticmethod
+    def _fit_text(
+        draw: ImageDraw.ImageDraw,
+        text: str,
+        max_width: int,
+        font: ImageFont.ImageFont,
+    ) -> str:
+        if draw.textlength(text, font=font) <= max_width:
+            return text
+        suffix = "..."
+        trimmed = text
+        while trimmed and draw.textlength(trimmed + suffix, font=font) > max_width:
+            trimmed = trimmed[:-1]
+        return (trimmed + suffix) if trimmed else ""
+
+    @staticmethod
+    def _draw_rotated_text(
+        image: Image.Image,
+        position: tuple[int, int],
+        text: str,
+        font: ImageFont.ImageFont,
+        fill: str | tuple[int, int, int],
+    ) -> None:
+        tmp = Image.new("RGBA", (160, 32), (255, 255, 255, 0))
+        tmp_draw = ImageDraw.Draw(tmp)
+        tmp_draw.text((0, 0), text, fill=fill, font=font)
+        rotated = tmp.rotate(90, expand=True)
+        image.paste(rotated, position, rotated)
+
+    def _heatmap_rgb(
+        self,
+        mat: np.ndarray,
+        vmin: float,
+        scale: float,
+    ) -> np.ndarray:
+        heatmap = mat.T
+        rgb = np.full((heatmap.shape[0], heatmap.shape[1], 3), 235, dtype=np.uint8)
+        finite_mask = np.isfinite(heatmap)
+        if np.any(finite_mask):
+            normalized = np.clip((heatmap[finite_mask] - vmin) / scale, 0.0, 1.0)
+            palette_idx = np.rint(normalized * 255).astype(np.uint8)
+            palette = self._viridis_palette()
+            rgb[finite_mask] = palette[palette_idx]
+        return rgb
+
+    @staticmethod
+    def _layer_ticks(rec_list: List[dict]) -> List[Tuple[int, str]]:
+        if not rec_list:
+            return []
+
+        positions = [0]
+        labels = [f"layer{rec_list[0]['layer_idx']}"]
+        current_layer = rec_list[0]["layer_idx"]
+        for idx, rec in enumerate(rec_list[1:], start=1):
+            if rec["layer_idx"] != current_layer:
+                current_layer = rec["layer_idx"]
+                positions.append(idx)
+                labels.append(f"layer{current_layer}")
+
+        if positions[-1] != len(rec_list) - 1:
+            positions.append(len(rec_list) - 1)
+            labels.append(f"layer{rec_list[-1]['layer_idx']}")
+
+        max_labels = 40
+        if len(positions) > max_labels:
+            selected = np.linspace(0, len(positions) - 1, max_labels, dtype=int)
+            positions = [positions[idx] for idx in selected]
+            labels = [labels[idx] for idx in selected]
+        return list(zip(positions, labels))
+
+    def _draw_expert_ticks(
+        self,
+        draw: ImageDraw.ImageDraw,
+        font: ImageFont.ImageFont,
+        heatmap_x0: int,
+        heatmap_y1: int,
+        heatmap_w: int,
+        n_exp: int,
+    ) -> None:
+        if n_exp <= 0:
+            return
+
+        tick_count = min(6, n_exp)
+        tick_indices = np.linspace(0, n_exp - 1, tick_count, dtype=int)
+        seen: set[int] = set()
+        for expert_idx in tick_indices:
+            if int(expert_idx) in seen:
+                continue
+            seen.add(int(expert_idx))
+            x = heatmap_x0 + int(round((int(expert_idx) + 0.5) * heatmap_w / n_exp))
+            draw.line([(x, heatmap_y1), (x, heatmap_y1 + 5)], fill="black", width=1)
+            label = str(int(expert_idx))
+            bbox = draw.textbbox((0, 0), label, font=font)
+            draw.text((x - (bbox[2] - bbox[0]) // 2, heatmap_y1 + 8), label, fill="black", font=font)
+
+    def _draw_colorbar(
+        self,
+        draw: ImageDraw.ImageDraw,
+        font: ImageFont.ImageFont,
+        x0: int,
+        x1: int,
+        y0: int,
+        y1: int,
+        vmin: float,
+        vmax: float,
+    ) -> None:
+        palette = self._viridis_palette()
+        height = max(1, y1 - y0)
+        for offset in range(height):
+            idx = min(255, max(0, int(round((1 - offset / max(1, height - 1)) * 255))))
+            color = tuple(int(v) for v in palette[idx])
+            draw.line([(x0, y0 + offset), (x1, y0 + offset)], fill=color, width=1)
+
+        draw.rectangle([x0, y0, x1, y1], outline=(120, 120, 120))
+        draw.text((x0 - 2, max(0, y0 - 18)), f"{vmax:.2f}", fill="black", font=font)
+        draw.text((x0 - 2, y1 + 4), f"{vmin:.2f}", fill="black", font=font)
+        draw.text((x0 - 6, max(0, y0 - 34)), "Load", fill="black", font=font)
+
+    @classmethod
+    def _viridis_palette(cls) -> np.ndarray:
+        return np.array([cls._viridis_rgb(i / 255.0) for i in range(256)], dtype=np.uint8)
 
     @staticmethod
     def _viridis_rgb(x: float) -> tuple[int, int, int]:
