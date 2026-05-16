@@ -27,10 +27,7 @@ def _coerce_path(data: Any) -> Optional[Path]:
     if isinstance(data, Path):
         return data
     if isinstance(data, str):
-        try:
-            return Path(data)
-        except TypeError:
-            return None
+        return Path(data)
     return None
 
 

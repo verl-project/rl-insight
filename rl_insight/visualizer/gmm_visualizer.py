@@ -15,13 +15,13 @@
 from pathlib import Path
 from typing import Any, List, Tuple
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from loguru import logger
-from PIL import Image, ImageDraw, ImageFont
 
-from rl_insight.visualizer.visualizer import BaseVisualizer, register_cluster_visualizer
 from rl_insight.data import DataEnum
+from rl_insight.visualizer.visualizer import BaseVisualizer, register_cluster_visualizer
 
 
 @register_cluster_visualizer("gmm_heatmap")
@@ -37,7 +37,8 @@ class GmmVisualizer(BaseVisualizer):
         - Path with suffix (e.g., 'a/b/c.png') -> treat as explicit file path.
         """
         output = Path(output_cfg)
-        if output.is_dir() or output.suffix == "":
+        is_dir_semantics = output.is_dir() or output.suffix == ""
+        if is_dir_semantics:
             output = output / "gmm_heatmap.png"
         return output
 
@@ -48,19 +49,23 @@ class GmmVisualizer(BaseVisualizer):
 
     def run(self, data):
         """Run GMM heatmap visualization from parsed data."""
+        # Extract parameters from config
         output_cfg = self.config.get(
             "output_path", "./output/gmm_group_list_heatmap.png"
         )
         output = self._resolve_output_path(output_cfg)
+        dpi = self.config.get("dpi", 150)
+        cmap = self.config.get("cmap", "viridis")
         gmm_per_layer = int(self.config.get("gmm_per_layer", 3))
 
         if not isinstance(data, pd.DataFrame):
             raise ValueError(f"Expected DataFrame, got {type(data).__name__}")
-        if data.empty:
-            raise ValueError("No GMM data provided")
 
         logger.info(f"GmmVisualizer received DataFrame with {len(data)} rows")
         logger.info(f"DataFrame columns: {list(data.columns)}")
+
+        if data.empty:
+            raise ValueError("No GMM data provided")
         logger.info("Visualizer consumes parser-filtered GMM summary data.")
 
         # For actor_update, filter out backward/recompute data by detecting
@@ -73,88 +78,111 @@ class GmmVisualizer(BaseVisualizer):
         # This works regardless of whether gradient recomputation is enabled:
         #   - With recomputation: forward runs of 3, then a run >3 triggers cutoff
         #   - Without recomputation: forward runs of 3, then a run of 3+3=6 triggers cutoff
-        if "actor_update" in data["role"].unique():
+        is_actor_update = "actor_update" in data["role"].unique()
+        if is_actor_update:
             grouped = data.groupby(["step", "role", "rank_id"])
             filtered_data = []
-            for (step_val, role_val, rank_val), group in grouped:
-                if role_val != "actor_update":
+            for name, group in grouped:
+                step_val, role_val, rank_val = name
+                if role_val == "actor_update":
+                    sorted_group = group.sort_values("stage")
+                    unique_stages = sorted(sorted_group["stage"].unique())
+
+                    # Build load signature for each stage
+                    stage_loads = {}
+                    for stage in unique_stages:
+                        stage_data = sorted_group[sorted_group["stage"] == stage]
+                        load_sig = self._load_signature(stage_data)
+                        stage_loads[stage] = load_sig
+
+                    # Scan forward: keep stages until a run exceeds gmm_per_layer.
+                    forward_stages = []
+                    prev_load = None
+                    consecutive = 0
+                    backward_detected = False
+
+                    for stage in unique_stages:
+                        if backward_detected:
+                            break
+                        load = stage_loads[stage]
+                        if prev_load is not None and np.array_equal(load, prev_load):
+                            consecutive += 1
+                        else:
+                            prev_load = load
+                            consecutive = 1
+
+                        if consecutive <= gmm_per_layer:
+                            forward_stages.append(stage)
+                        else:
+                            backward_detected = True
+
+                    filtered_group = sorted_group[
+                        sorted_group["stage"].isin(forward_stages)
+                    ]
+                    filtered_data.append(filtered_group)
+                    logger.info(
+                        f"For actor_update (step={step_val}, rank={rank_val}): "
+                        f"kept {len(forward_stages)} forward stages out of {len(unique_stages)} total "
+                        f"(backward detected={backward_detected}, gmm_per_layer={gmm_per_layer})"
+                    )
+                else:
                     filtered_data.append(group)
-                    continue
 
-                sorted_group = group.sort_values("stage")
-                unique_stages = sorted(sorted_group["stage"].unique())
-                stage_loads = {}
-                for stage in unique_stages:
-                    stage_data = sorted_group[sorted_group["stage"] == stage]
-                    stage_loads[stage] = self._load_signature(stage_data)
-
-                forward_stages = []
-                prev_load = None
-                consecutive = 0
-                backward_detected = False
-                for stage in unique_stages:
-                    if backward_detected:
-                        break
-                    load = stage_loads[stage]
-                    if prev_load is not None and np.array_equal(load, prev_load):
-                        consecutive += 1
-                    else:
-                        prev_load = load
-                        consecutive = 1
-
-                    if consecutive <= gmm_per_layer:
-                        forward_stages.append(stage)
-                    else:
-                        backward_detected = True
-
-                filtered_group = sorted_group[
-                    sorted_group["stage"].isin(forward_stages)
-                ]
-                filtered_data.append(filtered_group)
+            if filtered_data:
+                data = pd.concat(filtered_data)
                 logger.info(
-                    f"For actor_update (step={step_val}, rank={rank_val}): "
-                    f"kept {len(forward_stages)} forward stages out of {len(unique_stages)} total "
-                    f"(backward detected={backward_detected}, gmm_per_layer={gmm_per_layer})"
+                    f"After filtering actor_update forward-only data, now {len(data)} rows"
                 )
-
-            if not filtered_data:
+            else:
+                logger.warning("No data left after filtering")
                 raise ValueError("No data left after filtering")
-            data = pd.concat(filtered_data)
-            logger.info(
-                f"After filtering actor_update forward-only data, now {len(data)} rows"
-            )
 
+        # Build matrix
         mat, rec_list, boundaries = self._build_matrix_from_data(data)
         logger.info(f"Built matrix with shape {mat.shape}")
+
         segments = self._segment_labels(rec_list, boundaries)
-        self._plot_heatmap(mat, rec_list, segments, output)
+
+        # Generate title
+        unique_ranks = sorted(data["rank_id"].unique())
+        if len(unique_ranks) == 1:
+            rank_str = f" rank={unique_ranks[0]}"
+        else:
+            rank_str = f" ranks={len(unique_ranks)}"
+        title = f"GMM expert load (group_list){rank_str} - {len(rec_list)} snapshots, {mat.shape[0]} experts"
+
+        # Plot heatmap
+        self._plot_heatmap(mat, rec_list, segments, title, output, dpi, cmap)
+
         return str(output)
 
     def _build_matrix_from_data(
         self, data: pd.DataFrame
     ) -> Tuple[np.ndarray, List[dict], List[int]]:
         """Build a matrix from the parsed data."""
-        # Group data by step, role, rank_id, stage.
-        # First sort the data to ensure consistent ordering.
+        # Group data by step, role, rank_id, stage
+        # First sort the data to ensure consistent ordering
         sorted_data = data.sort_values(["step", "role", "rank_id", "stage"])
         grouped = sorted_data.groupby(["step", "role", "rank_id", "stage"])
 
-        # Get unique steps, roles, ranks and stages.
+        # Get unique steps, roles, ranks and stages
         steps = sorted(data["step"].unique())
         roles = sorted(data["role"].unique())
         ranks = sorted(data["rank_id"].unique())
         stages = sorted(data["stage"].unique())
-        max_expert = int(data["expert_index"].max())
+        max_expert = data["expert_index"].max()
+
         logger.info(f"Steps: {steps}")
         logger.info(f"Roles: {roles}")
         logger.info(f"Ranks: {ranks}")
         logger.info(f"Stages: {stages}")
         logger.info(f"Max expert index: {max_expert}")
 
+        # Build matrix and detect duplicate stages
         vecs = []
         rec_list = []
 
-        # Track layer mapping per (step, role, rank) group.
+        # Track layer mapping per (step, role, rank) group
         current_group = None
         seen_vectors: dict[tuple[Any, ...], int] = {}
         layer_counter = 0
@@ -164,10 +192,11 @@ class GmmVisualizer(BaseVisualizer):
             logger.info(
                 f"Processing step: {step}, role: {role}, rank: {rank}, stage: {stage_idx}"
             )
-            # Check if we're in a new (step, role, rank) group.
+
+            # Check if we're in a new (step, role, rank) group
             new_group = (step, role, rank)
             if new_group != current_group:
-                # Reset layer counter and seen vectors for the new group.
+                # Reset layer counter and seen vectors for new group
                 current_group = new_group
                 seen_vectors.clear()
                 layer_counter = 0
@@ -175,20 +204,23 @@ class GmmVisualizer(BaseVisualizer):
                     f"New group detected: {new_group}, resetting layer counter to 0"
                 )
 
-            # Create a vector for this step, role, rank and stage.
+            # Create a vector for this step, role, rank and stage
             vec = np.full(max_expert + 1, np.nan, dtype=np.float64)
             for _, row in group.iterrows():
-                vec[int(row["expert_index"])] = row["load"]
+                expert_idx = row["expert_index"]
+                vec[expert_idx] = row["load"]
 
-            # Convert vector to tuple for hashing, replacing NaN to keep comparisons stable.
+            # Convert vector to tuple for hashing (handle NaN values)
             vec_tuple = tuple(v if not np.isnan(v) else -1 for v in vec)
+
+            # Check if this vector has been seen before in current group
             if vec_tuple not in seen_vectors:
-                # New layer.
+                # New layer
                 seen_vectors[vec_tuple] = layer_counter
                 layer_idx = layer_counter
                 layer_counter += 1
             else:
-                # Duplicate layer.
+                # Duplicate layer
                 layer_idx = seen_vectors[vec_tuple]
 
             vecs.append(vec)
@@ -199,7 +231,7 @@ class GmmVisualizer(BaseVisualizer):
                     "rank_id": rank,
                     "stage": stage_idx,
                     "op_index": stage_idx,  # Original op index
-                    "layer_idx": layer_idx,  # Mapped layer index.
+                    "layer_idx": layer_idx,  # Mapped layer index
                 }
             )
 
@@ -226,6 +258,7 @@ class GmmVisualizer(BaseVisualizer):
                     cur_key = new_key
         boundaries.append(mat.shape[1])
         logger.info(f"Boundaries (step/role/rank): {boundaries}")
+
         return mat, rec_list, boundaries
 
     def _segment_labels(
@@ -246,308 +279,131 @@ class GmmVisualizer(BaseVisualizer):
         mat: np.ndarray,
         rec_list: List[dict],
         segments: List[Tuple[int, int, int, str, int]],
+        title: str,
         out_path: Path,
+        dpi: int,
+        cmap: str,
     ) -> None:
         """Plot the heatmap."""
         n_exp, n_time = mat.shape
-        layout = self._compute_layout(n_exp, n_time)
-        pad = layout["pad"]
-        title_h = layout["title_h"]
-        left_bar_w = layout["left_bar_w"]
-        layer_axis_w = layout["layer_axis_w"]
-        colorbar_gap = layout["colorbar_gap"]
-        colorbar_w = layout["colorbar_w"]
-        heatmap_w = layout["heatmap_w"]
-        heatmap_h = layout["heatmap_h"]
-        img_w = layout["img_w"]
-        img_h = layout["img_h"]
-        title = self._build_title(rec_list, n_exp)
+        # Keep figure size readable when segment/time dimension is large.
+        # Use sub-linear growth for height to avoid overly tall and narrow figures.
+        fig_w = min(32, max(10, n_exp * 0.18))
+        fig_h = min(22, max(8, 6 + np.sqrt(max(n_time, 1)) * 0.9))
+        fig = plt.figure(figsize=(fig_w + 2.8, fig_h))
+        gs = fig.add_gridspec(1, 2, width_ratios=[0.16, 1], wspace=0.05)
+        ax_bar = fig.add_subplot(gs[0, 0])
+        ax = fig.add_subplot(gs[0, 1])
 
-        finite_vals = mat[np.isfinite(mat)]
-        vmin = float(finite_vals.min()) if finite_vals.size else 0.0
-        vmax = float(finite_vals.max()) if finite_vals.size else 1.0
-        scale = vmax - vmin if vmax > vmin else 1.0
-
-        image = Image.new("RGB", (img_w, img_h), "white")
-        draw = ImageDraw.Draw(image)
-        font = ImageFont.load_default()
-        title_font = ImageFont.load_default()
-        heatmap_x0 = pad + left_bar_w + layer_axis_w
-        heatmap_y0 = pad + title_h
-        heatmap_x1 = heatmap_x0 + heatmap_w
-        heatmap_y1 = heatmap_y0 + heatmap_h
-        colorbar_x0 = heatmap_x1 + colorbar_gap
-        colorbar_x1 = colorbar_x0 + colorbar_w
-
-        draw.text((pad, pad), title, fill="black", font=title_font)
-        draw.text((pad, pad + 16), "step | role | rank", fill="black", font=font)
-        draw.text(
-            (heatmap_x0 + max(0, heatmap_w // 2 - 35), heatmap_y1 + 22),
-            "Expert index",
-            fill="black",
-            font=font,
-        )
-        self._draw_rotated_text(
-            image,
-            (pad + left_bar_w + 8, heatmap_y0 + max(0, heatmap_h // 2 - 28)),
-            "Layer index",
-            font,
-            "black",
-        )
+        # Main heatmap is transposed to put experts on X axis.
+        # mat: [n_experts, n_time] -> heatmap_data: [n_time, n_experts]
+        heatmap_data = mat.T
+        ax_bar.set_ylim(-0.5, n_time - 0.5)
+        ax.set_ylim(-0.5, n_time - 0.5)
+        ax.set_xlim(-0.5, n_exp - 0.5)
 
         # Segment bar: one color per (step, role, rank), shown on left side.
-        segment_colors = [
-            self._viridis_rgb(i / max(1, len(segments) - 1))
-            for i in range(len(segments))
-        ]
-
-        for idx, segment in enumerate(segments):
-            a, b, _step, _role, _rank = segment
-            y0 = self._scaled_position(a, n_time, heatmap_h, heatmap_y0)
-            y1 = self._scaled_position(b, n_time, heatmap_h, heatmap_y0)
-            if y1 <= y0:
-                y1 = min(heatmap_y1, y0 + 1)
-            draw.rectangle(
-                [pad, y0, pad + left_bar_w - 1, y1 - 1],
-                fill=segment_colors[idx],
+        # Use viridis colormap for consistency with heatmap
+        palette = plt.cm.viridis(np.linspace(0, 1, len(segments)))
+        for i, (a, b, step, role, rank_id) in enumerate(segments):
+            color = palette[i]
+            ax_bar.axhspan(
+                a - 0.5, b - 0.5, facecolor=color, alpha=0.55, edgecolor="none"
             )
-            label = self._segment_legend_label(segment)
-            label = self._fit_text(draw, label, left_bar_w - 10, font)
-            if label and (y1 - y0) >= 12:
-                text_bbox = draw.textbbox((0, 0), label, font=font)
-                text_y = y0 + max(0, (y1 - y0 - (text_bbox[3] - text_bbox[1])) // 2)
-                draw.text((pad + 4, text_y), label, fill="black", font=font)
 
-        draw.rectangle(
-            [heatmap_x0 - 1, heatmap_y0 - 1, heatmap_x1, heatmap_y1],
-            outline=(200, 200, 200),
+        # Add separator lines between segments
+        for a, b, step, role, rank_id in segments:
+            if a > 0:
+                ax_bar.axhline(a - 0.5, color="white", linewidth=0.8, alpha=0.7)
+        # Add last separator line at the end
+        if n_time > 0:
+            ax_bar.axhline(n_time - 0.5, color="white", linewidth=0.8, alpha=0.7)
+        ax_bar.set_xlim(0, 1)
+        ax_bar.set_xticks([])
+        ax_bar.set_yticks([])
+        ax_bar.set_title(
+            "Row: layerK (K = merged layer index)\nstep | role | rank",
+            fontsize=10,
+            pad=8,
         )
+        im = ax.imshow(
+            heatmap_data,
+            aspect="auto",
+            cmap=cmap,
+            interpolation="nearest",
+            origin="upper",
+        )
+        ax.set_xlabel("Expert index")
+        ax.set_title(title)
 
-        layer_ticks = self._layer_ticks(rec_list)
-        for pos, label in layer_ticks:
-            y = self._scaled_position(pos, n_time, heatmap_h, heatmap_y0)
-            draw.line([(heatmap_x0 - 6, y), (heatmap_x0 - 1, y)], fill="black", width=1)
-            draw.text((pad + left_bar_w + 14, max(heatmap_y0, y - 6)), label, fill="black", font=font)
+        # Horizontal lines at every segment boundary (includes step / role / rank changes)
+        for a, b, step, role, rank_id in segments:
+            ax.axhline(a - 0.5, color="white", linewidth=0.8, alpha=0.7)
+        ax.axhline(n_time - 0.5, color="white", linewidth=0.8, alpha=0.7)
 
-        # Main heatmap is rendered as a stable bitmap to avoid backend-specific crashes.
-        heatmap_rgb = self._heatmap_rgb(mat, vmin, scale)
-        heatmap_image = Image.fromarray(heatmap_rgb, mode="RGB")
-        if heatmap_image.size != (heatmap_w, heatmap_h):
-            heatmap_image = heatmap_image.resize(
-                (heatmap_w, heatmap_h), resample=Image.Resampling.NEAREST
+        # Y axis: mark each layer only once
+        layer_positions = []
+        layer_labels = []
+        if n_time > 0:
+            current_layer = rec_list[0]["layer_idx"]
+            layer_positions.append(0)
+            layer_labels.append(f"layer{current_layer}")
+
+            for j in range(1, n_time):
+                if rec_list[j]["layer_idx"] != current_layer:
+                    current_layer = rec_list[j]["layer_idx"]
+                    layer_positions.append(j)
+                    layer_labels.append(f"layer{current_layer}")
+
+        # Add the last position if needed
+        if n_time > 0 and layer_positions[-1] != n_time - 1:
+            layer_positions.append(n_time - 1)
+            layer_labels.append(f"layer{rec_list[-1]['layer_idx']}")
+
+        # Downsample layer ticks when snapshots are too many.
+        max_layer_labels = 40
+        if len(layer_positions) > max_layer_labels:
+            sel_idx = np.linspace(
+                0, len(layer_positions) - 1, max_layer_labels, dtype=int
             )
-        image.paste(heatmap_image, (heatmap_x0, heatmap_y0))
+            layer_positions = [layer_positions[i] for i in sel_idx]
+            layer_labels = [layer_labels[i] for i in sel_idx]
 
-        self._draw_expert_ticks(draw, font, heatmap_x0, heatmap_y1, heatmap_w, n_exp)
-        self._draw_colorbar(
-            draw,
-            font,
-            colorbar_x0,
-            colorbar_x1,
-            heatmap_y0,
-            heatmap_y1,
-            vmin,
-            vmax,
-        )
+        ax.set_yticks(layer_positions)
+        ax.set_yticklabels(layer_labels, fontsize=6)
+        ax.set_ylabel("")
 
+        x_stride = max(1, n_exp // 40)
+        ax.set_xticks(list(range(0, n_exp, x_stride)))
+
+        cbar = fig.colorbar(im, ax=ax, fraction=0.02, pad=0.01)
+        cbar.set_label("Tokens per expert (group_list)")
+
+        def _seg_legend_label(s: Tuple[int, int, int, str, int]) -> str:
+            _, _, st, rl, rk = s
+            rshort = (rl[:14] + "...") if len(str(rl)) > 14 else str(rl)
+            return f"st{st} | {rshort} | r{rk}"
+
+        # Render step/role/rank directly inside segment blocks (centered).
+        if segments:
+            for i, (a, b, step, role, rank_id) in enumerate(segments):
+                label = _seg_legend_label((a, b, step, role, rank_id))
+                seg_h = max(1.0, b - a)
+                # Adaptive label size based on segment height.
+                font_size = min(11.5, max(5.5, 4.8 + 0.45 * seg_h))
+                ax_bar.text(
+                    0.5,
+                    a + (b - a - 1) / 2,
+                    label,
+                    fontsize=font_size,
+                    va="center",
+                    ha="center",
+                    rotation=0,
+                    color="black",
+                    clip_on=True,
+                )
+
+        fig.tight_layout()
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        image.save(out_path)
-
-    def _compute_layout(self, n_exp: int, n_time: int) -> dict[str, int]:
-        pad = 24
-        title_h = 46
-        bottom_h = 58
-        left_bar_w = 150
-        layer_axis_w = 62
-        colorbar_gap = 16
-        colorbar_w = 44
-        target_cell_w = int(self.config.get("cell_width", 28))
-        target_cell_h = int(self.config.get("cell_height", 28))
-        max_img_w = int(self.config.get("max_image_width", 4096))
-        max_img_h = int(self.config.get("max_image_height", 8192))
-
-        available_w = max(
-            1,
-            max_img_w
-            - (pad * 2 + left_bar_w + layer_axis_w + colorbar_gap + colorbar_w),
-        )
-        available_h = max(1, max_img_h - (pad * 2 + title_h + bottom_h))
-
-        heatmap_w = min(available_w, max(1, n_exp * target_cell_w))
-        heatmap_h = min(available_h, max(1, n_time * target_cell_h))
-
-        img_w = pad * 2 + left_bar_w + layer_axis_w + heatmap_w + colorbar_gap + colorbar_w
-        img_h = pad * 2 + title_h + heatmap_h + bottom_h
-        return {
-            "pad": pad,
-            "title_h": title_h,
-            "bottom_h": bottom_h,
-            "left_bar_w": left_bar_w,
-            "layer_axis_w": layer_axis_w,
-            "colorbar_gap": colorbar_gap,
-            "colorbar_w": colorbar_w,
-            "heatmap_w": heatmap_w,
-            "heatmap_h": heatmap_h,
-            "img_w": img_w,
-            "img_h": img_h,
-        }
-
-    @staticmethod
-    def _scaled_position(index: int, total: int, extent: int, offset: int) -> int:
-        if total <= 0:
-            return offset
-        return offset + int(round(index * extent / total))
-
-    @staticmethod
-    def _segment_legend_label(segment: Tuple[int, int, int, str, int]) -> str:
-        _, _, step, role, rank_id = segment
-        return f"st{step} | {role} | r{rank_id}"
-
-    @staticmethod
-    def _build_title(rec_list: List[dict], n_exp: int) -> str:
-        ranks = sorted({rec["rank_id"] for rec in rec_list})
-        snapshots = len(rec_list)
-        if len(ranks) == 1:
-            rank_text = f"rank={ranks[0]}"
-        else:
-            rank_text = f"ranks={len(ranks)}"
-        return f"GMM expert load ({rank_text}, {snapshots} snapshots, {n_exp} experts)"
-
-    @staticmethod
-    def _fit_text(
-        draw: ImageDraw.ImageDraw,
-        text: str,
-        max_width: int,
-        font: ImageFont.ImageFont,
-    ) -> str:
-        if draw.textlength(text, font=font) <= max_width:
-            return text
-        suffix = "..."
-        trimmed = text
-        while trimmed and draw.textlength(trimmed + suffix, font=font) > max_width:
-            trimmed = trimmed[:-1]
-        return (trimmed + suffix) if trimmed else ""
-
-    @staticmethod
-    def _draw_rotated_text(
-        image: Image.Image,
-        position: tuple[int, int],
-        text: str,
-        font: ImageFont.ImageFont,
-        fill: str | tuple[int, int, int],
-    ) -> None:
-        tmp = Image.new("RGBA", (160, 32), (255, 255, 255, 0))
-        tmp_draw = ImageDraw.Draw(tmp)
-        tmp_draw.text((0, 0), text, fill=fill, font=font)
-        rotated = tmp.rotate(90, expand=True)
-        image.paste(rotated, position, rotated)
-
-    def _heatmap_rgb(
-        self,
-        mat: np.ndarray,
-        vmin: float,
-        scale: float,
-    ) -> np.ndarray:
-        heatmap = mat.T
-        rgb = np.full((heatmap.shape[0], heatmap.shape[1], 3), 235, dtype=np.uint8)
-        finite_mask = np.isfinite(heatmap)
-        if np.any(finite_mask):
-            normalized = np.clip((heatmap[finite_mask] - vmin) / scale, 0.0, 1.0)
-            palette_idx = np.rint(normalized * 255).astype(np.uint8)
-            palette = self._viridis_palette()
-            rgb[finite_mask] = palette[palette_idx]
-        return rgb
-
-    @staticmethod
-    def _layer_ticks(rec_list: List[dict]) -> List[Tuple[int, str]]:
-        if not rec_list:
-            return []
-
-        positions = [0]
-        labels = [f"layer{rec_list[0]['layer_idx']}"]
-        current_layer = rec_list[0]["layer_idx"]
-        for idx, rec in enumerate(rec_list[1:], start=1):
-            if rec["layer_idx"] != current_layer:
-                current_layer = rec["layer_idx"]
-                positions.append(idx)
-                labels.append(f"layer{current_layer}")
-
-        if positions[-1] != len(rec_list) - 1:
-            positions.append(len(rec_list) - 1)
-            labels.append(f"layer{rec_list[-1]['layer_idx']}")
-
-        max_labels = 40
-        if len(positions) > max_labels:
-            selected = np.linspace(0, len(positions) - 1, max_labels, dtype=int)
-            positions = [positions[idx] for idx in selected]
-            labels = [labels[idx] for idx in selected]
-        return list(zip(positions, labels))
-
-    def _draw_expert_ticks(
-        self,
-        draw: ImageDraw.ImageDraw,
-        font: ImageFont.ImageFont,
-        heatmap_x0: int,
-        heatmap_y1: int,
-        heatmap_w: int,
-        n_exp: int,
-    ) -> None:
-        if n_exp <= 0:
-            return
-
-        tick_count = min(6, n_exp)
-        tick_indices = np.linspace(0, n_exp - 1, tick_count, dtype=int)
-        seen: set[int] = set()
-        for expert_idx in tick_indices:
-            if int(expert_idx) in seen:
-                continue
-            seen.add(int(expert_idx))
-            x = heatmap_x0 + int(round((int(expert_idx) + 0.5) * heatmap_w / n_exp))
-            draw.line([(x, heatmap_y1), (x, heatmap_y1 + 5)], fill="black", width=1)
-            label = str(int(expert_idx))
-            bbox = draw.textbbox((0, 0), label, font=font)
-            draw.text((x - (bbox[2] - bbox[0]) // 2, heatmap_y1 + 8), label, fill="black", font=font)
-
-    def _draw_colorbar(
-        self,
-        draw: ImageDraw.ImageDraw,
-        font: ImageFont.ImageFont,
-        x0: int,
-        x1: int,
-        y0: int,
-        y1: int,
-        vmin: float,
-        vmax: float,
-    ) -> None:
-        palette = self._viridis_palette()
-        height = max(1, y1 - y0)
-        for offset in range(height):
-            idx = min(255, max(0, int(round((1 - offset / max(1, height - 1)) * 255))))
-            color = tuple(int(v) for v in palette[idx])
-            draw.line([(x0, y0 + offset), (x1, y0 + offset)], fill=color, width=1)
-
-        draw.rectangle([x0, y0, x1, y1], outline=(120, 120, 120))
-        draw.text((x0 - 2, max(0, y0 - 18)), f"{vmax:.2f}", fill="black", font=font)
-        draw.text((x0 - 2, y1 + 4), f"{vmin:.2f}", fill="black", font=font)
-        draw.text((x0 - 6, max(0, y0 - 34)), "Load", fill="black", font=font)
-
-    @classmethod
-    def _viridis_palette(cls) -> np.ndarray:
-        return np.array([cls._viridis_rgb(i / 255.0) for i in range(256)], dtype=np.uint8)
-
-    @staticmethod
-    def _viridis_rgb(x: float) -> tuple[int, int, int]:
-        anchors = [
-            (68, 1, 84),
-            (59, 82, 139),
-            (33, 145, 140),
-            (94, 201, 98),
-            (253, 231, 37),
-        ]
-        x = min(1.0, max(0.0, x))
-        pos = x * (len(anchors) - 1)
-        left = int(pos)
-        right = min(left + 1, len(anchors) - 1)
-        frac = pos - left
-        c0, c1 = anchors[left], anchors[right]
-        return tuple(int(c0[i] + (c1[i] - c0[i]) * frac) for i in range(3))
+        fig.savefig(out_path, dpi=dpi, bbox_inches="tight")
+        plt.close(fig)
