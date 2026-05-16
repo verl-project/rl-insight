@@ -14,14 +14,13 @@
 
 from pathlib import Path
 from typing import Any, List, Tuple
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from loguru import logger
 
-from rl_insight.data import DataEnum
 from rl_insight.visualizer.visualizer import BaseVisualizer, register_cluster_visualizer
+from rl_insight.data import DataEnum
 
 
 @register_cluster_visualizer("gmm_heatmap")
@@ -149,7 +148,7 @@ class GmmVisualizer(BaseVisualizer):
             rank_str = f" rank={unique_ranks[0]}"
         else:
             rank_str = f" ranks={len(unique_ranks)}"
-        title = f"GMM expert load (group_list){rank_str} - {len(rec_list)} snapshots, {mat.shape[0]} experts"
+        title = f"GMM expert load (group_list){rank_str} — {len(rec_list)} snapshots, {mat.shape[0]} experts"
 
         # Plot heatmap
         self._plot_heatmap(mat, rec_list, segments, title, output, dpi, cmap)
@@ -322,7 +321,7 @@ class GmmVisualizer(BaseVisualizer):
         ax_bar.set_xticks([])
         ax_bar.set_yticks([])
         ax_bar.set_title(
-            "Row: layerK (K = merged layer index)\nstep | role | rank",
+            "Row: layerK (K = merged layer index)\nstep · role · rank",
             fontsize=10,
             pad=8,
         )
@@ -381,8 +380,8 @@ class GmmVisualizer(BaseVisualizer):
 
         def _seg_legend_label(s: Tuple[int, int, int, str, int]) -> str:
             _, _, st, rl, rk = s
-            rshort = (rl[:14] + "...") if len(str(rl)) > 14 else str(rl)
-            return f"st{st} | {rshort} | r{rk}"
+            rshort = (rl[:14] + "…") if len(str(rl)) > 14 else str(rl)
+            return f"st{st} · {rshort} · r{rk}"
 
         # Render step/role/rank directly inside segment blocks (centered).
         if segments:
