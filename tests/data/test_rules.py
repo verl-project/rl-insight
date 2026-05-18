@@ -25,7 +25,11 @@ from rl_insight.data.rules import (
     NvtxJsonFieldValidRule,
 )
 from rl_insight.data.verl_log_rules import VerlLogExistRule, VerlLogKeyParamsRule
-from tests.data.test_paths import MSTX_PROFILE_PATH, NVTX_PROFILE_PATH, TORCH_PROFILE_PATH
+from tests.data.test_paths import (
+    MSTX_PROFILE_PATH,
+    NVTX_PROFILE_PATH,
+    TORCH_PROFILE_PATH,
+)
 
 
 def test_path_exists_rule_accepts_existing_directory():

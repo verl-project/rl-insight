@@ -1,4 +1,4 @@
-﻿# Copyright (c) 2025 verl-project authors.
+# Copyright (c) 2025 verl-project authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -152,7 +152,6 @@ class MstxJsonFieldValidRule(ValidationRule):
                 return False
 
             for ascend_pt_path in ascend_pt_folders:
-
                 # valid trace_view.json format
                 trace_view_path = (
                     ascend_pt_path / "ASCEND_PROFILER_OUTPUT" / "trace_view.json"
@@ -217,9 +216,7 @@ class MstxJsonFieldValidRule(ValidationRule):
                     }
                     missing_keys = required_keys - set(profiler_info_data.keys())
                     if missing_keys:
-                        self._error_message = (
-                            f"File field is missing: {missing_keys} in FilePath: {file_path}"
-                        )
+                        self._error_message = f"File field is missing: {missing_keys} in FilePath: {file_path}"
                         return False
             return True
         except Exception as e:
@@ -497,4 +494,3 @@ class GmmDataRule(ValidationRule):
         except Exception as e:
             self._error_message = f"Error checking GMM data: {e}"
             return False
-

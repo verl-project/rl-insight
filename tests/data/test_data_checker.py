@@ -21,9 +21,7 @@ from rl_insight.data.data_checker import DataChecker, DataEnum
 from rl_insight.data.rules import DataValidationError
 from tests.data.test_paths import (
     MSTX_PROFILE_PATH,
-    NVTX_PROFILE_PATH,
     PROJECT_ROOT,
-    TORCH_PROFILE_PATH,
 )
 
 
