@@ -27,3 +27,10 @@ def test_gmm_path_parsing_is_cross_platform():
     assert parser._extract_rank_id_from_path(windows_style_path) == 0
     assert parser._extract_step_from_path(windows_style_path) == 1
     assert parser._training_step_from_path(windows_style_path) == 1
+
+
+def test_gmm_normalize_path_text_returns_posix():
+    parser = GmmParser({Constant.RANK_LIST: "all"})
+    assert parser._normalize_path_text(r"C:\workspace\gmm_dump\step_1") == (
+        "C:/workspace/gmm_dump/step_1"
+    )

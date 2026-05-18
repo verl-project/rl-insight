@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
+
 from rl_insight.data.rules import (
     DataValidationError,
     PathExistsRule,
@@ -55,6 +57,11 @@ def test_mstx_jsonfile_exists():
     file_rule = MstxJsonFileExistsRule()
     assert path_rule.check(str(MSTX_PROFILE_PATH)) is True
     assert file_rule.check(str(MSTX_PROFILE_PATH)) is True
+
+
+def test_mstx_jsonfile_exists_accepts_path_object():
+    file_rule = MstxJsonFileExistsRule()
+    assert file_rule.check(MSTX_PROFILE_PATH) is True
 
 
 def test_mstx_jsonfile_exists_with_fake_path():
@@ -147,6 +154,11 @@ def test_torch_jsonfile_exists():
     assert file_rule.check(str(TORCH_PROFILE_PATH)) is True
 
 
+def test_torch_jsonfile_exists_accepts_path_object():
+    file_rule = TorchJsonFileExistsRule()
+    assert file_rule.check(TORCH_PROFILE_PATH) is True
+
+
 def test_torch_jsonfile_exists_with_fake_path():
     file_rule = TorchJsonFileExistsRule()
     fake_path = "fake_path"
@@ -167,10 +179,22 @@ def test_nvtx_jsonfile_exists():
     assert file_rule.check(str(NVTX_PROFILE_PATH)) is True
 
 
+def test_nvtx_jsonfile_exists_accepts_path_object():
+    file_rule = NvtxJsonFileExistsRule()
+    assert file_rule.check(NVTX_PROFILE_PATH) is True
+
+
 def test_nvtx_jsonfile_exists_with_fake_path():
     file_rule = NvtxJsonFileExistsRule()
     fake_path = "fake_path"
     assert file_rule.check(fake_path) is False
+
+
+def test_gmm_data_rule_accepts_path_object():
+    from rl_insight.data.rules import GmmDataRule
+
+    rule = GmmDataRule()
+    assert rule.check(Path("data/gmm_data")) is True
 
 
 def test_nvtx_json_fields_valid():

@@ -1,4 +1,4 @@
-# Copyright (c) 2025 verl-project authors.
+﻿# Copyright (c) 2025 verl-project authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,10 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import glob
 import gzip
 import json
-import os
 from typing import Any, List, Optional
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -96,16 +94,13 @@ class MstxJsonFileExistsRule(ValidationRule):
             profiler_info_filename = "profiler_info_*.json"
 
             # get all *_ascend_pt path
-            ascend_pt_pattern = str(root_path / "*" / "*_ascend_pt")
-            ascend_pt_folders = glob.glob(ascend_pt_pattern)
+            ascend_pt_folders = list(root_path.glob("*/*_ascend_pt"))
 
             if not ascend_pt_folders:
                 self._error_message = f"No *_ascend_pt path in {root_path}"
                 return False
 
-            for ascend_pt_folder in ascend_pt_folders:
-                ascend_pt_path = Path(ascend_pt_folder)
-
+            for ascend_pt_path in ascend_pt_folders:
                 if not ascend_pt_path.is_dir():
                     continue
 
@@ -118,8 +113,7 @@ class MstxJsonFileExistsRule(ValidationRule):
                     return False
 
                 # get profiler_info_*.json file path
-                profiler_pattern = str(ascend_pt_path / profiler_info_filename)
-                profiler_files = glob.glob(profiler_pattern)
+                profiler_files = list(ascend_pt_path.glob(profiler_info_filename))
 
                 if not profiler_files:
                     self._error_message = (
@@ -151,15 +145,13 @@ class MstxJsonFieldValidRule(ValidationRule):
                 return False
 
             # get all *_ascend_pt path
-            ascend_pt_pattern = str(root_path / "*" / "*_ascend_pt")
-            ascend_pt_folders = glob.glob(ascend_pt_pattern)
+            ascend_pt_folders = list(root_path.glob("*/*_ascend_pt"))
 
             if not ascend_pt_folders:
                 self._error_message = f"No *_ascend_pt path in {root_path}"
                 return False
 
-            for ascend_pt_folder in ascend_pt_folders:
-                ascend_pt_path = Path(ascend_pt_folder)
+            for ascend_pt_path in ascend_pt_folders:
 
                 # valid trace_view.json format
                 trace_view_path = (
@@ -170,7 +162,7 @@ class MstxJsonFieldValidRule(ValidationRule):
                         f"Missing trace_view.json in: {trace_view_path.parent}"
                     )
                     return False
-                if os.path.getsize(trace_view_path) == 0:
+                if trace_view_path.stat().st_size == 0:
                     self._error_message = f"File is empty: {trace_view_path}"
                     return False
                 try:
@@ -194,25 +186,26 @@ class MstxJsonFieldValidRule(ValidationRule):
                         return False
 
                 # valid profiler_info_*.json format
-                profiler_pattern = str(ascend_pt_path / "profiler_info_*.json")
-                profiler_info_files = glob.glob(profiler_pattern)
+                profiler_info_files = list(ascend_pt_path.glob("profiler_info_*.json"))
                 if not profiler_info_files:
                     self._error_message = (
                         f"profiler_info_*.json does not exist in: {ascend_pt_path}"
                     )
                     return False
-                for file in profiler_info_files:
-                    if os.path.getsize(file) == 0:
-                        self._error_message = f"File is empty: {file}"
+                for file_path in profiler_info_files:
+                    if file_path.stat().st_size == 0:
+                        self._error_message = f"File is empty: {file_path}"
                         return False
                     try:
-                        with open(file, "r", encoding="utf-8") as f:
+                        with open(file_path, "r", encoding="utf-8") as f:
                             profiler_info_data = json.load(f)
                     except Exception as exc:
-                        self._error_message = f"Failed to parse JSON file {file}: {exc}"
+                        self._error_message = (
+                            f"Failed to parse JSON file {file_path}: {exc}"
+                        )
                         return False
                     if len(profiler_info_data) == 0:
-                        self._error_message = f"File is empty: {file}"
+                        self._error_message = f"File is empty: {file_path}"
                         return False
                     required_keys = {
                         "config",
@@ -225,7 +218,7 @@ class MstxJsonFieldValidRule(ValidationRule):
                     missing_keys = required_keys - set(profiler_info_data.keys())
                     if missing_keys:
                         self._error_message = (
-                            f"File field is missing: {missing_keys} in FilePath: {file}"
+                            f"File field is missing: {missing_keys} in FilePath: {file_path}"
                         )
                         return False
             return True
@@ -277,17 +270,17 @@ class TorchJsonFileExistsRule(ValidationRule):
     """valid Torch *.json.gz files is existed in 'torch_profile' sub path"""
 
     def check(self, data) -> bool:
-        if not isinstance(data, str):
+        root_path = _coerce_path(data)
+        if root_path is None:
             self._error_message = "Data object is not a path"
             return False
         self._error_message = ""
         try:
-            root_path = Path(data)  # 路径：torch_profile
             is_success = True
             sub_dirs_no_json: List = []
 
             if not root_path.exists():
-                self._error_message = f"Source path does not exist: {data}"
+                self._error_message = f"Source path does not exist: {root_path}"
                 return False
             for subdir in root_path.iterdir():
                 if subdir.is_dir():
@@ -301,7 +294,7 @@ class TorchJsonFileExistsRule(ValidationRule):
             return is_success
 
         except Exception as e:
-            self._error_message = f"Error checking path {data}: {e}"
+            self._error_message = f"Error checking path {root_path}: {e}"
             return False
 
     @property
@@ -313,27 +306,19 @@ class TorchJsonFieldValidRule(ValidationRule):
     """valid torch *.json.gz files JSON format"""
 
     def check(self, data) -> bool:
-        if not isinstance(data, str):
+        root_path = _coerce_path(data)
+        if root_path is None:
             self._error_message = "Data object is not a path"
             return False
         self._error_message = ""
         try:
-            root_path = Path(data)
-
             if not root_path.exists():
-                self._error_message = f"Source path does not exist: {data}"
+                self._error_message = f"Source path does not exist: {root_path}"
                 return False
-            for item in os.listdir(root_path):
-                item_path = os.path.join(root_path, item)
-                # 检查是否为目录
-                if os.path.isdir(item_path):
-                    # 查找该子目录下所有.json.gz文件
-                    json_gz_pattern = os.path.join(item_path, "*.json.gz")
-                    json_gz_files = glob.glob(json_gz_pattern)
-                    for json_gz_file in json_gz_files:
-                        # 打开并读取.json.gz文件
+            for item_path in root_path.iterdir():
+                if item_path.is_dir():
+                    for json_gz_file in item_path.glob("*.json.gz"):
                         with gzip.open(json_gz_file, "rt", encoding="utf-8") as f:
-                            # 加载JSON数据
                             json_data = json.load(f)
                         if len(json_data) == 0:
                             self._error_message = f"File is empty: {json_gz_file}"
@@ -369,7 +354,7 @@ class TorchJsonFieldValidRule(ValidationRule):
             return True
 
         except Exception as e:
-            self._error_message = f"Error checking path {data}: {e}"
+            self._error_message = f"Error checking path {root_path}: {e}"
             return False
 
     @property
@@ -381,31 +366,29 @@ class NvtxJsonFileExistsRule(ValidationRule):
     """valid worker_process.*.*.jsonl files is existed in 'nvtx_profile' sub path"""
 
     def check(self, data) -> bool:
-        if not isinstance(data, str):
+        root_path = _coerce_path(data)
+        if root_path is None:
             self._error_message = "Data object is not a path"
             return False
         self._error_message = ""
         try:
-            root_path = Path(data)
-
             if not root_path.exists():
-                self._error_message = f"Source path does not exist: {data}"
+                self._error_message = f"Source path does not exist: {root_path}"
                 return False
 
             profiler_info_filename = "worker_process_*.*.jsonl"
 
-            worker_pattern = str(root_path / profiler_info_filename)
-            worker_files = glob.glob(worker_pattern)
+            worker_files = list(root_path.glob(profiler_info_filename))
 
             if not worker_files:
                 self._error_message = (
-                    f"No worker_process_*.*.jsonl file found in: {data}"
+                    f"No worker_process_*.*.jsonl file found in: {root_path}"
                 )
                 return False
 
             return True
         except Exception as e:
-            self._error_message = f"Error checking path {data}: {e}"
+            self._error_message = f"Error checking path {root_path}: {e}"
             return False
 
     @property
@@ -417,21 +400,19 @@ class NvtxJsonFieldValidRule(ValidationRule):
     """valid nvtx worker_process_*.*.jsonl files JSON format"""
 
     def check(self, data) -> bool:
-        if not isinstance(data, str):
+        root_path = _coerce_path(data)
+        if root_path is None:
             self._error_message = "Data object is not a path"
             return False
         self._error_message = ""
         try:
-            root_path = Path(data)
-
             if not root_path.exists():
-                self._error_message = f"Source path does not exist: {data}"
+                self._error_message = f"Source path does not exist: {root_path}"
                 return False
 
             profiler_info_filename = "worker_process_*.*.jsonl"
 
-            worker_pattern = str(root_path / profiler_info_filename)
-            worker_files = glob.glob(worker_pattern)
+            worker_files = list(root_path.glob(profiler_info_filename))
 
             required_for_event = {"start", "end", "textId"}
 
@@ -478,7 +459,7 @@ class NvtxJsonFieldValidRule(ValidationRule):
             return True
 
         except Exception as e:
-            self._error_message = f"Error checking path {data}: {e}"
+            self._error_message = f"Error checking path {root_path}: {e}"
             return False
 
     @property
@@ -490,26 +471,25 @@ class GmmDataRule(ValidationRule):
     """Validation rule for GMM data."""
 
     def check(self, data: Any) -> bool:
-        if not isinstance(data, str):
+        root_path = _coerce_path(data)
+        if root_path is None:
             self._error_message = "Data object is not a path"
             return False
         try:
-            root_path = Path(data)
-
             if not root_path.exists():
-                self._error_message = f"Source path does not exist: {data}"
+                self._error_message = f"Source path does not exist: {root_path}"
                 return False
 
             group_list_files = list(root_path.rglob("*group_list.pt"))
             if not group_list_files:
-                self._error_message = f"No group_list.pt files found in: {data}"
+                self._error_message = f"No group_list.pt files found in: {root_path}"
                 return False
 
             valid_files = [f for f in group_list_files if "dump_tensor_data" in f.parts]
             if not valid_files:
                 self._error_message = (
                     "No group_list.pt files found in dump_tensor_data directories "
-                    f"under: {data}"
+                    f"under: {root_path}"
                 )
                 return False
 
@@ -517,3 +497,4 @@ class GmmDataRule(ValidationRule):
         except Exception as e:
             self._error_message = f"Error checking GMM data: {e}"
             return False
+
