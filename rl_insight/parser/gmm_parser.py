@@ -64,7 +64,7 @@ class GmmParser(BaseClusterParser):
 
     @staticmethod
     def _normalize_path_text(path_value: str | Path) -> str:
-        return Path(path_value).as_posix()
+        return str(path_value).replace("\\", "/")
 
     @classmethod
     def _extract_rank_id_from_path(cls, path_value: str | Path) -> int:
