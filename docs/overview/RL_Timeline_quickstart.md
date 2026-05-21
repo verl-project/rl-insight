@@ -46,7 +46,7 @@ pip install -e .
 
 使用 VeRL 框架采集性能数据，详细参考：
 
-[VeRL NPU Profiling 教程](https://github.com/verl-project/verl/blob/main/docs/ascend_tutorial/dev_guide/performance/ascend_profiling_zh.rst)
+[VeRL NPU Profiling 教程](https://github.com/verl-project/verl/blob/main/docs/ascend_tutorial/dev_guide/ascend_profiling_zh.rst)
 
 [VeRL GPU Profiling 教程](https://github.com/verl-project/verl/blob/main/docs/perf/nsight_profiling.md)
 
