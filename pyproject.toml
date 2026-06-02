@@ -9,7 +9,7 @@ description = "Performance insight tools for reinforcement learning frameworks."
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [
-  { name = "rl-insight contributors" },
+  { name = "rl-insight contributors", email = "huxiaobo@zju.edu.cn" },
 ]
 dependencies = [
   "numpy<2.0.0",
@@ -49,4 +49,3 @@ experimental = [
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-
