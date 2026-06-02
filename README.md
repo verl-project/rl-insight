@@ -19,12 +19,10 @@ RL-Insight provides performance insight capabilities for RL training frameworks.
 **Offline Analysis**
 - **Timeline visualization** — interactive HTML Gantt charts for per-rank event timelines across RL training phases, with parallel multi-rank parsing for MSTX, Torch Profiler, and NVTX data sources. PNG export also supported.
 - **MoE Expert Load Heatmap** — GMM-clustered heatmaps to visualize expert load distribution in Mixture-of-Experts models, helping identify load imbalance across experts and layers.
-- **Memory Analysis** — per-operator GPU memory allocation tracing with Python call-stack attribution, for pinpointing OOM root causes.
 
 **Online Monitoring (Experimental)**
 - Real-time observability stack based on **Prometheus + Tempo + Grafana**
 - Training-side Python APIs: counter, gauge, histogram metrics plus distributed tracing (`trace_state`, `trace_op`)
-- Docker Compose one-command server management (`rl-insight server start`)
 
 ## Installation
 
@@ -101,17 +99,6 @@ python -m rl_insight.main \
     heatmap.parser.type=gmm \
     heatmap.visualizer.type=gmm_heatmap \
     heatmap.visualizer.gmm_per_layer=3
-```
-
-### Memory Analysis
-
-Parse Ascend NPU memory profiling data and trace per-operator allocations with call-stack attribution:
-
-```bash
-python -m rl_insight.main \
-    input.path=<ascend_profiler_output> \
-    timeline.parser.type=memory \
-    output.path=<output_path>
 ```
 
 ### Online Monitoring (Experimental)
