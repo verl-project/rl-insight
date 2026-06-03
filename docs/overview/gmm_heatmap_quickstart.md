@@ -12,17 +12,20 @@ RL-Insight 是一个强化学习性能数据快速分析的可视化工具，基
 - **专家负载热力图**：生成热力图展示不同专家在不同阶段的负载情况
 - **灵活的过滤功能**：支持按 step、role、rank 进行数据过滤，自定义可视化范围
 
-### 软件依赖
+### 安装
 
-依赖版本以仓库根目录 [`requirements.txt`](../../requirements.txt) 为准（含 **pandas、plotly、numpy、loguru** 等）。开发/运行前请安装：
+需要 **Python >= 3.10**。
 
 ```bash
-pip install -r requirements.txt
+pip install rl-insight
 ```
 
-若需从本地源码直接运行 `python -m rl_insight.main`，建议再执行：
+若需使用最新未发布功能，可从源码安装：
 
 ```bash
+git clone https://github.com/verl-project/rl-insight.git
+cd rl-insight
+pip install -r requirements.txt
 pip install -e .
 ```
 
