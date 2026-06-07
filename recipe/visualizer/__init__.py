@@ -19,6 +19,7 @@ from .visualizer import (
     get_cluster_visualizer_cls,
 )
 from .gmm_visualizer import GmmVisualizer
+from .memory_visualizer import MemoryVisualizer
 
 
 __all__ = [
@@ -27,4 +28,5 @@ __all__ = [
     "RLTimelineVisualizer",
     "RLTimelinePNGVisualizer",
     "GmmVisualizer",
+    "MemoryVisualizer",
 ]

@@ -51,6 +51,7 @@ class DataEnum(Enum):
     SUMMARY_EVENT = "summary_event"
     GMM_SUMMARY = "gmm_summary"
     SUMMARY_MEMORY_EVENT = "summary_memory_event"
+    MEMORY_DATA = "memory_data"
     # other data type
     UNKNOWN = "unknown"
 
@@ -82,6 +83,8 @@ class DataChecker:
         DataEnum.GMM_SUMMARY: [
             ParserOutputValidatorRule(domains=list(GMMKEYS)),
         ],
+        DataEnum.ASCEND_MEMORY: [],
+        DataEnum.MEMORY_DATA: [],
         DataEnum.UNKNOWN: [],
     }
 

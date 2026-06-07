@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memory Timeline</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f5f5; color: #333; padding: 20px; }
+.container { max-width: 1600px; margin: 0 auto; }
+h1 { text-align: center; margin-bottom: 10px; font-size: 20px; }
+.chart-box { background: #fff; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 12px; padding: 8px 12px 4px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.chart-box h3 { font-size: 14px; margin-bottom: 4px; color: #555; }
+#chart1, #chart2 { width: 100%; }
+.controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 14px 18px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.control-group { display: flex; align-items: center; gap: 6px; }
+.control-group label { font-weight: 600; font-size: 13px; white-space: nowrap; color: #555; }
+.control-group input { border: 1px solid #ccc; border-radius: 4px; padding: 5px 8px; font-size: 13px; width: 130px; font-family: 'Consolas', monospace; }
+.control-group input:focus { outline: none; border-color: #4e79a7; box-shadow: 0 0 0 2px rgba(78,121,167,.2); }
+.control-group input.invalid { border-color: #e15759; background: #fff0f0; }
+.control-group .unit { font-size: 11px; color: #999; }
+.legend-note { font-size: 12px; color: #888; margin-left: 8px; }
+.detail-panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 16px 20px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); display: none; }
+.detail-panel.active { display: block; }
+.detail-panel h3 { font-size: 14px; margin-bottom: 10px; color: #333; }
+.detail-grid { display: grid; grid-template-columns: 160px 1fr; gap: 6px 12px; font-size: 13px; }
+.detail-grid .label { font-weight: 600; color: #666; text-align: right; }
+.detail-grid .value { color: #333; word-break: break-all; font-family: 'Consolas', monospace; }
+.call-stack-box { grid-column: 2; background: #f8f8f8; border: 1px solid #e0e0e0; border-radius: 4px; padding: 10px 14px; font-family: 'Consolas', monospace; font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; max-height: 350px; overflow-y: auto; color: #444; }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Memory Allocation Timeline</h1>
+<div class="controls">
+<div class="control-group"><label for="range-left">Left:</label><input type="number" id="range-left" step="any" /><span class="unit">ms</span></div>
+<div class="control-group"><label for="range-right">Right:</label><input type="number" id="range-right" step="any" /><span class="unit">ms</span></div>
+__SEGMENT_NAV__
+<div id="seg-hint" style="font-size:12px;color:#4e79a7;font-weight:600;margin-left:auto;display:none"></div>
+<div class="legend-note" id="range-info"></div>
+</div>
+<div class="chart-box"><h3>Memory Usage Over Time</h3><div id="chart1"></div></div>
+<div class="chart-box"><h3>Operator Memory Gantt</h3><div id="chart2"></div></div>
+<div class="detail-panel" id="detail-panel"><h3>Operator Detail</h3><div class="detail-grid" id="detail-content"></div></div>
+</div>
+<script src="__DATA_FILE__"></script>
+<script>
+var T_MIN = 0;
+var T_MAX = GANTT_STARTS[GANTT_STARTS.length-1] + GANTT_DURS[GANTT_DURS.length-1];
+var currentRange = [T_MIN, T_MAX];
+
+// Pre-compute active ops at each TL_XY time point from segment bars.
+// Two-pointer sweep: TL_XY times sorted, GANTT_STARTS sorted, GANTT_ENDS sorted.
+// Result: segActive[i] = [count, [[name, size_kb], ...]]  (top-10 by size)
+var _ganttEnds = [];
+for (var k=0; k<GANTT_STARTS.length; k++) _ganttEnds.push(GANTT_STARTS[k]+GANTT_DURS[k]);
+var segActive = [];
+(function() {
+  var barIdx = 0, n = GANTT_STARTS.length;
+  var active = [];  // heap-like: [origIdx, ...]
+  for (var i=0; i<TL_XY.length; i++) {
+    var t = TL_XY[i][0];
+    // Remove bars that ended before t
+    var j = 0;
+    while (j < active.length) {
+      if (_ganttEnds[active[j]] <= t) {
+        active[j] = active[active.length-1];
+        active.pop();
+      } else {
+        j++;
+      }
+    }
+    // Add bars that start at or before t
+    while (barIdx < n && GANTT_STARTS[barIdx] <= t) {
+      active.push(barIdx);
+      barIdx++;
+    }
+    // Top-10 by size
+    var topList = active.slice().sort(function(a,b){
+      return GANTT_SIZES[b] - GANTT_SIZES[a];
+    }).slice(0, 10);
+    var summaries = topList.map(function(idx){
+      return [OP_NAMES[GANTT_IDS[idx]], GANTT_SIZES[idx]];
+    });
+    segActive.push([active.length, summaries]);
+  }
+})();
+var isSyncing = false;
+var leftInput = document.getElementById('range-left');
+var rightInput = document.getElementById('range-right');
+var rangeInfo = document.getElementById('range-info');
+
+// Pre-compute Chart1 x-axis tick labels in absolute time
+function makeTickInfo(t0, t1) {
+  var span = t1 - t0;
+  if (span <= 0) span = 1;
+  var tickStep = Math.pow(10, Math.floor(Math.log10(span)));
+  var niceTick = span / tickStep;
+  if (niceTick <= 2) tickStep /= 5;
+  else if (niceTick <= 5) tickStep /= 2;
+  var firstTick = Math.floor(t0 / tickStep) * tickStep;
+  var vals=[], texts=[];
+  for (var v = firstTick; v <= t1; v += tickStep) {
+    vals.push(v); texts.push((v + T_OFFSET).toFixed(0));
+  }
+  return { tickvals: vals, ticktext: texts };
+}
+var _chart1Ticks = makeTickInfo(T_MIN, T_MAX);
+
+function buildChart1(range) {
+  var times=[], values=[], hoverTimes=[], cd=[];
+  for (var i=0; i<TL_XY.length; i++) {
+    var p=TL_XY[i];
+    times.push(p[0]); values.push(p[1]);
+    hoverTimes.push((p[0]+T_OFFSET).toFixed(3));
+    var sa = segActive[i];
+    var count = sa[0], topList = sa[1];
+    var lines = [];
+    for (var j=0; j<topList.length; j++) {
+      lines.push('<span style="color:#888">' + escHtml(topList[j][0])
+        + '</span>: ' + (topList[j][1]/1024).toFixed(2) + ' MB');
+    }
+    cd.push([count + ' events', lines.join('<br>')]);
+  }
+  var ht = '<b>Time</b>: %{text} ms<br><b>Total Memory</b>: %{y:.3f} MB<br><b>Active</b>: %{customdata[0]}<br>%{customdata[1]}<extra></extra>';
+  Plotly.newPlot('chart1',[{ x:times, y:values, text:hoverTimes, type:'scatter', mode:'lines', name:'Total Memory',
+    line:{ color:'#4e79a7', width:1.8 }, fill:'tozeroy', fillcolor:'rgba(78,121,167,0.12)',
+    hoveron:'points+fills', customdata:cd, hovertemplate:ht,
+    hoverlabel:{ bgcolor:'#fff', bordercolor:'#4e79a7', font:{ size:12 } }
+  }], {
+    xaxis:{ title:'Time (ms)', range:range, showticklabels:true,
+      tickmode:'array', tickvals:_chart1Ticks.tickvals, ticktext:_chart1Ticks.ticktext,
+      showgrid:true, gridcolor:'#eaeaea', zeroline:false, fixedrange:false },
+    yaxis:{ title:'Memory (MB)', showgrid:true, gridcolor:'#eaeaea', zeroline:true, tickformat:'.1f', fixedrange:true },
+    margin:{ l:70, r:30, t:10, b:50 }, height:350, hovermode:'x', hoverdistance:-1, dragmode:'pan', showlegend:false
+  }, { displaylogo:false, displayModeBar:true, modeBarButtonsToRemove:['lasso2d','select2d'], scrollZoom:true });
+  document.getElementById('chart1').on('plotly_relayout', function(edata) {
+    if (isSyncing) return;
+    if (edata['xaxis.range[0]']!==undefined||edata['xaxis.range[1]']!==undefined) {
+      // Read actual current range from chart layout (more reliable than event)
+      var layout = document.getElementById('chart1').layout;
+      if (layout && layout.xaxis && layout.xaxis.range) {
+        currentRange = [layout.xaxis.range[0], layout.xaxis.range[1]];
+      }
+      syncInputsFromRange(); buildChart2(currentRange); updateRangeInfo();
+      updateSegmentHint(currentRange);
+    }
+  });
+}
+
+function findBestSegment(range) {
+  if (typeof SEGMENTS === "undefined") return null;
+  var best = null, bestOverlap = 0;
+  for (var i = 0; i < SEGMENTS.length; i++) {
+    var segStart = SEGMENTS[i][1], segEnd = SEGMENTS[i][2];
+    var overlap = Math.min(range[1], segEnd) - Math.max(range[0], segStart);
+    if (overlap > bestOverlap) {
+      bestOverlap = overlap;
+      best = SEGMENTS[i];
+    }
+  }
+  if (bestOverlap <= 0) return null;
+  return best;
+}
+function updateSegmentHint(range) {
+  var hint = document.getElementById("seg-hint");
+  if (typeof SEGMENTS === "undefined" || typeof SEG_INDEX === "undefined") {
+    hint.style.display = "none"; return;
+  }
+  var best = findBestSegment(range);
+  if (!best || best[0] === SEG_INDEX) {
+    hint.style.display = "none"; return;
+  }
+  var absStart = (best[1] + T_OFFSET).toFixed(0);
+  var absEnd = (best[2] + T_OFFSET).toFixed(0);
+  var segFile = "memory_timeline_" + String(best[0]).padStart(2, "0") + ".html";
+  hint.innerHTML = "&#128269; Best: Seg " + (best[0] + 1)
+    + " (" + absStart + "–" + absEnd + " ms) "
+    + "<a href=\"" + segFile + "\" style=\"color:#e15759;font-weight:700\">Go →</a>";
+  hint.style.display = "block";
+}
+function buildChart2(range) {
+  Plotly.purge('chart2');
+  // Step 1: Collect bar indices that overlap with the visible time range
+  var vi=[];
+  for (var i=0; i<GANTT_STARTS.length; i++)
+    if (GANTT_STARTS[i]+GANTT_DURS[i]>range[0]&&GANTT_STARTS[i]<range[1]) vi.push(i);
+
+  // Step 2: Sort visible bars by start time
+  vi.sort(function(a,b){ return GANTT_STARTS[a] - GANTT_STARTS[b]; });
+  var filteredBars = vi;
+
+  // Step 3: Group filtered bars by operator name (preserve time order)
+  var groups={}, opOrder=[];
+  for (var k=0; k<filteredBars.length; k++) {
+    var i=filteredBars[k], nm=OP_NAMES[GANTT_IDS[i]];
+    if (!groups[nm]) { groups[nm]=[]; opOrder.push(nm); }
+    groups[nm].push(i);
+  }
+
+  // Step 4: Sort each operator's bars by duration descending.
+  // Plotly draws bars in array order — last element on top.
+  // Long bars first, short bars last → short bars are always visible.
+  for (var k=0; k<opOrder.length; k++) {
+    groups[opOrder[k]].sort(function(a,b){
+      return GANTT_DURS[a] > GANTT_DURS[b] ? -1 : GANTT_DURS[a] < GANTT_DURS[b] ? 1 : 0;
+    });
+  }
+
+  // Step 5: Pre-compute overlap info per bar — for operators with dense bars,
+  // list all bars that overlap at the same time point so hover can show them.
+  var overlaps = {};  // barIdx → [{idx, size_kb, start, dur}, ...] or absent
+  for (var r=0; r<opOrder.length; r++) {
+    var indices = groups[opOrder[r]];
+    if (indices.length <= 1) continue;
+    // For each bar, count how many others overlap (at its midpoint)
+    for (var k=0; k<indices.length; k++) {
+      var idx = indices[k];
+      var tMid = GANTT_STARTS[idx] + GANTT_DURS[idx] / 2;
+      var ov = [];
+      for (var j=0; j<indices.length; j++) {
+        var oi = indices[j];
+        if (oi === idx) continue;
+        if (GANTT_STARTS[oi] <= tMid && GANTT_STARTS[oi] + GANTT_DURS[oi] >= tMid) {
+          ov.push(oi);
+        }
+      }
+      if (ov.length > 0) overlaps[idx] = ov;
+    }
+  }
+
+  var traces=[], yVals=[], yTexts=[], maxY=opOrder.length;
+  for (var r=0; r<opOrder.length; r++) {
+    var nm=opOrder[r], yp=maxY-1-r, cl=COLOR_MAP[nm]||'#999';
+    var indices=groups[nm];
+    var xs=[], bases=[], hts=[], cds=[];
+    for (var k=0; k<indices.length; k++) {
+      var idx=indices[k], sz=GANTT_SIZES[idx];
+      xs.push(GANTT_DURS[idx]);
+      bases.push(GANTT_STARTS[idx]);
+      cds.push(idx);
+      var ht = '<b>'+nm+'</b><br>Size: '+(sz/1024).toFixed(3)+' MB ('+sz.toFixed(1)+' KB)<br>Start: '+(GANTT_STARTS[idx]+T_OFFSET).toFixed(3)+' ms<br>Duration: '+GANTT_DURS[idx].toFixed(3)+' ms';
+      // Append overlap list if any
+      var ov = overlaps[idx];
+      if (ov && ov.length) {
+        ov.sort(function(a,b){ return GANTT_SIZES[b] - GANTT_SIZES[a]; });
+        var lines = [];
+        for (var j=0; j<Math.min(ov.length, 8); j++) {
+          var oi = ov[j];
+          lines.push((GANTT_SIZES[oi]/1024).toFixed(2) + ' MB, '
+            + (GANTT_STARTS[oi]+T_OFFSET).toFixed(0) + 'ms, '
+            + GANTT_DURS[oi].toFixed(1) + 'ms');
+        }
+        if (ov.length > 8) lines.push('... +' + (ov.length-8) + ' more');
+        ht += '<br><i>' + ov.length + ' overlapping:</i><br>'
+          + lines.join('<br>');
+      }
+      hts.push(ht);
+    }
+    yVals.push(yp); yTexts.push(nm);
+    traces.push({ x:xs, y:Array(indices.length).fill(yp), base:bases,
+      type:'bar', orientation:'h', name:nm, customdata:cds,
+      marker:{ color:cl,
+        line:{ color:'rgba(255,255,255,0)', width:6 } },
+      hovertext:hts, hoverinfo:'text',
+      hoverlabel:{ bgcolor:'#fff', bordercolor:cl, font:{ size:11 } }, showlegend:false });
+  }
+  Plotly.newPlot('chart2', traces, {
+    xaxis:{ title:'Time (ms)', range:range, showticklabels:false, showgrid:true, gridcolor:'#eaeaea', zeroline:false, fixedrange:false },
+    yaxis:{ title:'Operator', tickmode:'array', tickvals:yVals, ticktext:yTexts, autorange:'reversed', showgrid:false, zeroline:false, automargin:true, fixedrange:true },
+    barmode:'overlay', margin:{ l:280, r:30, t:10, b:50 }, height:Math.max(400,maxY*28+80), hovermode:'closest', hoverdistance:50, dragmode:'pan', showlegend:false
+  }, { displaylogo:false, displayModeBar:true, modeBarButtonsToRemove:['lasso2d','select2d'], scrollZoom:true });
+  document.getElementById('chart2').on('plotly_relayout', function(edata) {
+    if (isSyncing) return;
+    if (edata['xaxis.range[0]']!==undefined||edata['xaxis.range[1]']!==undefined) {
+      var layout = document.getElementById('chart2').layout;
+      if (layout && layout.xaxis && layout.xaxis.range) {
+        currentRange = [layout.xaxis.range[0], layout.xaxis.range[1]];
+      }
+      syncInputsFromRange(); updateChart1Range(currentRange); buildChart2(currentRange); updateRangeInfo();
+    }
+  });
+  document.getElementById('chart2').on('plotly_click', function(data) {
+    if (!data.points||!data.points.length) return; var i=data.points[0].customdata; if (i!==undefined) showBarDetail(i);
+  });
+}
+
+function showBarDetail(i) {
+  var panel=document.getElementById('detail-panel'), c=document.getElementById('detail-content');
+  var nm = OP_NAMES[GANTT_IDS[i]];
+  var csIdx = (typeof CS_IDX !== 'undefined') ? CS_IDX[i] : -1;
+  var cs = (csIdx !== undefined && csIdx >= 0 && typeof CS_POOL !== 'undefined')
+    ? CS_POOL[csIdx] : '';
+  var csHtml = cs
+    ? '<span class="label">Call Stack:</span><div class="call-stack-box">'+escHtml(cs)+'</div>'
+    : '<span class="label">Call Stack:</span><span class="value" style="color:#999">(empty)</span>';
+  // Find overlapping bars of same operator — scan all bars in this segment
+  var tMid = GANTT_STARTS[i] + GANTT_DURS[i] / 2;
+  var ovList = '';
+  var hits = [];
+  for (var k = 0; k < GANTT_STARTS.length; k++) {
+    if (k === i) continue;
+    if (OP_NAMES[GANTT_IDS[k]] !== nm) continue;
+    if (GANTT_STARTS[k] <= tMid && GANTT_STARTS[k] + GANTT_DURS[k] >= tMid) {
+      hits.push(k);
+    }
+  }
+  if (hits.length > 0) {
+    hits.sort(function(a,b){ return GANTT_SIZES[b] - GANTT_SIZES[a]; });
+    var rows = ['<br><b>' + hits.length + ' overlapping events:</b>'];
+    for (var k = 0; k < hits.length; k++) {
+      var oi = hits[k];
+      rows.push('<a href=\"javascript:void(0)\" onclick=\"showBarDetail('+oi+')\"'
+        + ' style=\"color:#4e79a7;text-decoration:none;display:block;padding:1px 0;'
+        + 'font-size:12px\">'
+        + '→ ' + (GANTT_SIZES[oi]/1024).toFixed(3) + ' MB, '
+        + (GANTT_STARTS[oi]+T_OFFSET).toFixed(0) + 'ms, '
+        + GANTT_DURS[oi].toFixed(1) + 'ms</a>');
+    }
+    ovList = rows.join('');
+  }
+  c.innerHTML='<span class="label">Operator:</span><span class="value">'+escHtml(nm)+'</span>'
+    +'<span class="label">Size:</span><span class="value">'+(GANTT_SIZES[i]/1024).toFixed(3)+' MB ('+GANTT_SIZES[i].toFixed(1)+' KB)</span>'
+    +'<span class="label">Start Time:</span><span class="value">'+(GANTT_STARTS[i]+T_OFFSET).toFixed(3)+' ms</span>'
+    +'<span class="label">Duration:</span><span class="value">'+GANTT_DURS[i].toFixed(3)+' ms</span>'
+    +'<span class="label">End Time:</span><span class="value">'+(GANTT_STARTS[i]+GANTT_DURS[i]+T_OFFSET).toFixed(3)+' ms</span>'
+    +'<span class="label">Total Allocated:</span><span class="value">'+(TOTAL_ALLOC[i]||0).toFixed(2)+' MB</span>'
+    +csHtml
+    +ovList;
+  panel.classList.add('active'); panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function updateChart1Range(range) { isSyncing=true; Plotly.relayout('chart1',{ 'xaxis.range':range }); isSyncing=false; }
+function syncInputsFromRange() {
+  leftInput.value=(currentRange[0]+T_OFFSET).toFixed(3); rightInput.value=(currentRange[1]+T_OFFSET).toFixed(3);
+  leftInput.classList.remove('invalid'); rightInput.classList.remove('invalid');
+}
+function onLeftChange() {
+  if (isSyncing) return; var v=parseFloat(leftInput.value)-T_OFFSET;
+  if (isNaN(v)||v<T_MIN||v>=currentRange[1]) { leftInput.classList.add('invalid'); return; }
+  leftInput.classList.remove('invalid'); currentRange[0]=v; isSyncing=true;
+  Plotly.relayout('chart1',{ 'xaxis.range':currentRange }); buildChart2(currentRange); isSyncing=false; updateRangeInfo();
+}
+function onRightChange() {
+  if (isSyncing) return; var v=parseFloat(rightInput.value)-T_OFFSET;
+  if (isNaN(v)||v>T_MAX||v<=currentRange[0]) { rightInput.classList.add('invalid'); return; }
+  rightInput.classList.remove('invalid'); currentRange[1]=v; isSyncing=true;
+  Plotly.relayout('chart1',{ 'xaxis.range':currentRange }); buildChart2(currentRange); isSyncing=false; updateRangeInfo();
+}
+function updateRangeInfo() {
+  var cnt=0, ops={}; for (var i=0; i<GANTT_STARTS.length; i++) if (GANTT_STARTS[i]+GANTT_DURS[i]>currentRange[0]&&GANTT_STARTS[i]<currentRange[1]) {
+    cnt++; ops[OP_NAMES[GANTT_IDS[i]]]=1;
+  }
+  var nOps = Object.keys(ops).length;
+  rangeInfo.textContent='Events: '+cnt+' / '+TOTAL_OP_COUNT+'  |  Operators: '+nOps+'  |  Span: '+(currentRange[1]-currentRange[0]).toFixed(2)+' ms';
+}
+leftInput.addEventListener('change', onLeftChange); leftInput.addEventListener('keydown', function(e){if(e.key==='Enter')onLeftChange()});
+rightInput.addEventListener('change', onRightChange); rightInput.addEventListener('keydown', function(e){if(e.key==='Enter')onRightChange()});
+leftInput.value=T_OFFSET.toFixed(3); rightInput.value=(T_MAX+T_OFFSET).toFixed(3);
+buildChart1(currentRange); buildChart2(currentRange); updateRangeInfo();
+</script>
+</body>
+</html>
