@@ -39,14 +39,14 @@ class MemoryVisualizer(BaseVisualizer):
     memory statistics (allocated / reserved / active).
     """
 
-    input_type: DataEnum = DataEnum.MEMORY_DATA
+    input_type: DataEnum = DataEnum.MEMORY_SUMMARY
 
     # ── Rendering constants ────────────────────────────────────────────
-    _MAX_TIMELINE_POINTS = 2000          # max points in Chart1 memory line
-    _MAX_SEGMENTS = 20                   # upper bound on segment file count
-    _TARGET_BARS_PER_SEGMENT = 5000      # target bar count before splitting
-    _HOVER_TOP_N = 10                    # Chart1 hover shows top-N by size
-    _KB_TO_MB = 1.0 / 1024.0             # KB → MB conversion factor
+    _MAX_TIMELINE_POINTS = 2000  # max points in Chart1 memory line
+    _MAX_SEGMENTS = 20  # upper bound on segment file count
+    _TARGET_BARS_PER_SEGMENT = 5000  # target bar count before splitting
+    _HOVER_TOP_N = 10  # Chart1 hover shows top-N by size
+    _KB_TO_MB = 1.0 / 1024.0  # KB → MB conversion factor
 
     def __init__(self, config: Union[DictConfig, dict]):
         super().__init__(config)
@@ -72,15 +72,17 @@ class MemoryVisualizer(BaseVisualizer):
                   total_reserved_mb, total_active_mb, device_type,
                   call_stack_top.  Only positive allocations (size_kb > 0).
         """
-        logger.info(f"Starting memory timeline generation: "
-                     f"{len(data) if data is not None else 0} input records")
+        logger.info(
+            f"Starting memory timeline generation: "
+            f"{len(data) if data is not None else 0} input records"
+        )
 
         if data is None or data.empty:
             logger.info("No memory allocations found — nothing to visualize.")
             return None
 
         # Filter to only positive allocations (skip releases)
-        data = data[data['size_kb'] > 0]
+        data = data[data["size_kb"] > 0]
 
         if data.empty:
             logger.info("No positive memory allocations found — nothing to visualize.")
@@ -89,38 +91,37 @@ class MemoryVisualizer(BaseVisualizer):
         logger.info(f"Filtered to {len(data)} positive allocation events")
 
         # Compute end times and size in MB
-        data['end_time_ms'] = data['start_time_ms'] + data['duration_ms']
-        data['size_mb'] = data['size_kb'] * self._KB_TO_MB
+        data["end_time_ms"] = data["start_time_ms"] + data["duration_ms"]
+        data["size_mb"] = data["size_kb"] * self._KB_TO_MB
 
         # ── Global time range ─────────────────────────────────────────
         # data is pre-sorted by start_time_ms
-        t_min_abs = float(data['start_time_ms'].iloc[0])
-        t_max_abs = float((data['start_time_ms'] + data['duration_ms']).max())
+        t_min_abs = float(data["start_time_ms"].iloc[0])
+        t_max_abs = float((data["start_time_ms"] + data["duration_ms"]).max())
         logger.info(
             f"Time range: {t_min_abs:.0f} – {t_max_abs:.0f} ms "
             f"(duration: {(t_max_abs - t_min_abs) / 1000:.2f} s)"
         )
 
         # ── Chart 1 data: Memory usage timeline ───────────────────────
-        # Normalize time: subtract t_min_abs to reduce JSON size (~25% smaller)
-        events = []
-        for _, row in data.iterrows():
-            rel_start = round(float(row['start_time_ms']) - t_min_abs, 2)
-            rel_end = round(float(row['end_time_ms']) - t_min_abs, 2)
-            events.append({'time': rel_start, 'delta_kb': float(row['size_kb'])})
-            events.append({'time': rel_end, 'delta_kb': float(-row['size_kb'])})
+        # Vectorized: build start(+size) and end(-size) event columns
+        rel_starts = (data["start_time_ms"] - t_min_abs).round(2)
+        rel_ends = (data["end_time_ms"] - t_min_abs).round(2)
+        sizes = data["size_kb"].astype(float)
 
-        events_df = pd.DataFrame(events)
-        events_df = events_df.groupby('time', as_index=False)['delta_kb'].sum()
-        events_df = events_df.sort_values('time')
-        events_df['total_mb'] = events_df['delta_kb'].cumsum() * self._KB_TO_MB
+        times = np.concatenate([rel_starts, rel_ends])
+        deltas = np.concatenate([sizes, -sizes])
+
+        events_df = pd.DataFrame({"time": times, "delta_kb": deltas})
+        events_df = events_df.groupby("time", as_index=False)["delta_kb"].sum()
+        events_df = events_df.sort_values("time")
+        events_df["total_mb"] = events_df["delta_kb"].cumsum() * self._KB_TO_MB
 
         # Downsample memory timeline if too many points
         orig_timeline_points = len(events_df)
         if len(events_df) > self._MAX_TIMELINE_POINTS:
             events_df = events_df.iloc[
-                np.linspace(0, len(events_df) - 1,
-                            self._MAX_TIMELINE_POINTS, dtype=int)
+                np.linspace(0, len(events_df) - 1, self._MAX_TIMELINE_POINTS, dtype=int)
             ]
             logger.info(
                 f"Timeline downsampled: {orig_timeline_points} → "
@@ -128,13 +129,13 @@ class MemoryVisualizer(BaseVisualizer):
             )
 
         memory_timeline = [
-            {'time': float(row['time']), 'total_mb': round(float(row['total_mb']), 4)}
+            {"time": float(row["time"]), "total_mb": round(float(row["total_mb"]), 4)}
             for _, row in events_df.iterrows()
         ]
 
         # ── Chart 2 data: Operator Gantt ──────────────────────────────
         # Split parallel arrays: compact JSON, no nested keys
-        gantt_name_ids = []    # indices into op_names
+        gantt_name_ids = []  # indices into op_names
         gantt_starts = []
         gantt_durations = []
         gantt_sizes = []
@@ -145,25 +146,34 @@ class MemoryVisualizer(BaseVisualizer):
         op_names = []
         name_to_id = {}
 
-        for _, row in data.iterrows():
-            op_name = row['name']
+        # Pre-extract columns to avoid iterrows() per-row Series overhead.
+        # Numeric fields: vectorized round() on full columns before .tolist().
+        _start_col = (data["start_time_ms"] - t_min_abs).round(2).tolist()
+        _dur_col = data["duration_ms"].round(2).tolist()
+        _size_col = data["size_kb"].round(2).tolist()
+        _alloc_col = data["total_allocated_mb"].round(2).tolist()
+        _name_col = data["name"].tolist()
+        _cs_col = data.get("call_stack", pd.Series([""] * len(data))).tolist()
+
+        for i in range(len(data)):
+            op_name = _name_col[i]
             if op_name not in name_to_id:
                 name_to_id[op_name] = len(op_names)
                 op_names.append(op_name)
             gantt_name_ids.append(name_to_id[op_name])
-            gantt_starts.append(round(float(row['start_time_ms']) - t_min_abs, 2))
-            gantt_durations.append(round(float(row['duration_ms']), 2))
-            gantt_sizes.append(round(float(row['size_kb']), 2))
-            total_alloc_arr.append(round(float(row['total_allocated_mb']), 2))
-            call_stack = row.get('call_stack', '')
-            if not call_stack or (isinstance(call_stack, float) and pd.isna(call_stack)):
+            gantt_starts.append(_start_col[i])
+            gantt_durations.append(_dur_col[i])
+            gantt_sizes.append(_size_col[i])
+            total_alloc_arr.append(_alloc_col[i])
+            cs = _cs_col[i]
+            if not cs or (isinstance(cs, float) and pd.isna(cs)):
                 call_stack_idx_arr.append(-1)
             else:
-                call_stack = str(call_stack)
-                if call_stack not in call_stack_pool_map:
-                    call_stack_pool_map[call_stack] = len(call_stack_pool)
-                    call_stack_pool.append(call_stack)
-                call_stack_idx_arr.append(call_stack_pool_map[call_stack])
+                cs = str(cs)
+                if cs not in call_stack_pool_map:
+                    call_stack_pool_map[cs] = len(call_stack_pool)
+                    call_stack_pool.append(cs)
+                call_stack_idx_arr.append(call_stack_pool_map[cs])
 
         total_bar_count = len(gantt_name_ids)
         logger.info(
@@ -174,12 +184,13 @@ class MemoryVisualizer(BaseVisualizer):
         # ── Split into time segments ──────────────────────────────────
         num_segments = max(
             1,
-            min(self._MAX_SEGMENTS,
-                int(np.ceil(total_bar_count / self._TARGET_BARS_PER_SEGMENT)))
+            min(
+                self._MAX_SEGMENTS,
+                int(np.ceil(total_bar_count / self._TARGET_BARS_PER_SEGMENT)),
+            ),
         )
         logger.info(
-            f"Splitting into {num_segments} time segment(s) "
-            f"(max {self._MAX_SEGMENTS})"
+            f"Splitting into {num_segments} time segment(s) (max {self._MAX_SEGMENTS})"
         )
 
         t_rel_min = gantt_starts[0]
@@ -188,24 +199,44 @@ class MemoryVisualizer(BaseVisualizer):
 
         # Build Chart1 data once (full timeline, shared across segments)
         tl_xy, tl_active = self._build_chart1_data(
-            memory_timeline, gantt_name_ids, gantt_starts,
-            gantt_durations, gantt_sizes, op_names,
+            memory_timeline,
+            gantt_name_ids,
+            gantt_starts,
+            gantt_durations,
+            gantt_sizes,
+            op_names,
         )
 
         # Color map (shared across segments)
         color_palette = [
-            "#4e79a7", "#f28e8b", "#59a14f", "#b07aa1", "#9c755f",
-            "#76b7b2", "#edc948", "#bab0ab", "#8cd17d", "#ff9da7",
-            "#e15759", "#86bcb6", "#b6992d", "#d37295", "#a0cbe8",
-            "#ffbe7d", "#b07aa1", "#d4a6c8", "#8c564b", "#c49c94",
+            "#4e79a7",
+            "#f28e8b",
+            "#59a14f",
+            "#b07aa1",
+            "#9c755f",
+            "#76b7b2",
+            "#edc948",
+            "#bab0ab",
+            "#8cd17d",
+            "#ff9da7",
+            "#e15759",
+            "#86bcb6",
+            "#b6992d",
+            "#d37295",
+            "#a0cbe8",
+            "#ffbe7d",
+            "#b07aa1",
+            "#d4a6c8",
+            "#8c564b",
+            "#c49c94",
         ]
         op_color_map = {}
         for i, op_name in enumerate(op_names):
             op_color_map[op_name] = color_palette[i % len(color_palette)]
 
-        output_dir = self.output_path or '.'
-        if output_dir.endswith('.html'):
-            output_dir = os.path.dirname(output_dir)
+        output_dir = self.output_path or "."
+        if output_dir.endswith(".html"):
+            output_dir = os.path.dirname(output_dir) or "."
         os.makedirs(output_dir, exist_ok=True)
 
         segments = []
@@ -217,10 +248,10 @@ class MemoryVisualizer(BaseVisualizer):
             if seg_idx == num_segments - 1:
                 seg_end = t_rel_max + 1  # include all remaining
 
-            seg_label = (f"{seg_start + t_min_abs:.0f} – "
-                         f"{seg_end + t_min_abs:.0f} ms")
+            seg_label = f"{seg_start + t_min_abs:.0f} – {seg_end + t_min_abs:.0f} ms"
             all_segments_info.append(
-                (seg_idx, round(seg_start, 2), round(seg_end, 2), seg_label))
+                (seg_idx, round(seg_start, 2), round(seg_end, 2), seg_label)
+            )
 
         # Segment map for JS: [idx, rel_start, rel_end] — shared by all segments
         seg_data = [[si, rs, re] for si, rs, re, _ in all_segments_info]
@@ -231,12 +262,14 @@ class MemoryVisualizer(BaseVisualizer):
             seg_label = all_segments_info[seg_idx][3]
 
             # Filter bar indices that overlap with this time segment
-            bar_indices = [i for i in range(len(gantt_starts))
-                           if gantt_starts[i] + gantt_durations[i] > seg_start
-                           and gantt_starts[i] < seg_end]
+            bar_indices = [
+                i
+                for i in range(len(gantt_starts))
+                if gantt_starts[i] + gantt_durations[i] > seg_start
+                and gantt_starts[i] < seg_end
+            ]
             if not bar_indices:
-                logger.info(
-                    f"  Segment {seg_idx + 1}/{num_segments} empty — skipped")
+                logger.info(f"  Segment {seg_idx + 1}/{num_segments} empty — skipped")
                 continue  # skip empty segments
 
             seg_gantt_name_ids = [gantt_name_ids[i] for i in bar_indices]
@@ -271,13 +304,11 @@ class MemoryVisualizer(BaseVisualizer):
                 t_rel_max=t_rel_max,
             )
 
-            data_path = os.path.join(output_dir,
-                                     f"detail_data_{seg_idx:02d}.js")
-            html_path = os.path.join(output_dir,
-                                     f"memory_timeline_{seg_idx:02d}.html")
-            with open(data_path, 'w', encoding='utf-8') as f:
+            data_path = os.path.join(output_dir, f"detail_data_{seg_idx:02d}.js")
+            html_path = os.path.join(output_dir, f"memory_timeline_{seg_idx:02d}.html")
+            with open(data_path, "w", encoding="utf-8") as f:
                 f.write(detail_js)
-            with open(html_path, 'w', encoding='utf-8') as f:
+            with open(html_path, "w", encoding="utf-8") as f:
                 f.write(html)
 
             logger.info(
@@ -295,43 +326,62 @@ class MemoryVisualizer(BaseVisualizer):
             f"{len(segments)} segment(s), {total_bar_count} events, "
             f"{len(op_names)} operators → {output_dir}"
         )
-        return os.path.join(output_dir, f"memory_timeline_00.html")
+        return os.path.join(output_dir, "memory_timeline_00.html")
 
     @staticmethod
-    def _build_chart1_data(memory_timeline, gantt_name_ids, gantt_starts,
-                           gantt_durations, gantt_sizes, op_names):
+    def _build_chart1_data(
+        memory_timeline,
+        gantt_name_ids,
+        gantt_starts,
+        gantt_durations,
+        gantt_sizes,
+        op_names,
+    ):
         """Build Chart1 (memory timeline) data from all bars.
 
         Returns (tl_xy, tl_active) — shared across all segments.
         """
         all_intervals = []
         for i in range(len(gantt_name_ids)):
-            all_intervals.append((
-                gantt_starts[i],
-                gantt_starts[i] + gantt_durations[i],
-                op_names[gantt_name_ids[i]],
-                gantt_sizes[i],
-            ))
+            all_intervals.append(
+                (
+                    gantt_starts[i],
+                    gantt_starts[i] + gantt_durations[i],
+                    op_names[gantt_name_ids[i]],
+                    gantt_sizes[i],
+                )
+            )
         all_intervals.sort(key=lambda x: x[0])
 
         tl_xy = []
         tl_active = []
-        if memory_timeline:
+        if memory_timeline and all_intervals:
+            interval_idx = 0
+            n_intervals = len(all_intervals)
+            active_intervals = []
+
             for point in memory_timeline:
                 t = point["time"]
-                active = []
-                for start, end, op_name, size_kb in all_intervals:
-                    if start <= t < end:
-                        active.append((op_name, size_kb))
-                    elif start > t:
-                        break
+
+                # Add intervals that start at or before t
+                while (
+                    interval_idx < n_intervals and all_intervals[interval_idx][0] <= t
+                ):
+                    active_intervals.append(all_intervals[interval_idx])
+                    interval_idx += 1
+
+                # Remove intervals that have ended
+                active_intervals = [item for item in active_intervals if item[1] > t]
+
                 tl_xy.append([round(t, 2), round(point["total_mb"], 2)])
-                if active:
-                    active.sort(key=lambda x: -x[1])
-                    top_n = active[:MemoryVisualizer._HOVER_TOP_N]
+                if active_intervals:
+                    sorted_active = sorted(active_intervals, key=lambda x: -x[3])
+                    top_n = sorted_active[: MemoryVisualizer._HOVER_TOP_N]
                     tl_active.append(
-                        [len(active),
-                         [[op_name, round(sz, 1)] for op_name, sz in top_n]]
+                        [
+                            len(active_intervals),
+                            [[op_name, round(sz, 1)] for _, _, op_name, sz in top_n],
+                        ]
                     )
         return tl_xy, tl_active
 
@@ -388,15 +438,15 @@ class MemoryVisualizer(BaseVisualizer):
         detail_js = "\n".join(detail_lines)
 
         # Read HTML template and inject segment navigation
-        template_path = os.path.join(os.path.dirname(__file__),
-                                     "memory_template.html")
+        template_path = os.path.join(os.path.dirname(__file__), "memory_template.html")
         with open(template_path, "r", encoding="utf-8") as f:
             html = f.read()
 
         # Inject segment navigation and data file reference
         data_filename = f"detail_data_{seg_idx:02d}.js"
         nav_html = self._build_segment_nav(
-            seg_idx, seg_label, num_segments, global_bar_count)
+            seg_idx, seg_label, num_segments, global_bar_count
+        )
         html = html.replace("__SEGMENT_NAV__", nav_html)
         html = html.replace("__SEGMENT_LABEL__", seg_label)
         html = html.replace("__DATA_FILE__", data_filename)
@@ -406,24 +456,28 @@ class MemoryVisualizer(BaseVisualizer):
     @staticmethod
     def _build_segment_nav(seg_idx, seg_label, num_segments, global_bar_count):
         """Build segment navigation HTML snippet."""
-        parts = ['<div class="control-group" style="border-left:2px solid #eee;'
-                 'padding-left:16px;gap:4px">']
+        parts = [
+            '<div class="control-group" style="border-left:2px solid #eee;'
+            'padding-left:16px;gap:4px">'
+        ]
         if seg_idx > 0:
             parts.append(
                 f'<a href="memory_timeline_{seg_idx - 1:02d}.html" '
                 f'style="text-decoration:none;color:#4e79a7;font-size:13px;'
                 f'padding:4px 8px;border:1px solid #4e79a7;border-radius:4px"'
-                f'>← Prev</a>')
+                f">← Prev</a>"
+            )
         parts.append(
             f'<span style="font-size:12px;color:#888;margin:0 6px">'
-            f'Seg {seg_idx + 1}/{num_segments}: {seg_label}</span>')
+            f"Seg {seg_idx + 1}/{num_segments}: {seg_label}</span>"
+        )
         if seg_idx < num_segments - 1:
             parts.append(
                 f'<a href="memory_timeline_{seg_idx + 1:02d}.html" '
                 f'style="text-decoration:none;color:#4e79a7;font-size:13px;'
                 f'padding:4px 8px;border:1px solid #4e79a7;border-radius:4px"'
-                f'>Next →</a>')
-        parts.append(
-            f'<span class="unit">({global_bar_count} total events)</span>')
-        parts.append('</div>')
+                f">Next →</a>"
+            )
+        parts.append(f'<span class="unit">({global_bar_count} total events)</span>')
+        parts.append("</div>")
         return "".join(parts)
