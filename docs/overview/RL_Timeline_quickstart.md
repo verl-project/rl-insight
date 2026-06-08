@@ -16,26 +16,19 @@ RL-Insight 是一个强化学习性能数据快速分析的可视化工具，基
 
 
 ## 2. 安装
-### 2.1 要求
-- **Python**版本 >= 3.10
 
-### 2.2 安装&软件依赖
+需要 **Python >= 3.10**。
 
-安装最新版本的rl-insight，最佳方法是从源代码克隆并安装。之后，您可以修改我们的代码来定制您自己的任务。
+```bash
+pip install rl-insight
+```
+
+若需使用最新未发布功能，可从源码安装：
+
 ```bash
 git clone https://github.com/verl-project/rl-insight.git
-```
-
-依赖版本以仓库根目录 [`requirements.txt`](../../requirements.txt) 为准（含 **pandas、plotly、numpy、loguru** 等）。开发/运行前请安装：
-
-```bash
 cd rl-insight
 pip install -r requirements.txt
-```
-
-若需从本地源码直接运行 `python -m rl_insight.main`，建议再执行：
-
-```bash
 pip install -e .
 ```
 
