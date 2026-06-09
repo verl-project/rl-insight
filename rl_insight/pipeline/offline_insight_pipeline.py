@@ -31,17 +31,9 @@ class OfflineInsightPipeline:
             parser_cls = get_cluster_parser_cls(config.heatmap.parser.type)
             visualizer_cls = get_cluster_visualizer_cls(config.heatmap.visualizer.type)
 
-        parser_config = self._prepare_parser_config()
-        self.parser = parser_cls(parser_config)
+        self.parser = parser_cls(self.config)
 
-        visualizer_config = self._prepare_visualizer_config()
-        self.visualizer = visualizer_cls(visualizer_config)
-
-    def _prepare_parser_config(self) -> DictConfig:
-        return self.config
-
-    def _prepare_visualizer_config(self) -> DictConfig:
-        return self.config
+        self.visualizer = visualizer_cls(self.config)
 
     def run(self):
         DataChecker(self.parser.input_type, self.config.input.path).run()

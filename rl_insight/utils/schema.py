@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import stat
 from dataclasses import dataclass
 from typing import TypedDict, Literal, Optional
 
@@ -158,7 +156,3 @@ class Constant:
     # Unit Conversion
     US_TO_MS = 1000
     NS_TO_US = 1000
-
-    # file authority
-    WRITE_MODES = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP
-    WRITE_FLAGS = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
