@@ -15,6 +15,7 @@
 import time
 from functools import wraps
 import inspect
+import transfer_queue as tq
 
 def tq_timer(func):
     @wraps(func)
@@ -55,7 +56,6 @@ def patch_tq():
         "async_kv_batch_get_by_meta",
         "async_kv_list",
         "async_kv_clear",
-        "KVBatchMeta",
     ]
     for name in tq_funcs:
         if hasattr(tq, name):
