@@ -24,7 +24,7 @@ def tq_timer(func):
 
         cost = time.time() - start_time
         formatted_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_time))
-        print(f"=====[TQ timer]{func.__name__} start at {formatted_time} and cost:{cost}s")
+        print(f"[TQ timer]{func.__name__} start at {formatted_time} and cost:{cost}s")
         return result
 
     @wraps(func)
@@ -34,7 +34,7 @@ def tq_timer(func):
 
         cost = time.time() - start_time
         formatted_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_time))
-        print(f"=====[TQ timer]{func.__name__} start at {formatted_time} and cost:{cost}s")
+        print(f"[TQ timer]{func.__name__} start at {formatted_time} and cost:{cost}s")
         return await_result
     return async_wrapper if inspect.iscoroutinefunction(func) else wrapper
 
@@ -62,7 +62,7 @@ def patch_tq():
             original = getattr(tq, name)
             setattr(tq, name, tq_timer(original))
 
-def patch_class(cls):
+def patch_tq_timer(cls):
     original_init = cls.__init__
 
     def new_init(self, *args, **kwargs):
