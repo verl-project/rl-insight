@@ -1,5 +1,5 @@
 # requirements.txt records the full set of dependencies for development
-numpy<2.0.0
+numpy
 pandas
 plotly
 matplotlib
