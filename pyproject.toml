@@ -12,7 +12,7 @@ authors = [
   { name = "rl-insight contributors", email = "huxiaobo@zju.edu.cn" },
 ]
 dependencies = [
-  "numpy<2.0.0",
+  "numpy",
   "pandas",
   "plotly",
   "matplotlib",
