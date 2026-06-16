@@ -6,7 +6,7 @@ matplotlib
 pytest
 loguru
 kaleido
-torch==2.7.1
+torch
 requests
 ray
 omegaconf
