@@ -1,4 +1,13 @@
-# RL-Insight: Provide performance insight capabilities for RL frameworks.
+<p align="center">
+  <img src="./assets/monitor/rl-insight-logo.png" width="180" alt="RL-Insight logo">
+</p>
+
+<h1 align="center">RL-Insight</h1>
+
+<p align="center">
+  Online observability for reinforcement learning training. RL-Insight connects training-side metrics, RL state traces, and service dashboards across distributed rollout and optimization workloads.
+</p>
+
 <div align="center">
 
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/verl-project/rl-insight)
@@ -8,133 +17,131 @@
 
 </div>
 
-RL-Insight provides performance insight capabilities for RL training frameworks. It defines a [general pipeline](https://github.com/verl-project/rl-insight/blob/main/docs/overview/architecture.md) for performance insights. A series of capabilities will be built based on this framework. With a well-defined data protocol, these capabilities can generalize across training frameworks.
+## Why RL-Insight Monitor
 
-<div align="center">
- <img src="https://raw.githubusercontent.com/verl-project/rl-insight/main/assets/rl_insight_framework.svg" width="600" alt="rl-insight-arch">
-</div>
+RL-Insight Monitor focuses on the online observability path that RL training needs most:
 
-## Key Features
+- **One-command server startup**: install and start Prometheus, Tempo, and Grafana with `rl-insight server install` and `rl-insight server start`.
+- **Trainer and rollout metric aggregation**: collect key actor, rollout, and transfer queue metrics in one monitoring view while keeping training-side instrumentation lightweight.
+- **Grafana dashboards for RL workloads**: provide ready-to-use dashboard structure for training metrics, rollout behavior, engine metrics, and RL state timelines.
 
-**Offline Analysis**
-- **Timeline visualization** — interactive HTML Gantt charts for per-rank event timelines across RL training phases, with parallel multi-rank parsing for MSTX, Torch Profiler, and NVTX data sources. PNG export also supported.
-- **MoE Expert Load Heatmap** — GMM-clustered heatmaps to visualize expert load distribution in Mixture-of-Experts models, helping identify load imbalance across experts and layers.
+## Architecture
 
-**Online Monitoring (Experimental)**
-- Real-time server stack based on **Prometheus + Tempo + Grafana**
-- Training-side Python APIs: counter, gauge, histogram metrics plus distributed tracing (`trace_state`, `trace_op`)
+<p align="center">
+  <img src="./assets/monitor/rl-insight-monitor-architecture.svg" width="960" alt="RL-Insight monitor architecture">
+</p>
 
-## Installation
+The monitor has two data paths. Trainer-side Python API events are aggregated by the client and monitor hub, then exposed to Prometheus or exported to Tempo. Rollout and inference engines expose their own metrics endpoints directly to Prometheus. Grafana queries Prometheus and Tempo to render the RL dashboards.
 
-Python >= 3.10 required.
+## Demo
+
+https://github.com/user-attachments/assets/0c9797e7-c0a9-4961-9c8f-1a648f038ada
+
+<p align="center">
+  <a href="https://github.com/user-attachments/assets/0c9797e7-c0a9-4961-9c8f-1a648f038ada">Watch the demo video</a>
+</p>
+
+## News
+
+- [2026/06/16] RL-Insight officially supports Online Monitor, including one-command server startup, trainer and rollout metric aggregation, and Grafana dashboards for RL workloads.
+
+## Get Started
+
+For the full runnable path, use the dedicated quick start:
 
 ```bash
-pip install rl-insight
-```
-
-For the latest unreleased features, install from source:
-
-```bash
-git clone https://github.com/verl-project/rl-insight.git
-cd rl-insight
 pip install -r requirements.txt
 pip install -e .
-```
-
-## Quickstart
-
-### Timeline Visualization
-
-Parse MSTX, Torch Profiler, or NVTX data and generate an interactive HTML timeline:
-
-```bash
-# MSTX
-python -m rl_insight.main \
-    input.path=<profiling_data_path> \
-    timeline.parser.type=mstx \
-    output.path=<output_path>
-
-# Torch Profiler
-python -m rl_insight.main \
-    input.path=<torch_data_path> \
-    timeline.parser.type=torch \
-    output.path=<output_path>
-
-# NVTX
-python -m rl_insight.main \
-    input.path=<nvtx_data_path> \
-    timeline.parser.type=nvtx \
-    output.path=<output_path>
-```
-
-Switch visualizer type for PNG output:
-
-```bash
-timeline.visualizer.type=html    # interactive timeline (default)
-timeline.visualizer.type=png     # static PNG export
-```
-
-Convenience scripts are available in `examples/`:
-
-```bash
-bash examples/mstx_exec.sh
-bash examples/torch_profiler_exec.sh
-bash examples/nvtx_exec.sh
-```
-
-### MoE Expert Load Heatmap
-
-Visualize expert load distribution in Mixture-of-Experts models:
-
-```bash
-bash examples/gmm_exec.sh
-```
-
-Or with full CLI control:
-
-```bash
-python -m rl_insight.main \
-    input.path=<gmm_data_path> \
-    output.path=<output_path> \
-    heatmap.parser.type=gmm \
-    heatmap.visualizer.type=gmm_heatmap \
-    heatmap.visualizer.gmm_per_layer=3
-```
-
-### Online Monitoring (Experimental)
-
-Install the Linux server services, then start the stack and instrument training code. RL-Insight requires Prometheus, Tempo, and Grafana; `server install` downloads the supported service versions into a user-managed directory.
-
-```bash
 rl-insight server install
-```
-
-See [Server Installation](experimental/docs/server_installation.md) for Linux distro, CPU architecture, and version requirements.
-
-```bash
 rl-insight server start
 ```
 
-`server start` runs the local binaries directly. It checks for missing software first and prints the install command when something is unavailable. Stop the services with `Ctrl+C` in foreground mode or from another terminal:
+Then initialize monitoring in training code:
+
+Set the RL-Insight server IP before training workers call `insight.init(...)`:
 
 ```bash
-rl-insight server stop
+export RL_INSIGHT_SERVICE_IP=<server-ip>
 ```
 
-Collected Prometheus, Tempo, and Grafana data is persisted under `~/.rl-insight/data` by default. Prometheus and Tempo retain collected data for `30d` unless configured otherwise.
-
 ```python
+import ray
 import rl_insight as insight
 
+ray.init(address="auto", namespace="rl-insight-monitor")
 insight.init(project="verl", experiment_name="ppo-smoke-test")
-insight.metric_count("train_step_total", amount=1)
-insight.metric_value("reward_mean", value=1.23)
 
-with insight.trace_state("rollout", state_lane_id="trainer_0"):
+insight.metric_count("train_step_total", amount=1, worker="trainer_0")
+insight.metric_value("reward_mean", value=1.23, worker="trainer_0")
+insight.metric_distribution("step_latency_ms", value=42.5, worker="trainer_0")
+
+with insight.trace_state("rollout", state_lane_id="actor_0", step=10):
     run_rollout()
 ```
 
-See [`experimental/README.md`](experimental/README.md) for full API reference and configuration.
+Read the step-by-step guide in [Quick Start](./docs/monitor/quick_start.md). If you only need the Linux service prerequisites and supported versions, read [Server Installation](./docs/monitor/server_installation.md).
+
+## Server Stack
+
+RL-Insight manages three open-source services locally on Linux:
+
+| Service | Purpose | Default port | Required version | Installer version |
+|---|---|---:|---:|---:|
+| Prometheus | Metric storage and queries | `9090` | `>= 2.30.0` | `2.54.1` |
+| Tempo | Trace storage and query API | `3200` | `>= 2.0.0` | `2.6.1` |
+| Grafana | Dashboards and trace exploration | `3000` | `>= 13.0.0` | `13.0.0` |
+
+`rl-insight server install` downloads supported Linux binaries into `~/.rl-insight/services`. `rl-insight server start` runs Prometheus, Tempo, and Grafana with data persisted under `~/.rl-insight/data` by default.
+
+## Training API
+
+`rl_insight/` exports the online monitor public API, so training code can import one module:
+
+| API | Use |
+|---|---|
+| `init(project=None, experiment_name=None, config=None)` | Enable monitoring once per process and attach global labels. |
+| `metric_count(name, amount=1.0, documentation="", **labels)` | Increment a Prometheus counter. |
+| `metric_value(name, value, documentation="", **labels)` | Record the latest value for a gauge. |
+| `metric_distribution(name, value, documentation="", **labels)` | Add one sample to a histogram. |
+| `trace_state(state_name, state_lane_id=None, **labels)` | Record a named RL state interval. |
+| `trace_op(name=None, extra_labels=None, **static_labels)` | Decorate a synchronous function and emit one duration span per call. |
+| `finish()` | Reset in-process monitor state. |
+
+Configuration can be passed to `insight.init(config=...)` or through environment variables:
+
+```python
+insight.init(
+    project="verl",
+    experiment_name="ppo-smoke-test",
+    config={
+        "server": {
+            "namespace": "rl_insight_monitor",
+            "backend": "ray",
+            "service_ip": "10.0.0.8",
+        },
+        "prometheus": {
+            "metrics_report_port": 9092,
+            "prometheus_port": 9090,
+        },
+        "otel": {
+            "otel_port": 4318,
+        },
+    },
+)
+```
+
+Useful environment variables:
+
+| Variable | Purpose |
+|---|---|
+| `RL_INSIGHT_SERVICE_IP` | RL-Insight server IP used by training workers to export traces. |
+| `RL_INSIGHT_OTEL_PORT` | OTLP HTTP port, default `4318`. |
+| `RL_INSIGHT_PROMETHEUS_PORT` | Prometheus HTTP port, default `9090`. |
+| `RL_INSIGHT_PROMETHEUS_CONFIG_FILE` | Prometheus config path when the monitor hub updates scrape targets. |
+
+## Offline Analysis
+
+Offline timeline, heatmap, and parser utilities are kept under `recipe/`; see [Recipe README](./recipe/README.md) for that workflow.
 
 ## Roadmap
 
@@ -143,12 +150,17 @@ See [`experimental/README.md`](experimental/README.md) for full API reference an
 
 ## Documentation
 
-- [Architecture & Design](https://github.com/verl-project/rl-insight/blob/main/docs/overview/architecture.md)
-- [Offline Timeline Quickstart](https://github.com/verl-project/rl-insight/blob/main/docs/overview/RL_Timeline_quickstart.md)
-- [GMM Heatmap Quickstart](https://github.com/verl-project/rl-insight/blob/main/docs/overview/gmm_heatmap_quickstart.md)
-- [Memory Parser Guide](https://github.com/verl-project/rl-insight/blob/main/docs/developer_guides/memory_parser_guide.md)
-- [Extension Guide](https://github.com/verl-project/rl-insight/blob/main/docs/developer_guides/extending_guide.md)
+- [Quick Start](./docs/monitor/quick_start.md): install RL-Insight, start the services, instrument code, and open Grafana.
+- [Server Installation](./docs/monitor/server_installation.md): Linux service requirements, supported OS/CPU combinations, and version policy.
+- [Default server config](./rl_insight/config/config.yaml): bundled ports, retention settings, and service config paths.
+- [Recipe README](./recipe/README.md): offline timeline, heatmap, and parser utilities.
 
 ## Contribution Guide
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+
+
+
+
+

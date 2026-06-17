@@ -36,6 +36,8 @@ PROJECT_ROOT = CURRENT_FILE.parents[2]
 DOCS_FOLDER = PROJECT_ROOT / "docs"
 URL_PATTERN = re.compile(r"https?://[^\s)+\"'>]+")
 TIMEOUT = 5  # request timeout
+TEMPLATE_MARKERS = ("<", "${")
+TEXT_SUFFIXES = {".md", ".rst", ".txt", ".py"}
 
 
 def get_all_files_in_docs() -> list[Path]:
@@ -45,7 +47,9 @@ def get_all_files_in_docs() -> list[Path]:
     files = []
     for root, _, filenames in os.walk(DOCS_FOLDER):
         for filename in filenames:
-            files.append(Path(root) / filename)
+            file_path = Path(root) / filename
+            if file_path.suffix in TEXT_SUFFIXES:
+                files.append(file_path)
     return files
 
 
@@ -58,7 +62,7 @@ def extract_urls_from_file(file_path: Path) -> list[str]:
             content = f.read()
         return URL_PATTERN.findall(content)
     except Exception as e:
-        print(f"⚠️  Could not read file {file_path}: {str(e)}")
+        print(f"Could not read file {file_path}: {str(e)}")
         return []
 
 
@@ -83,6 +87,14 @@ def is_url_valid(url: str) -> bool:
         return False
 
 
+def is_template_url(url: str) -> bool:
+    """
+    Skip documentation placeholders, such as http://<server-ip> or shell
+    template URLs containing ${VERSION}. They are examples, not reachable URLs.
+    """
+    return any(marker in url for marker in TEMPLATE_MARKERS)
+
+
 def test_docs_folder_all_urls_are_valid():
     """
     Test that all URLs inside docs directory files are valid and reachable.
@@ -93,6 +105,8 @@ def test_docs_folder_all_urls_are_valid():
     for file in all_files:
         urls = extract_urls_from_file(file)
         for url in urls:
+            if is_template_url(url):
+                continue
             if not is_url_valid(url):
                 invalid_links.append(f"{file} -> {url}")
 

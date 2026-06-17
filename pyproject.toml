@@ -28,7 +28,8 @@ dependencies = [
 ]
 
 [project.scripts]
-rl-insight = "experimental.cli:main"
+rl-insight = "rl_insight.cli:main"
+rl-insight-recipe = "recipe.main:main"
 
 [project.urls]
 Homepage = "https://github.com/verl-project/rl-insight"
@@ -36,10 +37,10 @@ Source = "https://github.com/verl-project/rl-insight"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["rl_insight", "rl_insight.*", "experimental", "experimental.*"]
+include = ["rl_insight", "rl_insight.*", "recipe", "recipe.*"]
 
 [tool.setuptools.package-data]
-experimental = [
+rl_insight = [
   "config/*.yaml",
   "config/*.yml",
   "config/services/prometheus/*.yml",
@@ -50,7 +51,10 @@ experimental = [
   "config/services/grafana/provisioning/datasources/*.yml",
   "config/services/grafana/provisioning/dashboards/*.yml",
   "config/services/grafana/dashboards/*.json",
-  "docs/*.md"
+]
+recipe = [
+  "config/*.yaml",
+  "config/*.yml",
 ]
 
 [tool.pytest.ini_options]

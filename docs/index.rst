@@ -1,9 +1,9 @@
 Welcome to RL-Insight's documentation!
-========================
+======================================
 
 RL-Insight is a performance insight and observability toolkit for reinforcement learning (RL) systems.
-It focuses on analyzing offline cluster logs first, and is evolving towards full-stack online monitoring
-and visualization.
+It focuses on online observability for distributed RL training, with offline analysis utilities collected
+under Recipe.
 
 --------------------------------------------
 
@@ -11,33 +11,40 @@ and visualization.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Overview
+   :caption: Monitor
 
-   Architecture <overview/architecture>
-   RL Timeline quickstart <overview/RL_Timeline_quickstart>
-   GMM Expert Load visualization quickstart <overview/gmm_heatmap_quickstart>
-   Memory Parser quickstart <overview/memory_parser_quickstart>
+   Quick Start <monitor/quick_start>
+   Server Installation <monitor/server_installation>
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Recipe Overview
+
+   Architecture <recipe/overview/architecture>
+   RL Timeline quickstart <recipe/overview/RL_Timeline_quickstart>
+   GMM Expert Load visualization quickstart <recipe/overview/gmm_heatmap_quickstart>
+   Memory Parser quickstart <recipe/overview/memory_parser_quickstart>
 
 .. toctree::
    :maxdepth: 2
    :caption: Data Specification
 
-   Data Specification and Format Guide <data/data_specification>
+   Data Specification and Format Guide <recipe/data/data_specification>
 
 .. toctree::
    :maxdepth: 2
    :caption: Utils
 
-   MSTX Preprocessing <utils/mstx_preprocessing>
+   MSTX Preprocessing <recipe/utils/mstx_preprocessing>
 
 .. toctree::
    :maxdepth: 2
    :caption: Developer Guides
 
-   Extending Guide <developer_guides/extending_guide>
-   BaseClusterParser Interface<developer_guides/baseclusterparser_interface>
-   DataRule Extending Guide <developer_guides/rule_extending_guide>
-   Memory Parser Guide <developer_guides/memory_parser_guide>
+   Extending Guide <recipe/developer_guides/extending_guide>
+   BaseClusterParser Interface <recipe/developer_guides/baseclusterparser_interface>
+   DataRule Extending Guide <recipe/developer_guides/rule_extending_guide>
+   Memory Parser Guide <recipe/developer_guides/memory_parser_guide>
 
 Contribution
 -------------

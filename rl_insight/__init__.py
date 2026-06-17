@@ -1,4 +1,4 @@
-# Copyright (c) 2025 verl-project authors.
+# Copyright (c) 2026 verl-project authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,43 +12,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Online monitoring APIs.
+
+Public symbols are loaded lazily so ``rl-insight server ...`` can start without
+importing trainer-side optional dependencies such as Ray or OpenTelemetry.
 """
-Cluster scheduling analysis and visualization for RL workloads.
 
-This package exposes built-in parser classes and a CLI entry helper.
-"""
+from __future__ import annotations
 
-from experimental import (
-    finish,
-    init,
-    metric_count,
-    metric_distribution,
-    metric_value,
-    trace_op,
-    trace_state,
-    update_prometheus_config,
-)
-from .parser import MstxClusterParser, TorchClusterParser, NvtxClusterParser
+from importlib import import_module
+from typing import Any
 
 
-def main():
-    # Lazy import avoids preloading rl_insight.main during package import.
-    from .main import main as _main
+_EXPORTS = {
+    "finish": ".api",
+    "init": ".api",
+    "metric_count": ".api",
+    "metric_distribution": ".api",
+    "metric_value": ".api",
+    "trace_op": ".api",
+    "trace_state": ".api",
+    "update_prometheus_config": ".utils",
+}
 
-    return _main()
+__all__ = list(_EXPORTS)
 
 
-__all__ = [
-    "MstxClusterParser",
-    "TorchClusterParser",
-    "NvtxClusterParser",
-    "main",
-    "init",
-    "finish",
-    "metric_count",
-    "metric_value",
-    "metric_distribution",
-    "trace_op",
-    "trace_state",
-    "update_prometheus_config",
-]
+def __getattr__(name: str) -> Any:
+    """Load public exports on first access."""
+    module_name = _EXPORTS.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module = import_module(module_name, __name__)
+    value = getattr(module, name)
+    globals()[name] = value
+    return value
