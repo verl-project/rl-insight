@@ -18,12 +18,21 @@ import re
 # Get PR title from environment
 pr_title = os.environ.get("PR_TITLE", "").strip()
 
-# Define rules
+# Define rules — keep in sync with .github/PULL_REQUEST_TEMPLATE.md
 allowed_modules = [
+    # online monitor
+    "monitor-api",
+    "monitor-cli",
+    "monitor-collector",
+    "monitor-server",
+    "monitor-config",
+    # offline analysis (recipe)
+    "recipe",
     "pipeline",
     "parser",
     "visualizer",
     "data",
+    # cross-cutting + legacy aliases
     "deployment",
     "perf",
     "algo",
@@ -51,8 +60,10 @@ else:
     core_pr_title = pr_title
     is_breaking = False
 
+MODULES_IN_BRACKETS = r"[a-z0-9_,\s-]+"
+
 # Build dynamic regex pattern for modules (now working on core_pr_title)
-re_modules_pattern = re.compile(r"^\[([a-z_,\s]+)\]", re.IGNORECASE)
+re_modules_pattern = re.compile(rf"^\[({MODULES_IN_BRACKETS})\]", re.IGNORECASE)
 re_modules = re_modules_pattern.match(core_pr_title)
 if not re_modules:
     print(f"❌ Invalid PR title: '{pr_title}'")
@@ -60,7 +71,11 @@ if not re_modules:
     print(f"Allowed modules: {', '.join(allowed_modules)}")
     raise Exception("Invalid PR title")
 else:
-    modules = re.findall(r"[a-z_]+", re_modules.group(1).lower())
+    modules = [
+        module.strip().lower()
+        for module in re_modules.group(1).split(",")
+        if module.strip()
+    ]
     # When "*" is in allowed_modules, any module is accepted
     if len(allowed_modules) > 0 and not all(
         module in allowed_modules for module in modules
@@ -74,7 +89,7 @@ else:
 
 types_pattern = "|".join(re.escape(t) for t in allowed_types)
 re_types_pattern = re.compile(
-    rf"^\[[a-z_,\s]+\]\s+({types_pattern}):\s+.+$", re.IGNORECASE
+    rf"^\[{MODULES_IN_BRACKETS}\]\s+({types_pattern}):\s+.+$", re.IGNORECASE
 )
 match = re_types_pattern.match(core_pr_title)
 

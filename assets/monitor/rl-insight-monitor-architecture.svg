@@ -1,0 +1,122 @@
+<svg width="1200" height="760" viewBox="0 0 1200 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 z" fill="#111111" />
+    </marker>
+    <marker id="arrow-green" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 z" fill="#229954" />
+    </marker>
+    <style>
+      .title { font: 700 28px Arial, Helvetica, sans-serif; fill: #050505; }
+      .section { font: 700 22px Arial, Helvetica, sans-serif; fill: #050505; }
+      .label { font: 500 18px Arial, Helvetica, sans-serif; fill: #050505; }
+      .small { font: 500 15px Arial, Helvetica, sans-serif; fill: #333333; }
+      .white { fill: #ffffff; }
+      .box { stroke: #111111; stroke-width: 4; fill: #ffffff; }
+      .dash-red { stroke: #ff3b30; stroke-width: 4; stroke-dasharray: 18 14; fill: none; }
+      .dash-green { stroke: #229954; stroke-width: 4; stroke-dasharray: 18 14; fill: none; }
+      .green { fill: #10d86f; }
+      .blue { fill: #3d8fe8; }
+      .pink { fill: #ffb5bb; }
+      .yellow { fill: #fff9b8; }
+      .cyan { fill: #6ee6e6; }
+      .mint { fill: #dff6e8; }
+      .red { fill: #ff4040; }
+      .service { fill: #dff6e8; stroke: #229954; stroke-width: 3; }
+      .flow { stroke: #111111; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .flow-green { stroke: #229954; stroke-width: 3; fill: none; marker-end: url(#arrow-green); }
+    </style>
+  </defs>
+
+  <rect x="4" y="4" width="1192" height="752" class="box" />
+  <text x="600" y="42" text-anchor="middle" class="title">RL-Insight Online Monitor Architecture</text>
+
+  <rect x="35" y="70" width="555" height="135" class="box" />
+  <text x="312" y="103" text-anchor="middle" class="section">RL Training Runtime</text>
+  <rect x="65" y="127" width="112" height="54" rx="10" class="green" />
+  <text x="121" y="160" text-anchor="middle" class="label">Trainer</text>
+  <rect x="197" y="127" width="128" height="54" rx="10" class="green" />
+  <text x="261" y="160" text-anchor="middle" class="label">Actor/Critic</text>
+  <rect x="345" y="127" width="132" height="54" rx="10" class="green" />
+  <text x="411" y="160" text-anchor="middle" class="label">TransferQueue</text>
+  <rect x="497" y="127" width="64" height="54" rx="10" class="green" />
+  <text x="529" y="160" text-anchor="middle" class="label">...</text>
+
+  <rect x="630" y="70" width="535" height="135" class="box" />
+  <text x="898" y="103" text-anchor="middle" class="section">Inference &amp; Rollout Runtime</text>
+  <rect x="665" y="127" width="142" height="54" rx="10" class="blue" />
+  <text x="736" y="160" text-anchor="middle" class="label">Rollout Engine</text>
+  <rect x="827" y="127" width="108" height="54" rx="10" class="blue" />
+  <text x="881" y="160" text-anchor="middle" class="label">vLLM</text>
+  <rect x="955" y="127" width="108" height="54" rx="10" class="blue" />
+  <text x="1009" y="160" text-anchor="middle" class="label">SGLang</text>
+  <rect x="1083" y="127" width="54" height="54" rx="10" class="blue" />
+  <text x="1110" y="160" text-anchor="middle" class="label">...</text>
+
+  <rect x="42" y="235" width="690" height="260" rx="8" class="dash-red" />
+  <rect x="230" y="216" width="300" height="58" class="red" />
+  <text x="380" y="252" text-anchor="middle" class="section white">Training-side integration</text>
+
+  <rect x="78" y="300" width="165" height="88" class="box" />
+  <text x="160" y="333" text-anchor="middle" class="section">RL Framework</text>
+  <rect x="102" y="348" width="118" height="30" rx="8" class="pink" />
+  <text x="161" y="369" text-anchor="middle" class="small">training code</text>
+
+  <rect x="288" y="300" width="185" height="88" class="box" />
+  <text x="380" y="333" text-anchor="middle" class="section">Python API</text>
+  <rect x="315" y="348" width="132" height="30" rx="8" class="yellow" />
+  <text x="381" y="369" text-anchor="middle" class="small">metric / trace</text>
+
+  <rect x="520" y="300" width="170" height="88" class="box" />
+  <text x="605" y="331" text-anchor="middle" class="section">Client</text>
+  <text x="605" y="360" text-anchor="middle" class="small">aggregates</text>
+  <text x="605" y="379" text-anchor="middle" class="small">Python API events</text>
+
+  <rect x="315" y="430" width="260" height="52" class="cyan" stroke="#111111" stroke-width="4" />
+  <text x="445" y="463" text-anchor="middle" class="section">Monitor Hub</text>
+
+  <path d="M243 344 H288" class="flow" />
+  <path d="M473 344 H520" class="flow" />
+  <path d="M605 388 V430" class="flow" />
+  <path d="M160 205 V300" class="flow" />
+
+  <rect x="775" y="250" width="330" height="190" class="box" />
+  <text x="940" y="286" text-anchor="middle" class="section">Rollout Metrics</text>
+  <rect x="815" y="318" width="250" height="44" rx="8" class="blue" />
+  <text x="940" y="346" text-anchor="middle" class="label">engine /metrics endpoint</text>
+  <rect x="815" y="378" width="250" height="44" rx="8" class="blue" />
+  <text x="940" y="406" text-anchor="middle" class="label">served directly to Prometheus</text>
+  <path d="M900 205 V250" class="flow" />
+
+  <rect x="58" y="535" width="1084" height="170" rx="8" class="dash-green" />
+  <rect x="392" y="516" width="360" height="58" class="red" />
+  <text x="572" y="552" text-anchor="middle" class="section white">RL-Insight server responsibility</text>
+
+  <rect x="95" y="610" width="190" height="58" class="mint" stroke="#111111" stroke-width="4" />
+  <text x="190" y="645" text-anchor="middle" class="section">server CLI</text>
+
+  <rect x="385" y="610" width="170" height="58" rx="8" class="service" />
+  <text x="470" y="645" text-anchor="middle" class="label">Tempo</text>
+
+  <rect x="635" y="610" width="190" height="58" rx="8" class="service" />
+  <text x="730" y="645" text-anchor="middle" class="label">Prometheus</text>
+
+  <rect x="900" y="610" width="170" height="58" rx="8" class="service" />
+  <text x="985" y="645" text-anchor="middle" class="label">Grafana</text>
+
+  <path d="M285 639 H385" class="flow" />
+  <text x="335" y="622" text-anchor="middle" class="small">starts</text>
+
+  <path d="M445 482 V610" class="flow-green" />
+  <text x="362" y="552" text-anchor="middle" class="small">OTLP traces</text>
+
+  <path d="M575 456 H730 V610" class="flow-green" />
+  <text x="657" y="439" text-anchor="middle" class="small">Python API metrics</text>
+
+  <path d="M940 440 V574 H730 V610" class="flow-green" />
+  <text x="930" y="552" text-anchor="middle" class="small">rollout /metrics</text>
+
+  <path d="M555 639 H900" class="flow" />
+  <text x="725" y="694" text-anchor="middle" class="small">Grafana queries Tempo and Prometheus</text>
+  <path d="M825 639 H900" class="flow" />
+</svg>

@@ -1,0 +1,47 @@
+# === Server Stack Configuration ===
+#
+# binary_path: Absolute path to the service binary.
+#   - If set, this path is used directly, bypassing all automatic discovery.
+#   - If empty (default), binaries are discovered in order:
+#       1. manifest.json record from previous `rl-insight server install`
+#       2. $install_root/{service}/ (recursive rglob search)
+#       3. system PATH (shutil.which)
+#       4. system fixed paths (/usr/bin/, /usr/local/bin/, /opt/, ...)
+
+server:
+  backend: local
+
+prometheus:
+  binary_path: ""
+  enable: true
+  min_version: 2.30.0
+  install_version: 2.54.1
+  prometheus_port: 9090
+  retention_time: 30d
+  config_file: ${service_root}/services/prometheus/prometheus.yml
+
+otel:
+  otel_port: 4318
+
+tempo:
+  binary_path: ""
+  enable: true
+  min_version: 2.0.0
+  install_version: 2.6.1
+  query_port: 3200
+  retention_time: 30d
+  config_file: ${service_root}/services/tempo/tempo.yaml
+
+grafana:
+  binary_path: ""
+  enable: true
+  min_version: 13.0.0
+  install_version: 13.0.0
+  port: 3000
+  config_file: ${service_root}/services/grafana/grafana.ini
+  provisioning_dir: ${service_root}/services/grafana/provisioning
+  dashboards_dir: ${service_root}/services/grafana/dashboards
+
+
+
+

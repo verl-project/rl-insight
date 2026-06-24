@@ -1,0 +1,17 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    isDefault: true
+    url: http://127.0.0.1:9090
+    editable: true
+  - name: Tempo
+    uid: tempo
+    type: tempo
+    access: proxy
+    isDefault: false
+    url: http://127.0.0.1:3200
+    editable: true
