@@ -40,21 +40,10 @@ def tq_timer(func):
 
 def patch_tq():
     tq_funcs = [
-        "init",
-        "close",
-        "get_metrics_endpoint",
-        "kv_put",
         "kv_batch_put",
         "kv_batch_get",
-        "kv_batch_get_by_meta",
-        "kv_list",
         "kv_clear",
-        "async_kv_put",
         "async_kv_batch_put",
-        "async_kv_batch_get",
-        "async_kv_batch_get_by_meta",
-        "async_kv_list",
-        "async_kv_clear",
     ]
     rl_insight.init()
     for name in tq_funcs:
