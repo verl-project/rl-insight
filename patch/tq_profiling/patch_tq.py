@@ -16,6 +16,7 @@ import time
 from functools import wraps
 import inspect
 import transfer_queue as tq
+import rl_insight
 
 def tq_timer(func):
     @wraps(func)
@@ -24,8 +25,7 @@ def tq_timer(func):
         result = func(*args, **kwargs)
 
         cost = time.time() - start_time
-        formatted_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_time))
-        print(f"[TQ timer]{func.__name__} start at {formatted_time} and cost:{cost}s")
+        rl_insight.metric_value(f"TQ_TIME_{func.__name__}", float(cost))
         return result
 
     @wraps(func)
@@ -34,8 +34,7 @@ def tq_timer(func):
         await_result = await func(*args, **kwargs)
 
         cost = time.time() - start_time
-        formatted_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_time))
-        print(f"[TQ timer]{func.__name__} start at {formatted_time} and cost:{cost}s")
+        rl_insight.metric_value(f"TQ_TIME_{func.__name__}", float(cost))
         return await_result
     return async_wrapper if inspect.iscoroutinefunction(func) else wrapper
 
@@ -57,6 +56,7 @@ def patch_tq():
         "async_kv_list",
         "async_kv_clear",
     ]
+    rl_insight.init()
     for name in tq_funcs:
         if hasattr(tq, name):
             original = getattr(tq, name)
