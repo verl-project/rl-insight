@@ -6,8 +6,11 @@
 
 - [ ] Search for similar PRs. Paste at least one query link here: ...
 - [ ] Format the PR title as `[{modules}] {type}: {description}` (This will be checked by the CI)
-  - `{modules}` include `pipeline`, `parser`, `visualizer`, `data`, `deployment`, `perf`, `algo`, `env`, `doc`, `cfg`, `ci`, `misc`
-  - If this PR involves multiple modules, separate them with `,` like `[mstx, ci]`
+  - `{modules}` include:
+    - `monitor-api`, `monitor-cli`, `monitor-collector`, `monitor-server`, `monitor-config` for online monitor changes
+    - `recipe` for offline analysis changes, including pipeline, parser, visualizer, data checker, recipe config, examples, and sample data
+    - `doc`, `ci`, `perf`, `deployment`, `misc` for cross-cutting changes
+  - If this PR involves multiple modules, separate them with `,` like `[recipe, ci]` or `[monitor-server, monitor-config]`
   - `{type}` is in `feat`, `fix`, `refactor`, `chore`, `test`
   - If this PR breaks any API (CLI arguments, config, function signature, etc.), add `[BREAKING]` to the beginning of the title.
   - Example: `[BREAKING][mstx, torch_profile] feat: support timeline parsing`

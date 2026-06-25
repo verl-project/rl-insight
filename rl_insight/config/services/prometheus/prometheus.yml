@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 10s
+scrape_configs:
+- job_name: vllm
+  static_configs:
+  - targets:
+    - 192.168.9.128:45651
+    - 192.168.9.128:44319
+- job_name: trainer_metrics
+  static_configs:
+  - targets:
+    - 192.168.9.128:9092

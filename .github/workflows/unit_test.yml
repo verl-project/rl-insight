@@ -12,6 +12,7 @@ on:
     paths:
       - "**/*.py"
       - .github/workflows/unit_test.yml
+      - "data/recipe/**"
       - "tests/**"
 
 concurrency:
@@ -44,8 +45,8 @@ jobs:
 
       - name: Run parser tests
         run: |
-          pytest -s -x tests/parser
+          pytest -s -x tests/recipe/parser
       
       - name: Run data_checker tests
         run: |
-          pytest -s -x tests/data
+          pytest -s -x tests/recipe/data

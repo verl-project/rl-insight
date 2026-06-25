@@ -12,7 +12,8 @@ on:
     paths:
       - "**/*.py"
       - .github/workflows/special_e2e.yml
-      - "tests/special_e2e/**"
+      - "data/recipe/**"
+      - "tests/recipe/special_e2e/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -44,4 +45,4 @@ jobs:
 
       - name: Run rl-insight e2e tests
         run: |
-          pytest -s -x tests/special_e2e
+          pytest -s -x tests/recipe/special_e2e

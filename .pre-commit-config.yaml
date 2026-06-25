@@ -17,7 +17,7 @@ repos:
     hooks:
       - id: check-license
         name: Check license
-        entry: python3 tests/special_sanity/check_license.py --directories examples tests rl_insight
+        entry: python3 tests/special_sanity/check_license.py --directories examples tests rl_insight recipe
         language: python
         pass_filenames: false
 
