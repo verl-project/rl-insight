@@ -22,6 +22,7 @@ from loguru import logger
 
 from .rules import (
     DataValidationError,
+    MemoryContentRule,
     ParserOutputValidatorRule,
     MstxJsonFileExistsRule,
     MstxJsonFieldValidRule,
@@ -34,7 +35,7 @@ from .rules import (
     TorchJsonFieldValidRule,
 )
 from .verl_log_rules import VerlLogExistRule, VerlLogKeyParamsRule
-from recipe.utils.schema import EVENTKEYS, GMMKEYS
+from recipe.utils.schema import EVENTKEYS, GMMKEYS, MEMORYKEYS
 
 
 class DataEnum(Enum):
@@ -83,7 +84,10 @@ class DataChecker:
             ParserOutputValidatorRule(domains=list(GMMKEYS)),
         ],
         DataEnum.ASCEND_MEMORY: [],
-        DataEnum.MEMORY_SUMMARY: [],
+        DataEnum.MEMORY_SUMMARY: [
+            ParserOutputValidatorRule(domains=list(MEMORYKEYS)),
+            MemoryContentRule(),
+        ],
         DataEnum.UNKNOWN: [],
     }
 

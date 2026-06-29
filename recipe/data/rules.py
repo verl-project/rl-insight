@@ -464,6 +464,42 @@ class NvtxJsonFieldValidRule(ValidationRule):
         return self._error_message
 
 
+class MemoryContentRule(ValidationRule):
+    """Validate memory DataFrame content for the memory visualizer pipeline.
+
+    Checks that numeric columns are convertible to float, operator names are
+    not empty, and at least one positive allocation exists.
+    """
+
+    _NUMERIC_COLUMNS = ["size_kb", "start_time_ms", "duration_ms", "total_allocated_mb"]
+
+    def check(self, data: Any) -> bool:
+        # 1. Numeric columns must be convertible to float
+        for col in self._NUMERIC_COLUMNS:
+            if col not in data.columns:
+                continue  # column existence is checked by ParserOutputValidatorRule
+            try:
+                pd.to_numeric(data[col])
+            except (ValueError, TypeError):
+                self._error_message = f"Column '{col}' must be numeric"
+                return False
+
+        # 2. Operator name must not contain empty or NaN values
+        if "name" in data.columns:
+            name_col = data["name"]
+            if name_col.isna().any() or (name_col.astype(str).str.strip() == "").any():
+                self._error_message = "Column 'name' contains empty or NaN values"
+                return False
+
+        # 3. At least one positive allocation must exist
+        if "size_kb" in data.columns:
+            if not (data["size_kb"] > 0).any():
+                self._error_message = "Column 'size_kb' has no positive values"
+                return False
+
+        return True
+
+
 class GmmDataRule(ValidationRule):
     """Validation rule for GMM data."""
 

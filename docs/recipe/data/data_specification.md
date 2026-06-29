@@ -278,7 +278,7 @@ GMM 热力图输入类型为 `DataEnum.GMM_DATA`。**路径约定、参数与示
 
 ## 6. Ascend Memory Profiling 数据
 
-Memory Parser 输入类型为 `DataEnum.ASCEND_MEMORY`（CLI：`--input-type ascend_memory`、`--profiler-type memory`）。用户侧快速入门见 [Memory Parser Quickstart](../overview/memory_parser_quickstart.md)，开发者指南见 [Memory Parser Guide](../developer_guides/memory_parser_guide.md)。
+Memory 模块输入类型为 `DataEnum.ASCEND_MEMORY`（CLI：`timeline.parser.type=memory`）。用户侧快速入门见 [Memory Quickstart](../overview/memory_quickstart.md)，开发者指南见 [Memory Guide](../developer_guides/memory_guide.md)。
 
 ### 6.1 目录结构
 
@@ -292,6 +292,8 @@ Memory Parser 输入类型为 `DataEnum.ASCEND_MEMORY`（CLI：`--input-type asc
             ├── operator_memory.csv
             └── trace_view.json
 ```
+
+参考：[`./data/recipe/memory_data`](../../../data/recipe/memory_data)
 
 ### 6.2 operator_memory.csv 要点
 
@@ -320,11 +322,18 @@ Memory Parser 仅消费 `trace_view.json` 中 `cat=="cpu_op"` 且 `args` 中含 
 | `dur` | float | 持续时间（微秒） |
 | `args.Call stack` | str | Python 调用栈，以 `";\r\n"` 分隔 |
 
-### 6.4 输出 summary_memory_event 数据
+### 6.4 输出 memory_summary 数据
 
-Memory Parser 输出类型为 `DataEnum.SUMMARY_MEMORY_EVENT`，为 `pd.DataFrame`，每行对应一条内存分配/释放记录。完整字段说明见 [Memory Parser Guide](../developer_guides/memory_parser_guide.md) 中 `MemoryEventRow` 定义。
+Memory 模块输出类型为 `DataEnum.MEMORY_SUMMARY`，为 `pd.DataFrame`，每行对应一条内存分配/释放记录。完整字段说明见 [Memory Guide](../developer_guides/memory_guide.md) 中 `MemoryEventRow` 定义。
 
-必须包含的字段列：
+**DataChecker 校验要求**（`MEMORY_SUMMARY` 已注册规则）：
+
+| 规则 | 校验内容 |
+|------|----------|
+| `ParserOutputValidatorRule` | DataFrame 必须包含 `name`、`size_kb`、`start_time_ms`、`duration_ms`、`total_allocated_mb` |
+| `MemoryContentRule` | 数值列可转 float；`name` 不含空值；`size_kb` 至少一个正值 |
+
+**DataFrame 完整字段**：
 
 - `name`、`role`、`rank_id`
 - `call_stack`、`call_stack_top`

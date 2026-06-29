@@ -23,7 +23,7 @@ under Recipe.
    Architecture <recipe/overview/architecture>
    RL Timeline quickstart <recipe/overview/RL_Timeline_quickstart>
    GMM Expert Load visualization quickstart <recipe/overview/gmm_heatmap_quickstart>
-   Memory Parser quickstart <recipe/overview/memory_parser_quickstart>
+   Memory quickstart <recipe/overview/memory_quickstart>
 
 .. toctree::
    :maxdepth: 2
@@ -44,7 +44,7 @@ under Recipe.
    Extending Guide <recipe/developer_guides/extending_guide>
    BaseClusterParser Interface <recipe/developer_guides/baseclusterparser_interface>
    DataRule Extending Guide <recipe/developer_guides/rule_extending_guide>
-   Memory Parser Guide <recipe/developer_guides/memory_parser_guide>
+   Memory Guide <recipe/developer_guides/memory_guide>
 
 Contribution
 -------------

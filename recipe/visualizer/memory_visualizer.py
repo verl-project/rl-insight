@@ -21,8 +21,8 @@ import pandas as pd
 from loguru import logger
 from omegaconf import DictConfig
 
-from rl_insight.config import get_config_value
-from rl_insight.data import DataEnum
+from recipe.config.utils import get_config_value
+from recipe.data import DataEnum
 
 from .visualizer import (
     BaseVisualizer,
