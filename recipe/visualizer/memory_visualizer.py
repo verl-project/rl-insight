@@ -119,6 +119,12 @@ class MemoryVisualizer(BaseVisualizer):
         """Generate memory timeline HTML for a single (role, rank_id) group."""
         data = data.sort_values("start_time_ms").copy()
 
+        t_max_abs = float((data["start_time_ms"] + data["duration_ms"]).max())
+        data["duration_ms"] = np.where(
+            data["duration_ms"] == 0,
+            t_max_abs - data["start_time_ms"],
+            data["duration_ms"]
+        )
         data["end_time_ms"] = data["start_time_ms"] + data["duration_ms"]
         data["size_mb"] = data["size_kb"] * self._KB_TO_MB
 
