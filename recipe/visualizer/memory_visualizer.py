@@ -368,8 +368,7 @@ class MemoryVisualizer(BaseVisualizer):
                         ]
                     )
                 else:
-                    # 始终 append，保持 tl_active 与 tl_xy 等长对齐，
-                    # 避免前端按索引取值时错位。
+                    # always append，to keep tl_active align with tl_xy
                     tl_active.append([0, []])
         return tl_xy, tl_active
 
