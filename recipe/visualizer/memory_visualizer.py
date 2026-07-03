@@ -346,6 +346,7 @@ class MemoryVisualizer(BaseVisualizer):
             # Min-heap keyed by (end_time, start_time) for efficient expiry.
             # Elements: (end_time, start_time, op_name, size)
             import heapq
+
             active_heap: list[tuple] = []
             active_count = 0
 
