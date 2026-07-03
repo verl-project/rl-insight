@@ -748,7 +748,7 @@ ganttScroll.addEventListener('scroll', function() {
   _ganttScrollTimer = setTimeout(function() {
     _ganttScrollTimer = null;
     var gd = document.getElementById('chart');
-    if (!gd.data || !gd.data.length) return;
+    if (!gd || !gd.data || !gd.data.length) return;
     var lo = ganttView.start, hi = ganttView.start + ganttView.count;
     var newGantt = buildGanttTraces(lo, hi);
     var prevSync = isSyncing;
