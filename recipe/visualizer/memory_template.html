@@ -695,7 +695,7 @@ function applyGanttView(skipReact) {
   positionGanttScroll();
   if (!skipReact) {
     var gd = document.getElementById('chart');
-    if (gd.data && gd.data.length) {
+    if (gd && gd.data && gd.data.length) {
       var lo = ganttView.start, hi = ganttView.start + ganttView.count;
       var newGantt = buildGanttTraces(lo, hi);
       var prevSync = isSyncing;
