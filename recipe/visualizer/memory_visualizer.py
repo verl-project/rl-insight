@@ -129,7 +129,7 @@ class MemoryVisualizer(BaseVisualizer):
 
         # ── Global time range ─────────────────────────────────────────
         t_min_abs = float(data["start_time_ms"].min())
-        t_max_abs = float((data["start_time_ms"] + data["duration_ms"]).max())
+        t_max_abs = float(data["end_time_ms"].max())
         logger.info(
             f"Time range: {t_min_abs:.0f} – {t_max_abs:.0f} ms "
             f"(duration: {(t_max_abs - t_min_abs) / 1000:.2f} s)"
