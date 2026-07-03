@@ -123,7 +123,7 @@ class MemoryVisualizer(BaseVisualizer):
         data["duration_ms"] = np.where(
             data["duration_ms"] == 0,
             t_max_abs - data["start_time_ms"],
-            data["duration_ms"]
+            data["duration_ms"],
         )
         data["end_time_ms"] = data["start_time_ms"] + data["duration_ms"]
         data["size_mb"] = data["size_kb"] * self._KB_TO_MB
