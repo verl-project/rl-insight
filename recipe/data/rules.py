@@ -642,25 +642,22 @@ class AscendMemoryFieldValidRule(ValidationRule):
                                 f"in FilePath: {csv_path}"
                             )
                             return False
-                        if next(reader, None) is None:
+                        first_row = next(reader, None)
+                        if first_row is None:
                             self._error_message = (
                                 f"operator_memory.csv has no data rows: {csv_path}"
                             )
                             return False
                         # Validate that numeric fields in the first row are actually numeric
                         try:
-                            with open(csv_path, "r", encoding="utf-8") as f2:
-                                num_reader = csv.DictReader(f2)
-                                first_row = next(num_reader, None)
-                                if first_row:
-                                    for col in [
-                                        "Size(KB)",
-                                        "Allocation Time(us)",
-                                        "Duration(us)",
-                                    ]:
-                                        val = first_row.get(col, "")
-                                        if val:
-                                            float(val)
+                            for col in [
+                                "Size(KB)",
+                                "Allocation Time(us)",
+                                "Duration(us)",
+                            ]:
+                                val = first_row.get(col, "")
+                                if val:
+                                    float(val)
                         except (ValueError, TypeError):
                             self._error_message = (
                                 f"operator_memory.csv has non-numeric value in "
