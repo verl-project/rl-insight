@@ -93,6 +93,9 @@ class MemoryVisualizer(BaseVisualizer):
 
         # Group by (role, rank_id) and generate one HTML per rank
         if "role" in data.columns and "rank_id" in data.columns:
+            data = data.copy()
+            data["role"] = data["role"].fillna("unknown")
+            data["rank_id"] = data["rank_id"].fillna(-1).astype(int)
             groups = data.groupby(["role", "rank_id"])
         else:
             groups = [(None, data)]
