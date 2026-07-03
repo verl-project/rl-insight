@@ -342,7 +342,12 @@ class MemoryVisualizer(BaseVisualizer):
         if memory_timeline and all_intervals:
             interval_idx = 0
             n_intervals = len(all_intervals)
-            active_intervals = []
+
+            # Min-heap keyed by (end_time, start_time) for efficient expiry.
+            # Elements: (end_time, start_time, op_name, size)
+            import heapq
+            active_heap: list[tuple] = []
+            active_count = 0
 
             for point in memory_timeline:
                 t = point["time"]
@@ -351,19 +356,31 @@ class MemoryVisualizer(BaseVisualizer):
                 while (
                     interval_idx < n_intervals and all_intervals[interval_idx][0] <= t
                 ):
-                    active_intervals.append(all_intervals[interval_idx])
+                    interval = all_intervals[interval_idx]
+                    # Heap key is (end_time, start_time) so earliest-ending
+                    # intervals surface first.
+                    heapq.heappush(
+                        active_heap,
+                        (interval[1], interval[0], interval[2], interval[3]),
+                    )
+                    active_count += 1
                     interval_idx += 1
 
-                # Remove intervals that have ended
-                active_intervals = [item for item in active_intervals if item[1] > t]
+                # Remove intervals that have ended (end_time <= t)
+                while active_heap and active_heap[0][0] <= t:
+                    heapq.heappop(active_heap)
+                    active_count -= 1
 
                 tl_xy.append([round(t, 2), round(point["total_mb"], 2)])
-                if active_intervals:
-                    sorted_active = sorted(active_intervals, key=lambda x: -x[3])
-                    top_n = sorted_active[: MemoryVisualizer._HOVER_TOP_N]
+                if active_heap:
+                    # heapq.nlargest avoids a full sort when N << K.
+                    # Key on size (index 3 of the heap tuple).
+                    top_n = heapq.nlargest(
+                        MemoryVisualizer._HOVER_TOP_N, active_heap, key=lambda x: x[3]
+                    )
                     tl_active.append(
                         [
-                            len(active_intervals),
+                            active_count,
                             [[op_name, round(sz, 1)] for _, _, op_name, sz in top_n],
                         ]
                     )
