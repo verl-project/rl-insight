@@ -562,15 +562,13 @@ class AscendMemoryFieldValidRule(ValidationRule):
                 self._error_message = f"Source path does not exist: {root_path}"
                 return False
 
-            ascend_pt_folders = list(root_path.rglob("*_ascend_pt"))
+            ascend_pt_folders = [p for p in root_path.rglob("*_ascend_pt") if p.is_dir()]
             if not ascend_pt_folders:
-                self._error_message = f"No *_ascend_pt path in {root_path}"
+                self._error_message = f"No *_ascend_pt directory in {root_path}"
                 return False
 
             ascend_profiler_output = "ASCEND_PROFILER_OUTPUT"
             for ascend_pt_path in ascend_pt_folders:
-                if not ascend_pt_path.is_dir():
-                    continue
 
                 # profiler_info_*.json — must contain rank_id
                 for file_path in ascend_pt_path.glob("profiler_info_*.json"):
