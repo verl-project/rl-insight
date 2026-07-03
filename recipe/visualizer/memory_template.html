@@ -90,6 +90,15 @@ function upperBound(arr, val) {
 var segActive = TL_ACTIVE.slice();
 while (segActive.length < TL_XY.length) segActive.push([0, []]);
 var isSyncing = false;
+// ── 甘特区拖拽状态（全局，buildCharts 重复调用不会重复注册）────────
+var _ganttDragging = false;      // 是否处于拖拽中（鼠标已移动 >5px）
+var _ganttDragCandidate = false; // mousedown 在甘特区内，等待判断是点击还是拖拽
+var _ganttDragStartY = 0;
+var _ganttDragStartView = 0;
+var _ganttDragStartX = 0;
+var _GANTT_DRAG_THRESHOLD = 5;   // 超过 5px 判定为拖拽
+// 标记 native 事件监听器是否已注册，防止 buildCharts 重复调用时累积监听器
+var _nativeListenersAttached = false;
 
 // ── Plotly 异步操作串行化 ─────────────────────────────────
 // Plotly.newPlot/react/relayout 都是异步的（内部 syncOrAsync + setTimeout）。
@@ -301,37 +310,127 @@ function buildCharts(range) {
     // newPlot 已 resolve：此时 #chart 是 Plotly graph，.on 可用。
     var d = document.getElementById('chart');
 
-    // ── 自定义滚轮：折线区缩放横轴，甘特区滑动纵向 ──────────────
-    // Plotly scrollZoom 已关闭（全局会同时作用于两子图），改为按鼠标位置分流：
-    //   鼠标在折线图（yaxis）区域 → 缩放 x 轴（与原 Plotly scrollZoom 行为一致）
-    //   鼠标在甘特图（yaxis2）区域 → 纵向滑动（改变 ganttView.start）
-    d.addEventListener('wheel', function(e) {
-      var box = ganttPlotBox();
-      var chartRect = d.getBoundingClientRect();
-      // 鼠标相对于 Plotly figure 顶部的 y 坐标
-      var mouseY = e.clientY - chartRect.top;
-      var ganttTop = box.top, ganttBottom = box.top + box.h;
-      if (mouseY >= ganttTop && mouseY <= ganttBottom) {
-        // ── 甘特区：纵向滑动 ──
-        e.preventDefault();
+    // ── Native 事件监听器注册（仅首次）────────────────────────
+    // wheel/mousedown/mousemove/mouseup 只在首次 buildCharts 时注册，
+    // 防止 purge + newPlot 后重复注册导致监听器泄漏。
+    if (!_nativeListenersAttached) {
+      _nativeListenersAttached = true;
+
+      d.addEventListener('mousedown', function(e) {
+        if (e.button !== 0) return;  // 只响应左键
+        var box = ganttPlotBox();
+        var chartRect = d.getBoundingClientRect();
+        var mouseY = e.clientY - chartRect.top;
+        if (mouseY < box.top || mouseY > box.top + box.h) return;
+        // 只记录候补状态，不立即进入拖拽
+        _ganttDragCandidate = true;
+        _ganttDragStartY = e.clientY;
+        _ganttDragStartX = e.clientX;
+        _ganttDragStartView = ganttView.start;
+      });
+
+      d.addEventListener('wheel', function(e) {
+        var box = ganttPlotBox();
+        var chartRect = d.getBoundingClientRect();
+        // 鼠标相对于 Plotly figure 顶部的 y 坐标
+        var mouseY = e.clientY - chartRect.top;
+        var ganttTop = box.top, ganttBottom = box.top + box.h;
+        if (mouseY >= ganttTop && mouseY <= ganttBottom) {
+          // ── 甘特区：纵向滑动 ──
+          e.preventDefault();
+          var rc = _filterActive ? _filteredRowCount : _lastRowCount;
+          var maxStart = Math.max(0, rc - ganttView.count);
+          if (maxStart <= 0) return;
+          // 步进与 deltaY 成比例：以 |deltaY|=120 为标准步（5% 可视行数），
+          // 触控板小事件微移，鼠标大步多移，和右侧滚动条手感一致。
+          var dy = e.deltaY;
+          if (e.deltaMode === 1) dy *= 40;
+          if (e.deltaMode === 2) dy *= 800;
+          var stepPer120 = Math.max(1, Math.round(ganttView.count * 0.05));
+          var delta = Math.round(dy / 120 * stepPer120);
+          if (delta === 0) delta = dy > 0 ? 1 : -1;
+          var newStart = Math.max(0, Math.min(maxStart, ganttView.start + delta));
+          if (newStart === ganttView.start) return;
+          ganttView.start = newStart;
+          // 同步右侧滚动条位置
+          ganttScroll.scrollTop = startToScrollTop(ganttView.start);
+          relayoutGanttWindow();
+          // 防抖重建 bar traces（与右侧滚动条同策略）
+          if (_ganttScrollTimer) clearTimeout(_ganttScrollTimer);
+          _ganttScrollTimer = setTimeout(function() {
+            _ganttScrollTimer = null;
+            var g = document.getElementById('chart');
+            if (!g || !g.data || !g.data.length) return;
+            var lo = ganttView.start, hi = ganttView.start + ganttView.count;
+            var newGantt = buildGanttTraces(lo, hi);
+            var prevSync = isSyncing;
+            isSyncing = true;
+            plotSerial(function() {
+              var g2 = document.getElementById('chart');
+              if (!g2 || !g2.data || !g2.data.length) return Promise.resolve();
+              return Plotly.react('chart', [g2.data[0]].concat(newGantt), g2.layout, g2.config).then(function() {
+                isSyncing = prevSync;
+              });
+            });
+          }, 80);
+        } else {
+          // ── 折线区：缩放横轴 ──
+          e.preventDefault();
+          var range = currentRange;
+          var span = range[1] - range[0];
+          if (span <= 0) return;
+          // 缩放因子与 deltaY 成正比：以 |deltaY|=100 为一个标准步（±5%），
+          // 触控板连续小事件产生微缩放，鼠标滚轮大步产生大缩放，手感与 Plotly 原生一致。
+          var dy = e.deltaY;
+          if (e.deltaMode === 1) dy *= 40;  // DOM_DELTA_LINE → 近似像素
+          if (e.deltaMode === 2) dy *= 800; // DOM_DELTA_PAGE
+          var zoomPer100 = 0.05;
+          var zoomAmount = Math.min(Math.abs(dy) / 100 * zoomPer100, 0.5);
+          var factor = dy > 0 ? (1 + zoomAmount) : 1 / (1 + zoomAmount);
+          // 以鼠标 x 位置为锚点缩放
+          var chartLeft = chartRect.left + (d._fullLayout && d._fullLayout.margin ? d._fullLayout.margin.l : 90);
+          var chartWidth = chartRect.width - (d._fullLayout && d._fullLayout.margin ? d._fullLayout.margin.l + d._fullLayout.margin.r : 138);
+          var mouseX = e.clientX - chartLeft;
+          var frac = chartWidth > 0 ? mouseX / chartWidth : 0.5;
+          frac = Math.max(0, Math.min(1, frac));
+          var anchorVal = range[0] + frac * span;
+          var newSpan = span * factor;
+          var newRange = [anchorVal - frac * newSpan, anchorVal + (1 - frac) * newSpan];
+          currentRange = newRange;
+          isSyncing = true;
+          plotSerial(function() {
+            var g = document.getElementById('chart');
+            if (!g || !g._fullLayout) return Promise.resolve();
+            return Plotly.relayout('chart', { 'xaxis.range': newRange }).then(function() {
+              isSyncing = false;
+            });
+          });
+          scheduleAfterRelayout();
+        }
+      }, { passive: false });
+
+      document.addEventListener('mousemove', function(e) {
+        // 候补状态：判断是否超过阈值
+        if (_ganttDragCandidate && !_ganttDragging) {
+          var dx = e.clientX - _ganttDragStartX;
+          var dy = e.clientY - _ganttDragStartY;
+          if (Math.sqrt(dx * dx + dy * dy) < _GANTT_DRAG_THRESHOLD) return;
+          // 超过阈值，正式进入拖拽
+          _ganttDragging = true;
+          _ganttDragCandidate = false;
+          d.style.cursor = 'ns-resize';
+        }
+        if (!_ganttDragging) return;
         var rc = _filterActive ? _filteredRowCount : _lastRowCount;
         var maxStart = Math.max(0, rc - ganttView.count);
         if (maxStart <= 0) return;
-        // 步进与 deltaY 成比例：以 |deltaY|=120 为标准步（5% 可视行数），
-        // 触控板小事件微移，鼠标大步多移，和右侧滚动条手感一致。
-        var dy = e.deltaY;
-        if (e.deltaMode === 1) dy *= 40;
-        if (e.deltaMode === 2) dy *= 800;
-        var stepPer120 = Math.max(1, Math.round(ganttView.count * 0.05));
-        var delta = Math.round(dy / 120 * stepPer120);
-        if (delta === 0) delta = dy > 0 ? 1 : -1;
-        var newStart = Math.max(0, Math.min(maxStart, ganttView.start + delta));
+        var dyPixels = e.clientY - _ganttDragStartY;
+        var rowDelta = Math.round(dyPixels / ROW_PX);
+        var newStart = Math.max(0, Math.min(maxStart, _ganttDragStartView - rowDelta));
         if (newStart === ganttView.start) return;
         ganttView.start = newStart;
-        // 同步右侧滚动条位置
         ganttScroll.scrollTop = startToScrollTop(ganttView.start);
         relayoutGanttWindow();
-        // 防抖重建 bar traces（与右侧滚动条同策略）
         if (_ganttScrollTimer) clearTimeout(_ganttScrollTimer);
         _ganttScrollTimer = setTimeout(function() {
           _ganttScrollTimer = null;
@@ -349,116 +448,20 @@ function buildCharts(range) {
             });
           });
         }, 80);
-      } else {
-        // ── 折线区：缩放横轴 ──
-        e.preventDefault();
-        var range = currentRange;
-        var span = range[1] - range[0];
-        if (span <= 0) return;
-        // 缩放因子与 deltaY 成正比：以 |deltaY|=100 为一个标准步（±5%），
-        // 触控板连续小事件产生微缩放，鼠标滚轮大步产生大缩放，手感与 Plotly 原生一致。
-        var dy = e.deltaY;
-        if (e.deltaMode === 1) dy *= 40;  // DOM_DELTA_LINE → 近似像素
-        if (e.deltaMode === 2) dy *= 800; // DOM_DELTA_PAGE
-        var zoomPer100 = 0.05;
-        var zoomAmount = Math.min(Math.abs(dy) / 100 * zoomPer100, 0.5);
-        var factor = dy > 0 ? (1 + zoomAmount) : 1 / (1 + zoomAmount);
-        // 以鼠标 x 位置为锚点缩放
-        var chartLeft = chartRect.left + (d._fullLayout && d._fullLayout.margin ? d._fullLayout.margin.l : 90);
-        var chartWidth = chartRect.width - (d._fullLayout && d._fullLayout.margin ? d._fullLayout.margin.l + d._fullLayout.margin.r : 138);
-        var mouseX = e.clientX - chartLeft;
-        var frac = chartWidth > 0 ? mouseX / chartWidth : 0.5;
-        frac = Math.max(0, Math.min(1, frac));
-        var anchorVal = range[0] + frac * span;
-        var newSpan = span * factor;
-        var newRange = [anchorVal - frac * newSpan, anchorVal + (1 - frac) * newSpan];
-        currentRange = newRange;
-        isSyncing = true;
-        plotSerial(function() {
-          var g = document.getElementById('chart');
-          if (!g || !g._fullLayout) return Promise.resolve();
-          return Plotly.relayout('chart', { 'xaxis.range': newRange }).then(function() {
-            isSyncing = false;
-          });
-        });
-        scheduleAfterRelayout();
-      }
-    }, { passive: false });
+      });
 
-    // ── 甘特区拖拽：上下滑动行，不触发 x 轴平移 ─────────────
-    // 区分点击与拖拽：mousedown 只记录起点和候补状态，mousemove 超过 5px 才真正进入拖拽。
-    // 这样 click 事件不被干扰，bar 点击正常显示 Operator Detail。
-    var _ganttDragging = false;      // 是否处于拖拽中（鼠标已移动 >5px）
-    var _ganttDragCandidate = false; // mousedown 在甘特区内，等待判断是点击还是拖拽
-    var _ganttDragStartY = 0;
-    var _ganttDragStartView = 0;
-    var _ganttDragStartX = 0;
-    var _GANTT_DRAG_THRESHOLD = 5;   // 超过 5px 判定为拖拽
-
-    d.addEventListener('mousedown', function(e) {
-      var box = ganttPlotBox();
-      var chartRect = d.getBoundingClientRect();
-      var mouseY = e.clientY - chartRect.top;
-      if (mouseY < box.top || mouseY > box.top + box.h) return;
-      // 只记录候补状态，不立即进入拖拽
-      _ganttDragCandidate = true;
-      _ganttDragStartY = e.clientY;
-      _ganttDragStartX = e.clientX;
-      _ganttDragStartView = ganttView.start;
-    });
-
-    document.addEventListener('mousemove', function(e) {
-      // 候补状态：判断是否超过阈值
-      if (_ganttDragCandidate && !_ganttDragging) {
-        var dx = e.clientX - _ganttDragStartX;
-        var dy = e.clientY - _ganttDragStartY;
-        if (Math.sqrt(dx * dx + dy * dy) < _GANTT_DRAG_THRESHOLD) return;
-        // 超过阈值，正式进入拖拽
-        _ganttDragging = true;
+      document.addEventListener('mouseup', function() {
+        if (!_ganttDragCandidate && !_ganttDragging) return;
+        if (_ganttDragging) {
+          // 拖拽结束：恢复 x 轴
+          isSyncing = true;
+          Plotly.relayout('chart', { 'xaxis.range': [currentRange[0], currentRange[1]] }).then(function() { isSyncing = false; });
+        }
+        _ganttDragging = false;
         _ganttDragCandidate = false;
-        d.style.cursor = 'ns-resize';
-      }
-      if (!_ganttDragging) return;
-      var rc = _filterActive ? _filteredRowCount : _lastRowCount;
-      var maxStart = Math.max(0, rc - ganttView.count);
-      if (maxStart <= 0) return;
-      var dyPixels = e.clientY - _ganttDragStartY;
-      var rowDelta = Math.round(dyPixels / ROW_PX);
-      var newStart = Math.max(0, Math.min(maxStart, _ganttDragStartView - rowDelta));
-      if (newStart === ganttView.start) return;
-      ganttView.start = newStart;
-      ganttScroll.scrollTop = startToScrollTop(ganttView.start);
-      relayoutGanttWindow();
-      if (_ganttScrollTimer) clearTimeout(_ganttScrollTimer);
-      _ganttScrollTimer = setTimeout(function() {
-        _ganttScrollTimer = null;
-        var g = document.getElementById('chart');
-        if (!g || !g.data || !g.data.length) return;
-        var lo = ganttView.start, hi = ganttView.start + ganttView.count;
-        var newGantt = buildGanttTraces(lo, hi);
-        var prevSync = isSyncing;
-        isSyncing = true;
-        plotSerial(function() {
-          var g2 = document.getElementById('chart');
-          if (!g2 || !g2.data || !g2.data.length) return Promise.resolve();
-          return Plotly.react('chart', [g2.data[0]].concat(newGantt), g2.layout, g2.config).then(function() {
-            isSyncing = prevSync;
-          });
-        });
-      }, 80);
-    });
-
-    document.addEventListener('mouseup', function() {
-      if (!_ganttDragCandidate && !_ganttDragging) return;
-      if (_ganttDragging) {
-        // 拖拽结束：恢复 x 轴
-        isSyncing = true;
-        Plotly.relayout('chart', { 'xaxis.range': [currentRange[0], currentRange[1]] }).then(function() { isSyncing = false; });
-      }
-      _ganttDragging = false;
-      _ganttDragCandidate = false;
-      d.style.cursor = '';
-    });
+        d.style.cursor = '';
+      });
+    } // end if (!_nativeListenersAttached)
 
     // 横轴联动已由 xaxis2.matches='x' 原生处理（Plotly 内部自动镜像 range）。
     // 此 handler 仅在缩放/平移结束后刷新输入框、范围信息与段落提示等 UI 状态。

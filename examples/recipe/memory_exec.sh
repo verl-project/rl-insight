@@ -3,6 +3,10 @@
 set -euo pipefail
 
 MEMORY_DATA_PATH="${MEMORY_DATA_PATH:-}"
+if [ -z "${MEMORY_DATA_PATH}" ]; then
+    echo "Error: MEMORY_DATA_PATH environment variable is not set or empty." >&2
+    exit 1
+fi
 OUTPUT_PATH="${OUTPUT_PATH:-./output}"
 RANK_LIST="${RANK_LIST:-all}"
 
@@ -26,7 +30,7 @@ cmd=(
 echo ">>> Generating memory allocation timeline..."
 "${cmd[@]}"
 
-if ls ${OUTPUT_PATH}/memory_timeline_*.html 1> /dev/null 2>&1; then
+if ls "${OUTPUT_PATH}"/memory_timeline_*.html 1> /dev/null 2>&1; then
     echo "=========================================="
     echo ">>> Memory timeline generated successfully!"
     echo ">>> Output saved to: ${OUTPUT_PATH}/"

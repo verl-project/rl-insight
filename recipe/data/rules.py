@@ -585,6 +585,11 @@ class AscendMemoryFieldValidRule(ValidationRule):
                             f"Failed to parse JSON file {file_path}: {exc}"
                         )
                         return False
+                    if not isinstance(info_data, dict):
+                        self._error_message = (
+                            f"profiler_info JSON is not a dictionary: {file_path}"
+                        )
+                        return False
                     if "rank_id" not in info_data:
                         self._error_message = f"File field is missing: ['rank_id'] in FilePath: {file_path}"
                         return False
@@ -602,7 +607,10 @@ class AscendMemoryFieldValidRule(ValidationRule):
                     return False
                 try:
                     with open(metadata_path, "r", encoding="utf-8") as f:
-                        json.load(f)
+                        metadata_data = json.load(f)
+                    if not isinstance(metadata_data, dict):
+                        self._error_message = f"profiler_metadata.json is not a JSON object (dict): {metadata_path}"
+                        return False
                 except Exception as exc:
                     self._error_message = (
                         f"Failed to parse JSON file {metadata_path}: {exc}"
@@ -637,6 +645,26 @@ class AscendMemoryFieldValidRule(ValidationRule):
                         if next(reader, None) is None:
                             self._error_message = (
                                 f"operator_memory.csv has no data rows: {csv_path}"
+                            )
+                            return False
+                        # Validate that numeric fields in the first row are actually numeric
+                        try:
+                            with open(csv_path, "r", encoding="utf-8") as f2:
+                                num_reader = csv.DictReader(f2)
+                                first_row = next(num_reader, None)
+                                if first_row:
+                                    for col in [
+                                        "Size(KB)",
+                                        "Allocation Time(us)",
+                                        "Duration(us)",
+                                    ]:
+                                        val = first_row.get(col, "")
+                                        if val:
+                                            float(val)
+                        except (ValueError, TypeError):
+                            self._error_message = (
+                                f"operator_memory.csv has non-numeric value in "
+                                f"numeric column: {csv_path}"
                             )
                             return False
                 except Exception as exc:
