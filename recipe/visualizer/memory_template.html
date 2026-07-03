@@ -238,11 +238,11 @@ function buildCharts(range) {
   var _pageHeadroom = 0;
   var _h1 = document.querySelector('.container > h1');
   var _box = document.querySelector('.chart-box');
-  if (_h1) _pageHeadroom += _h1.offsetHeight + parseFloat(getComputedStyle(_h1).marginBottom || 0);
-  if (_box) _pageHeadroom += parseFloat(getComputedStyle(_box).paddingTop || 0) + parseFloat(getComputedStyle(_box).paddingBottom || 0)
-    + (function(){ var t=_box.querySelector('h3'); return t ? t.offsetHeight + parseFloat(getComputedStyle(t).marginBottom||0) : 0; })()
+  if (_h1) _pageHeadroom += _h1.offsetHeight + (parseFloat(getComputedStyle(_h1).marginBottom) || 0);
+  if (_box) _pageHeadroom += (parseFloat(getComputedStyle(_box).paddingTop) || 0) + (parseFloat(getComputedStyle(_box).paddingBottom) || 0)
+    + (function(){ var t=_box.querySelector('h3'); return t ? t.offsetHeight + (parseFloat(getComputedStyle(t).marginBottom) || 0) : 0; })()
     + (function(){ var f=document.getElementById('gantt-footer'); return f ? f.offsetHeight : 0; })();
-  var _bodyPad = parseFloat(getComputedStyle(document.body).paddingTop || 0) + parseFloat(getComputedStyle(document.body).paddingBottom || 0);
+  var _bodyPad = (parseFloat(getComputedStyle(document.body).paddingTop) || 0) + (parseFloat(getComputedStyle(document.body).paddingBottom) || 0);
   var _availH = Math.max(400, window.innerHeight - _pageHeadroom - _bodyPad - 10);
   var gap = 30;
   var lineH = Math.max(80, Math.round(_availH * 0.3));
