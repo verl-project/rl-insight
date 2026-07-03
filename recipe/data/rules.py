@@ -488,14 +488,15 @@ class AscendMemoryFileExistsRule(ValidationRule):
                 self._error_message = f"Source path does not exist: {root_path}"
                 return False
 
-            ascend_pt_folders = [p for p in root_path.rglob("*_ascend_pt") if p.is_dir()]
+            ascend_pt_folders = [
+                p for p in root_path.rglob("*_ascend_pt") if p.is_dir()
+            ]
             if not ascend_pt_folders:
                 self._error_message = f"No *_ascend_pt directory in {root_path}"
                 return False
 
             ascend_profiler_output = "ASCEND_PROFILER_OUTPUT"
             for ascend_pt_path in ascend_pt_folders:
-
                 if not list(ascend_pt_path.glob("profiler_info_*.json")):
                     self._error_message = (
                         f"profiler_info_*.json does not exist in: {ascend_pt_path}"
@@ -560,14 +561,15 @@ class AscendMemoryFieldValidRule(ValidationRule):
                 self._error_message = f"Source path does not exist: {root_path}"
                 return False
 
-            ascend_pt_folders = [p for p in root_path.rglob("*_ascend_pt") if p.is_dir()]
+            ascend_pt_folders = [
+                p for p in root_path.rglob("*_ascend_pt") if p.is_dir()
+            ]
             if not ascend_pt_folders:
                 self._error_message = f"No *_ascend_pt directory in {root_path}"
                 return False
 
             ascend_profiler_output = "ASCEND_PROFILER_OUTPUT"
             for ascend_pt_path in ascend_pt_folders:
-
                 # profiler_info_*.json — must contain rank_id
                 for file_path in ascend_pt_path.glob("profiler_info_*.json"):
                     if file_path.stat().st_size == 0:
