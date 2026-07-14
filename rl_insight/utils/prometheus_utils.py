@@ -134,7 +134,8 @@ class PrometheusTargetStore:
         )
 
         with requests.Session() as session:
-            session.trust_env = False  # bypass http_proxy for localhost Prometheus reload
+            # bypass http_proxy for localhost Prometheus reload
+            session.trust_env = False
             response = session.post(url, timeout=5)
 
         response.raise_for_status()
