@@ -99,14 +99,18 @@ def test_reload_should_post_to_local_prometheus_when_store_is_configured(
     session_mock.post = MagicMock(return_value=response)
     session_mock.__enter__ = MagicMock(return_value=session_mock)
     session_mock.__exit__ = MagicMock(return_value=False)
-    monkeypatch.setattr(prometheus_module.requests, "Session", MagicMock(return_value=session_mock))
+    monkeypatch.setattr(
+        prometheus_module.requests, "Session", MagicMock(return_value=session_mock)
+    )
     monkeypatch.setattr(
         prometheus_module, "local_addresses", lambda: {"loopback": "127.0.0.1"}
     )
     store = prometheus_module.PrometheusTargetStore(tmp_path / "prometheus.yml", 9090)
 
     assert store.reload() is True
-    session_mock.post.assert_called_once_with("http://127.0.0.1:9090/-/reload", timeout=5)
+    session_mock.post.assert_called_once_with(
+        "http://127.0.0.1:9090/-/reload", timeout=5
+    )
     response.raise_for_status.assert_called_once_with()
 
 
