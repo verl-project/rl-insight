@@ -82,7 +82,8 @@ class MonitorHubActor(MonitorCollector):
         start_metrics_http_server(self._metrics_port, addr=self._node_ip)
         update_prometheus_config([format_host_port(self._node_ip, self._metrics_port)])
         logger.info(
-            "MonitorHubActor HTTP bind %s:%s, Prometheus scrape target %s:%s",
+            "[rl-insight] MonitorHubActor HTTP bind %s:%s, "
+            "Prometheus scrape target %s:%s",
             self._node_ip,
             self._metrics_port,
             self._node_ip,

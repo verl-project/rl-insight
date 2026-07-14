@@ -24,7 +24,6 @@ from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-
 logger = logging.getLogger(__name__)
 
 __all__ = ["OpenTelemetryTraceCollector"]
@@ -48,7 +47,7 @@ class OpenTelemetryTraceCollector:
         self._tracer = None
         if not endpoint:
             logger.warning(
-                "OpenTelemetry trace export is disabled because no OTLP endpoint "
+                "[rl-insight] OpenTelemetry trace export is disabled because no OTLP endpoint "
                 "was returned by the RL-Insight server."
             )
             return

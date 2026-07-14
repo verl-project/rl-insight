@@ -32,4 +32,4 @@ try:
 
     register_monitor_client(MonitorBackend.RAY, create_ray_monitor_client)
 except ImportError as exc:
-    logger.debug("Ray monitor client is unavailable: %s", exc)
+    logger.debug("[rl-insight] Ray monitor client is unavailable: %s", exc)

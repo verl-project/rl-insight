@@ -90,7 +90,8 @@ def init(
     global _STATE
     if _STATE.enabled:
         warnings.warn(
-            "monitor.init() called more than once; ignoring re-initialization.",
+            "[rl-insight] monitor.init() called more than once; "
+            "ignoring re-initialization.",
             RuntimeWarning,
             stacklevel=2,
         )
@@ -99,7 +100,7 @@ def init(
     monitor_conf = load_monitor_config(config)
     if not str(monitor_conf.server.url).strip():
         logger.error(
-            "RL-Insight server URL is required; set RL_INSIGHT_SERVER_URL "
+            "[rl-insight] RL-Insight server URL is required; set RL_INSIGHT_SERVER_URL "
             "or server.url in init config."
         )
         return
@@ -310,7 +311,8 @@ def trace_op(
         """Return ``func`` unchanged for coroutine functions; else attach span timing wrapper."""
         if inspect.iscoroutinefunction(func):
             warnings.warn(
-                "trace_op does not support coroutine functions; decorator is a no-op.",
+                "[rl-insight] trace_op does not support coroutine functions; "
+                "decorator is a no-op.",
                 RuntimeWarning,
                 stacklevel=2,
             )

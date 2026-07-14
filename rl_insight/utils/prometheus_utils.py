@@ -29,8 +29,8 @@ import yaml
 from omegaconf import DictConfig, OmegaConf
 from prometheus_client import Counter, Gauge, Histogram, start_http_server
 
-from .constants import MonitorEnv, MonitorPaths, PrometheusScrape
 from ..server.network import format_host_port, local_addresses
+from .constants import MonitorEnv, MonitorPaths, PrometheusScrape
 
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.WARNING)
@@ -310,7 +310,7 @@ def update_prometheus_config(
             ``server_addresses``.
     """
     if not server_addresses:
-        logger.warning("No server addresses available to register")
+        logger.warning("[rl-insight] No server addresses available to register")
         return
     if labels is not None and len(labels) != len(server_addresses):
         raise ValueError(
@@ -321,7 +321,8 @@ def update_prometheus_config(
     base_url = str(os.environ.get(MonitorEnv.SERVER_URL, "")).strip().rstrip("/")
     if not base_url:
         logger.error(
-            "RL-Insight server URL is required; set %s to register Prometheus targets",
+            "[rl-insight] RL-Insight server URL is required; "
+            "set %s to register Prometheus targets",
             MonitorEnv.SERVER_URL,
         )
         return
@@ -335,11 +336,13 @@ def update_prometheus_config(
         response = requests.post(url, json=payload, timeout=10)
         response.raise_for_status()
         print(
-            f"Registered {len(server_addresses)} Prometheus targets "
+            f"[rl-insight] Registered {len(server_addresses)} Prometheus targets "
             f"with RL-Insight server (job_name={payload['job_name']})"
         )
     except requests.RequestException as exc:
-        logger.error("Failed to register Prometheus targets at %s: %s", url, exc)
+        logger.error(
+            "[rl-insight] Failed to register Prometheus targets at %s: %s", url, exc
+        )
 
 
 def _build_target_payload(

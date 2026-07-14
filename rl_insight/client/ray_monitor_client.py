@@ -50,10 +50,15 @@ def get_or_create_monitor_hub(conf: DictConfig) -> Any:
 
     try:
         handle = ray.get_actor(actor_name, namespace=namespace)
-        logger.info("Connected to existing monitor hub actor %r.", actor_name)
+        logger.info(
+            "[rl-insight] Connected to existing monitor hub actor %r.", actor_name
+        )
         return handle
     except ValueError:
-        logger.info("No existing monitor hub actor %r found; creating one.", actor_name)
+        logger.info(
+            "[rl-insight] No existing monitor hub actor %r found; creating one.",
+            actor_name,
+        )
 
     actor_options: dict[str, Any] = {
         "name": actor_name,
@@ -66,7 +71,8 @@ def get_or_create_monitor_hub(conf: DictConfig) -> Any:
         return actor_cls.options(**actor_options).remote(conf)
     except ValueError:
         logger.info(
-            "Monitor hub actor %r was created concurrently; connecting to it.",
+            "[rl-insight] Monitor hub actor %r was created concurrently; "
+            "connecting to it.",
             actor_name,
         )
         return ray.get_actor(actor_name, namespace=namespace)
@@ -82,7 +88,7 @@ def create_ray_monitor_client(conf: DictConfig) -> MonitorRayClient | None:
         Client instance, or ``None`` if Ray is not initialized (monitoring disabled).
     """
     if not ray.is_initialized():
-        logger.warning("Ray is not initialized; monitoring is disabled.")
+        logger.warning("[rl-insight] Ray is not initialized; monitoring is disabled.")
         return None
 
     handle = get_or_create_monitor_hub(conf)

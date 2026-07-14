@@ -46,7 +46,7 @@ def get_server_services() -> dict[str, Any]:
     base_url = server_url()
     if not base_url:
         logger.error(
-            "RL-Insight server URL is required; set %s",
+            "[rl-insight] RL-Insight server URL is required; set %s",
             MonitorEnv.SERVER_URL,
         )
         return {}
@@ -73,7 +73,9 @@ def get_server_services() -> dict[str, Any]:
             time.sleep(MonitorServer.SERVICE_DISCOVERY_RETRY_DELAY_SECONDS)
 
     logger.error(
-        "Failed to fetch RL-Insight server services at %s: %s", url, last_error
+        "[rl-insight] Failed to fetch RL-Insight server services at %s: %s",
+        url,
+        last_error,
     )
     return {}
 
@@ -169,7 +171,10 @@ def create_app(conf: DictConfig) -> FastAPI:
         try:
             reloaded = store.reload()
         except requests.RequestException as exc:
-            logger.warning("Failed to reload Prometheus after target update: %s", exc)
+            logger.warning(
+                "[rl-insight] Failed to reload Prometheus after target update: %s",
+                exc,
+            )
         return {"status": "ok", "prometheus_reloaded": reloaded, **result}
 
     return app
