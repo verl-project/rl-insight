@@ -85,7 +85,8 @@ def local_addresses() -> dict[str, str]:
         "ipv6": ipv6,
         "host": ipv4 or ipv6,
         "bind": "::" if use_ipv6 else "0.0.0.0",
-        "loopback": "::1" if use_ipv6 else "127.0.0.1",
+        # TODO: support pure IPv6 loopback
+        "loopback": "127.0.0.1",
         "family": "ipv6" if use_ipv6 else "ipv4",
     }
 
