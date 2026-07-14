@@ -98,16 +98,39 @@ def test_get_or_create_monitor_hub_should_create_new_when_actor_is_dead(
     monkeypatch.setattr(
         client_module.ray,
         "get_actor",
-        MagicMock(side_effect=[object(), ValueError]),
+        MagicMock(side_effect=[MagicMock(), ValueError]),
     )
     monkeypatch.setattr(
         client_module.ray,
         "get",
-        MagicMock(side_effect=client_module.ray.exceptions.RayActorError),
+        MagicMock(
+            side_effect=[client_module.ray.exceptions.RayActorError, MagicMock()]
+        ),
     )
     monkeypatch.setattr(client_module, "MonitorHubActor", MagicMock(options=options))
 
     assert client_module.get_or_create_monitor_hub(conf) is actor
+
+
+def test_get_or_create_monitor_hub_should_reuse_winner_when_creation_races(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_actor_name(monkeypatch)
+
+    conf = OmegaConf.create({"server": {"url": "http://server"}})
+    winner = MagicMock()
+    get_actor = MagicMock(side_effect=[winner])
+    remote = MagicMock(side_effect=ValueError)
+    monkeypatch.setattr(client_module.ray, "get_actor", get_actor)
+    monkeypatch.setattr(client_module.ray, "get", MagicMock())
+    monkeypatch.setattr(
+        client_module,
+        "MonitorHubActor",
+        MagicMock(options=MagicMock(return_value=MagicMock(remote=remote))),
+    )
+
+    assert client_module.get_or_create_monitor_hub(conf) is winner
+    get_actor.assert_called_with(_JOB_ACTOR_NAME, namespace=MonitorRayActor.NAMESPACE)
 
 
 def test_apply_event_should_submit_without_waiting_when_client_has_actor() -> None:
