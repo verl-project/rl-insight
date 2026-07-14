@@ -29,6 +29,7 @@ import ray
 import requests
 
 import rl_insight as insight
+from rl_insight.client.ray_monitor_client import _current_job_actor_name
 from rl_insight.utils.constants import MonitorRayActor
 
 
@@ -87,7 +88,7 @@ def monitor_stack() -> Generator[dict[str, str], None, None]:
         insight.finish()
         try:
             hub = ray.get_actor(
-                MonitorRayActor.NAME, namespace=MonitorRayActor.NAMESPACE
+                _current_job_actor_name(), namespace=MonitorRayActor.NAMESPACE
             )
             ray.kill(hub, no_restart=True)
         except ValueError:
@@ -103,7 +104,7 @@ def test_monitor_services_should_be_reachable_when_stack_is_running(
     prometheus = requests.get(f"{monitor_stack['prometheus']}/-/ready", timeout=3)
     tempo = requests.get(f"{monitor_stack['tempo']}/ready", timeout=3)
     otlp = requests.get(f"{monitor_stack['otlp']}/v1/traces", timeout=3)
-    hub = ray.get_actor(MonitorRayActor.NAME, namespace=MonitorRayActor.NAMESPACE)
+    hub = ray.get_actor(_current_job_actor_name(), namespace=MonitorRayActor.NAMESPACE)
     hub_status = cast(dict[str, Any], ray.get(hub.get_status.remote()))
 
     assert health.json() == {"status": "ok"}
@@ -135,7 +136,7 @@ def test_monitor_metrics_should_match_reported_values_when_events_are_emitted(
             test_run=TEST_RUN_ID,
         )
 
-    hub = ray.get_actor(MonitorRayActor.NAME, namespace=MonitorRayActor.NAMESPACE)
+    hub = ray.get_actor(_current_job_actor_name(), namespace=MonitorRayActor.NAMESPACE)
     ray.get(hub.get_status.remote())
 
     expected_values = {
@@ -170,7 +171,7 @@ def test_monitor_trace_should_be_queryable_when_trace_is_reported(
     ):
         time.sleep(0.1)
 
-    hub = ray.get_actor(MonitorRayActor.NAME, namespace=MonitorRayActor.NAMESPACE)
+    hub = ray.get_actor(_current_job_actor_name(), namespace=MonitorRayActor.NAMESPACE)
     status = cast(dict[str, Any], ray.get(hub.get_status.remote()))
     assert status["otel_traces_enabled"] is True
 

@@ -32,7 +32,6 @@ logger.setLevel(logging.WARNING)
 __all__ = ["MonitorRayClient", "create_ray_monitor_client", "get_or_create_monitor_hub"]
 
 
-
 def _current_job_actor_name() -> str:
     """Return a hub actor name scoped to the current Ray job."""
     job_id = ray.get_runtime_context().get_job_id()

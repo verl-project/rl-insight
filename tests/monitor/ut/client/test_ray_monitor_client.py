@@ -24,6 +24,17 @@ from omegaconf import OmegaConf
 from rl_insight.client import ray_monitor_client as client_module
 from rl_insight.utils.constants import MonitorRayActor
 
+_JOB_ACTOR_NAME = f"{MonitorRayActor.NAME}_test123"
+
+
+def _patch_actor_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stub ``_current_job_actor_name`` to return a predictable job-scoped name."""
+    monkeypatch.setattr(
+        client_module,
+        "_current_job_actor_name",
+        lambda: _JOB_ACTOR_NAME,
+    )
+
 
 def test_create_ray_monitor_client_should_return_none_when_ray_is_not_initialized(
     monkeypatch: pytest.MonkeyPatch,
@@ -36,52 +47,67 @@ def test_create_ray_monitor_client_should_return_none_when_ray_is_not_initialize
 def test_get_or_create_monitor_hub_should_reuse_actor_when_actor_exists(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    actor = object()
+    _patch_actor_name(monkeypatch)
+
+    actor = MagicMock()
     get_actor = MagicMock(return_value=actor)
+    ray_get = MagicMock()
     monkeypatch.setattr(client_module.ray, "get_actor", get_actor)
+    monkeypatch.setattr(client_module.ray, "get", ray_get)
 
     assert client_module.get_or_create_monitor_hub(OmegaConf.create({})) is actor
     get_actor.assert_called_once_with(
-        MonitorRayActor.NAME, namespace=MonitorRayActor.NAMESPACE
+        _JOB_ACTOR_NAME, namespace=MonitorRayActor.NAMESPACE
     )
+    actor.get_status.remote.assert_called_once()
+    ray_get.assert_called_once()
 
 
-def test_get_or_create_monitor_hub_should_create_detached_actor_when_actor_is_missing(
+def test_get_or_create_monitor_hub_should_create_actor_when_actor_is_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    _patch_actor_name(monkeypatch)
+
     conf = OmegaConf.create({"server": {"url": "http://server"}})
-    actor = object()
+    actor = MagicMock()
     remote = MagicMock(return_value=actor)
     options = MagicMock(return_value=MagicMock(remote=remote))
     monkeypatch.setattr(
         client_module.ray, "get_actor", MagicMock(side_effect=ValueError)
     )
+    monkeypatch.setattr(client_module.ray, "get", MagicMock())
     monkeypatch.setattr(client_module, "MonitorHubActor", MagicMock(options=options))
 
     assert client_module.get_or_create_monitor_hub(conf) is actor
     options.assert_called_once_with(
-        name=MonitorRayActor.NAME,
+        name=_JOB_ACTOR_NAME,
         namespace=MonitorRayActor.NAMESPACE,
-        lifetime="detached",
     )
     remote.assert_called_once_with(conf)
 
 
-def test_get_or_create_monitor_hub_should_reuse_winner_when_creation_races(
+def test_get_or_create_monitor_hub_should_create_new_when_actor_is_dead(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    winner = object()
-    get_actor = MagicMock(side_effect=[ValueError, winner])
-    remote = MagicMock(side_effect=ValueError)
-    monkeypatch.setattr(client_module.ray, "get_actor", get_actor)
-    monkeypatch.setattr(
-        client_module,
-        "MonitorHubActor",
-        MagicMock(options=MagicMock(return_value=MagicMock(remote=remote))),
-    )
+    _patch_actor_name(monkeypatch)
 
-    assert client_module.get_or_create_monitor_hub(OmegaConf.create({})) is winner
-    assert get_actor.call_count == 2
+    conf = OmegaConf.create({"server": {"url": "http://server"}})
+    actor = MagicMock()
+    remote = MagicMock(return_value=actor)
+    options = MagicMock(return_value=MagicMock(remote=remote))
+    monkeypatch.setattr(
+        client_module.ray,
+        "get_actor",
+        MagicMock(side_effect=[object(), ValueError]),
+    )
+    monkeypatch.setattr(
+        client_module.ray,
+        "get",
+        MagicMock(side_effect=client_module.ray.exceptions.RayActorError),
+    )
+    monkeypatch.setattr(client_module, "MonitorHubActor", MagicMock(options=options))
+
+    assert client_module.get_or_create_monitor_hub(conf) is actor
 
 
 def test_apply_event_should_submit_without_waiting_when_client_has_actor() -> None:
