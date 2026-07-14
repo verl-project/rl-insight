@@ -32,8 +32,20 @@ logger.setLevel(logging.WARNING)
 __all__ = ["MonitorRayClient", "create_ray_monitor_client", "get_or_create_monitor_hub"]
 
 
+
+def _current_job_actor_name() -> str:
+    """Return a hub actor name scoped to the current Ray job."""
+    job_id = ray.get_runtime_context().get_job_id()
+    job_id_str = job_id if isinstance(job_id, str) else job_id.hex()
+    return f"{MonitorRayActor.NAME}_{job_id_str}"
+
+
 def get_or_create_monitor_hub(conf: DictConfig) -> Any:
-    """Get the detached ``MonitorHubActor`` handle, creating it on first use (race-safe).
+    """Get or create a job-scoped MonitorHubActor with health check.
+
+    Each Ray job gets its own hub actor named
+    ``MonitorRayActor.NAME_{job_id}``. The actor is not detached, so it
+    cleans up automatically when the job exits.
 
     Args:
         conf: Merged trainer monitor config passed to the actor constructor.
@@ -45,37 +57,33 @@ def get_or_create_monitor_hub(conf: DictConfig) -> Any:
         RuntimeError: If Ray is not initialized.
     """
 
-    actor_name = MonitorRayActor.NAME
+    actor_name = _current_job_actor_name()
     namespace = MonitorRayActor.NAMESPACE
 
     try:
         handle = ray.get_actor(actor_name, namespace=namespace)
-        logger.info(
-            "[rl-insight] Connected to existing monitor hub actor %r.", actor_name
-        )
+        ray.get(handle.get_status.remote())
         return handle
-    except ValueError:
-        logger.info(
-            "[rl-insight] No existing monitor hub actor %r found; creating one.",
-            actor_name,
-        )
+    except (ValueError, ray.exceptions.RayActorError):
+        # Actor missing or dead; fall through to create a new one.
+        pass
 
-    actor_options: dict[str, Any] = {
-        "name": actor_name,
-        "namespace": namespace,
-        "lifetime": "detached",
-    }
+    actor_cls = cast(Any, MonitorHubActor)
+    handle = actor_cls.options(
+        name=actor_name,
+        namespace=namespace,
+        # No lifetime="detached": hub is scoped to the current job.
+    ).remote(conf)
 
-    try:
-        actor_cls = cast(Any, MonitorHubActor)
-        return actor_cls.options(**actor_options).remote(conf)
-    except ValueError:
-        logger.info(
-            "[rl-insight] Monitor hub actor %r was created concurrently; "
-            "connecting to it.",
-            actor_name,
-        )
-        return ray.get_actor(actor_name, namespace=namespace)
+    logger.info(
+        "Created monitor hub actor %r in namespace %r.",
+        actor_name,
+        namespace,
+    )
+
+    # Wait for init to surface port / import / service-registration errors early.
+    ray.get(handle.get_status.remote())
+    return handle
 
 
 def create_ray_monitor_client(conf: DictConfig) -> MonitorRayClient | None:
