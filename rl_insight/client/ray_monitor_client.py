@@ -61,6 +61,7 @@ def get_or_create_monitor_hub(conf: DictConfig) -> Any:
 
     try:
         handle = ray.get_actor(actor_name, namespace=namespace)
+        ray.get(handle.get_status.remote())
         logger.info(
             "[rl-insight] Connected to existing monitor hub actor %r.", actor_name
         )
@@ -70,31 +71,21 @@ def get_or_create_monitor_hub(conf: DictConfig) -> Any:
             "[rl-insight] No existing monitor hub actor %r found; creating one.",
             actor_name,
         )
+    actor_options: dict[str, Any] = {
+        "name": actor_name,
+        "namespace": namespace,
+    }
 
     try:
         actor_cls = cast(Any, MonitorHubActor)
-        handle = actor_cls.options(
-            name=actor_name,
-            namespace=namespace,
-            # No lifetime="detached": hub is scoped to the current job.
-        ).remote(conf)
-
-        logger.info(
-            "[rl-insight] Created monitor hub actor %r in namespace %r.",
-            actor_name,
-            namespace,
-        )
+        return actor_cls.options(**actor_options).remote(conf)
     except ValueError:
         logger.info(
             "[rl-insight] Monitor hub actor %r was created concurrently; "
             "connecting to it.",
             actor_name,
         )
-        handle = ray.get_actor(actor_name, namespace=namespace)
-
-    # Wait for init to surface port / import / service-registration errors early.
-    ray.get(handle.get_status.remote())
-    return handle
+        return ray.get_actor(actor_name, namespace=namespace)
 
 
 def create_ray_monitor_client(conf: DictConfig) -> MonitorRayClient | None:
