@@ -66,7 +66,7 @@ def get_or_create_monitor_hub(conf: DictConfig) -> Any:
             "[rl-insight] Connected to existing monitor hub actor %r.", actor_name
         )
         return handle
-    except ValueError:
+    except (ValueError, ray.exceptions.RayActorError):
         logger.info(
             "[rl-insight] No existing monitor hub actor %r found; creating one.",
             actor_name,
