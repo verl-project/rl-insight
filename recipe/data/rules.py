@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import csv
 import gzip
 import json
 from typing import Any, List, Optional
@@ -462,6 +463,283 @@ class NvtxJsonFieldValidRule(ValidationRule):
     @property
     def error_message(self) -> str:
         return self._error_message
+
+
+class AscendMemoryFileExistsRule(ValidationRule):
+    """Validate the Ascend memory profiling directory structure exists.
+
+    Expects the layout:
+        <root>/<role>/<date>_<time>_ascend_pt/
+            ├── profiler_info_<rank_id>.json
+            ├── profiler_metadata.json
+            └── ASCEND_PROFILER_OUTPUT/
+                ├── operator_memory.csv
+                └── trace_view.json
+    """
+
+    def check(self, data) -> bool:
+        root_path = _coerce_path(data)
+        if root_path is None:
+            self._error_message = "Data object is not a path"
+            return False
+        self._error_message = ""
+        try:
+            if not root_path.exists():
+                self._error_message = f"Source path does not exist: {root_path}"
+                return False
+
+            ascend_pt_folders = [
+                p for p in root_path.rglob("*_ascend_pt") if p.is_dir()
+            ]
+            if not ascend_pt_folders:
+                self._error_message = f"No *_ascend_pt directory in {root_path}"
+                return False
+
+            ascend_profiler_output = "ASCEND_PROFILER_OUTPUT"
+            for ascend_pt_path in ascend_pt_folders:
+                if not list(ascend_pt_path.glob("profiler_info_*.json")):
+                    self._error_message = (
+                        f"profiler_info_*.json does not exist in: {ascend_pt_path}"
+                    )
+                    return False
+
+                metadata_path = ascend_pt_path / "profiler_metadata.json"
+                if not metadata_path.exists():
+                    self._error_message = (
+                        f"profiler_metadata.json does not exist in: {ascend_pt_path}"
+                    )
+                    return False
+
+                output_dir = ascend_pt_path / ascend_profiler_output
+                if not (output_dir / "operator_memory.csv").exists():
+                    self._error_message = (
+                        f"operator_memory.csv does not exist in: {output_dir}"
+                    )
+                    return False
+                if not (output_dir / "trace_view.json").exists():
+                    self._error_message = (
+                        f"trace_view.json does not exist in: {output_dir}"
+                    )
+                    return False
+            return True
+        except Exception as e:
+            self._error_message = f"Error checking path {root_path}: {e}"
+            return False
+
+
+class AscendMemoryFieldValidRule(ValidationRule):
+    """Validate field format of Ascend memory profiling input files.
+
+    Validates:
+      - ``operator_memory.csv`` header contains the required columns and at
+        least one data row.
+      - ``profiler_info_*.json`` is valid JSON containing ``rank_id``.
+      - ``profiler_metadata.json`` is valid JSON containing ``role``.
+      - ``trace_view.json`` is a non-empty JSON array.  Streamed via ``ijson``
+        so very large files (hundreds of MB) are not fully loaded.
+    """
+
+    _REQUIRED_CSV_COLUMNS = [
+        "Name",
+        "Size(KB)",
+        "Allocation Time(us)",
+        "Duration(us)",
+        "Allocation Total Allocated(MB)",
+        "Allocation Total Reserved(MB)",
+        "Allocation Total Active(MB)",
+        "Device Type",
+    ]
+
+    def check(self, data) -> bool:
+        root_path = _coerce_path(data)
+        if root_path is None:
+            self._error_message = "Data object is not a path"
+            return False
+        self._error_message = ""
+        try:
+            if not root_path.exists():
+                self._error_message = f"Source path does not exist: {root_path}"
+                return False
+
+            ascend_pt_folders = [
+                p for p in root_path.rglob("*_ascend_pt") if p.is_dir()
+            ]
+            if not ascend_pt_folders:
+                self._error_message = f"No *_ascend_pt directory in {root_path}"
+                return False
+
+            ascend_profiler_output = "ASCEND_PROFILER_OUTPUT"
+            for ascend_pt_path in ascend_pt_folders:
+                # profiler_info_*.json — must contain rank_id
+                for file_path in ascend_pt_path.glob("profiler_info_*.json"):
+                    if file_path.stat().st_size == 0:
+                        self._error_message = f"File is empty: {file_path}"
+                        return False
+                    try:
+                        with open(file_path, "r", encoding="utf-8") as f:
+                            info_data = json.load(f)
+                    except Exception as exc:
+                        self._error_message = (
+                            f"Failed to parse JSON file {file_path}: {exc}"
+                        )
+                        return False
+                    if not isinstance(info_data, dict):
+                        self._error_message = (
+                            f"profiler_info JSON is not a dictionary: {file_path}"
+                        )
+                        return False
+                    if "rank_id" not in info_data:
+                        self._error_message = f"File field is missing: ['rank_id'] in FilePath: {file_path}"
+                        return False
+
+                # profiler_metadata.json — valid JSON (role is optional:
+                # the parser falls back to the parent directory name)
+                metadata_path = ascend_pt_path / "profiler_metadata.json"
+                if not metadata_path.exists():
+                    self._error_message = (
+                        f"profiler_metadata.json does not exist in: {ascend_pt_path}"
+                    )
+                    return False
+                if metadata_path.stat().st_size == 0:
+                    self._error_message = f"File is empty: {metadata_path}"
+                    return False
+                try:
+                    with open(metadata_path, "r", encoding="utf-8") as f:
+                        metadata_data = json.load(f)
+                    if not isinstance(metadata_data, dict):
+                        self._error_message = f"profiler_metadata.json is not a JSON object (dict): {metadata_path}"
+                        return False
+                except Exception as exc:
+                    self._error_message = (
+                        f"Failed to parse JSON file {metadata_path}: {exc}"
+                    )
+                    return False
+
+                output_dir = ascend_pt_path / ascend_profiler_output
+
+                # operator_memory.csv — required columns + at least one row
+                csv_path = output_dir / "operator_memory.csv"
+                if not csv_path.exists():
+                    self._error_message = (
+                        f"operator_memory.csv does not exist in: {output_dir}"
+                    )
+                    return False
+                if csv_path.stat().st_size == 0:
+                    self._error_message = f"File is empty: {csv_path}"
+                    return False
+                try:
+                    with open(csv_path, "r", encoding="utf-8") as f:
+                        reader = csv.DictReader(f)
+                        fieldnames = reader.fieldnames or []
+                        missing_cols = [
+                            c for c in self._REQUIRED_CSV_COLUMNS if c not in fieldnames
+                        ]
+                        if missing_cols:
+                            self._error_message = (
+                                f"operator_memory.csv missing columns: {missing_cols} "
+                                f"in FilePath: {csv_path}"
+                            )
+                            return False
+                        first_row = next(reader, None)
+                        if first_row is None:
+                            self._error_message = (
+                                f"operator_memory.csv has no data rows: {csv_path}"
+                            )
+                            return False
+                        # Validate that numeric fields in the first row are actually numeric
+                        try:
+                            for col in [
+                                "Size(KB)",
+                                "Allocation Time(us)",
+                                "Duration(us)",
+                            ]:
+                                val = first_row.get(col, "")
+                                if val:
+                                    float(val)
+                        except (ValueError, TypeError):
+                            self._error_message = (
+                                f"operator_memory.csv has non-numeric value in "
+                                f"numeric column: {csv_path}"
+                            )
+                            return False
+                except Exception as exc:
+                    self._error_message = f"Failed to parse CSV file {csv_path}: {exc}"
+                    return False
+
+                # trace_view.json — non-empty array (streamed via ijson)
+                trace_view_path = output_dir / "trace_view.json"
+                if not trace_view_path.exists():
+                    self._error_message = (
+                        f"trace_view.json does not exist in: {output_dir}"
+                    )
+                    return False
+                if trace_view_path.stat().st_size == 0:
+                    self._error_message = f"File is empty: {trace_view_path}"
+                    return False
+                if not self._validate_trace_view(trace_view_path):
+                    return False
+            return True
+        except Exception as e:
+            self._error_message = f"Error checking path {root_path}: {e}"
+            return False
+
+    def _validate_trace_view(self, trace_view_path: Path) -> bool:
+        """Stream-check that trace_view.json is a non-empty JSON array."""
+        try:
+            import ijson
+        except ImportError:
+            # ijson not installed; rely on the non-empty size check above
+            return True
+        try:
+            with open(trace_view_path, "rb") as f:
+                first = next(ijson.items(f, "item"), None)
+            if first is None:
+                self._error_message = (
+                    f"trace_view.json has no events: {trace_view_path}"
+                )
+                return False
+        except Exception as exc:
+            self._error_message = (
+                f"Failed to parse trace_view.json {trace_view_path}: {exc}"
+            )
+            return False
+        return True
+
+
+class MemoryContentRule(ValidationRule):
+    """Validate memory DataFrame content for the memory visualizer pipeline.
+
+    Checks that numeric columns are convertible to float, operator names are
+    not empty, and at least one positive allocation exists.
+    """
+
+    _NUMERIC_COLUMNS = ["size_kb", "start_time_ms", "duration_ms", "total_allocated_mb"]
+
+    def check(self, data: Any) -> bool:
+        # 1. Numeric columns must be convertible to float
+        for col in self._NUMERIC_COLUMNS:
+            if col not in data.columns:
+                continue  # column existence is checked by ParserOutputValidatorRule
+            try:
+                pd.to_numeric(data[col])
+            except (ValueError, TypeError):
+                self._error_message = f"Column '{col}' must be numeric"
+                return False
+
+        # 2. Operator name must not contain empty or NaN values
+        if "name" in data.columns:
+            name_col = data["name"]
+            if name_col.isna().any() or (name_col.astype(str).str.strip() == "").any():
+                self._error_message = "Column 'name' contains empty or NaN values"
+                return False
+
+        # 3. At least one positive allocation must exist
+        if "size_kb" in data.columns:
+            if not (data["size_kb"] > 0).any():
+                self._error_message = "Column 'size_kb' has no positive values"
+                return False
+
+        return True
 
 
 class GmmDataRule(ValidationRule):

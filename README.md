@@ -21,8 +21,9 @@
 
 RL-Insight focuses on the online observability path that RL training needs most:
 
-- **One-command server startup**: install and start Prometheus, Tempo, and Grafana with `rl-insight server install` and `rl-insight server start`.
+- **One-command server startup**: install dependencies and start the RL-Insight server with Prometheus, Tempo, and Grafana with `rl-insight server install` and `rl-insight server start`.
 - **Trainer and rollout metric aggregation**: collect key actor, rollout, and transfer queue metrics in one monitoring view while keeping training-side instrumentation lightweight.
+- **CPU and Ascend NPU monitoring**: register node_exporter and NPU Exporter endpoints to view hardware metrics in the RL-Insight Grafana dashboards.
 - **Grafana dashboards for RL workloads**: provide ready-to-use dashboard structure for training metrics, rollout behavior, engine metrics, and RL state timelines.
 
 ## Architecture
@@ -31,18 +32,31 @@ RL-Insight focuses on the online observability path that RL training needs most:
   <img src="./assets/monitor/rl-insight-monitor-architecture.svg" width="960" alt="RL-Insight monitor architecture">
 </p>
 
-The monitor has two data paths. Trainer-side Python API events are aggregated by the client and monitor hub, then exposed to Prometheus or exported to Tempo. Rollout and inference engines expose their own metrics endpoints directly to Prometheus. Grafana queries Prometheus and Tempo to render the RL dashboards.
+RL-Insight has two metric sources. Training code reports framework-internal signals through the Python API, and RL subsystems such as rollout engines and transfer queues register their own `/metrics` endpoints through the metric aggregation interface. The RL-Insight server coordinates the training side and manages Prometheus, Tempo, and Grafana so metrics, traces, and subsystem signals converge into unified RL dashboards.
 
 ## Demo
 
-https://github.com/user-attachments/assets/0c9797e7-c0a9-4961-9c8f-1a648f038ada
+Two VeRL Trainer v1 + vLLM integration demos:
+
+### Sync with vLLM
+
+https://github.com/user-attachments/assets/b0f05f3e-8b21-4813-8ba6-4796aa844d62
 
 <p align="center">
-  <a href="https://github.com/user-attachments/assets/0c9797e7-c0a9-4961-9c8f-1a648f038ada">Watch the demo video</a>
+  <a href="https://github.com/user-attachments/assets/b0f05f3e-8b21-4813-8ba6-4796aa844d62">Watch the demo video</a>
+</p>
+
+### Separate Async with vLLM
+
+https://github.com/user-attachments/assets/d0ef242d-e108-468f-afa5-ec9a5321f0e8
+
+<p align="center">
+  <a href="https://github.com/user-attachments/assets/d0ef242d-e108-468f-afa5-ec9a5321f0e8">Watch the demo video</a>
 </p>
 
 ## News
 
+- [2026/07/16] RL-Insight 0.2.0 is released and now integrated into verl. See the [verl integration guide](https://github.com/verl-project/verl/blob/main/docs/advance/rl_insight.md) to enable training, rollout, TransferQueue, trace, and hardware monitoring.
 - [2026/06/16] RL-Insight officially supports Online Monitor, including one-command server startup, trainer and rollout metric aggregation, and Grafana dashboards for RL workloads.
 
 ## Get Started
@@ -53,6 +67,7 @@ Start with the guide that matches your current setup:
 |---|---|---|
 | [Server Installation](./docs/monitor/server_installation.md) | Prometheus, Tempo, and Grafana service setup, including supported Linux platforms, direct installation, offline installation, and existing service binaries. | Use this first if the monitor services are not installed or you need to verify the server environment. |
 | [Quick Start](./docs/monitor/quick_start.md) | A full smoke-test flow: install the Python package, start the monitor stack, emit sample metric/trace data, and open Grafana. | Use this after the services are ready, or when you want to validate the monitor path end to end. |
+| [Hardware Monitoring](./docs/monitor/hardware/index.md) | Install or reuse node_exporter and NPU Exporter, then register CPU and Ascend NPU targets with RL-Insight. | Use this when you want hardware metrics in the RL-Insight Grafana dashboards. |
 
 Recommended order:
 
@@ -69,7 +84,7 @@ RL-Insight manages three open-source services locally on Linux:
 | Tempo | Trace storage and query API | `3200` | `>= 2.0.0` | `2.6.1` |
 | Grafana | Dashboards and trace exploration | `3000` | `>= 13.0.0` | `13.0.0` |
 
-`rl-insight server install` downloads supported Linux binaries into `~/.rl-insight/services`. `rl-insight server start` runs Prometheus, Tempo, and Grafana with data persisted under `~/.rl-insight/data` by default.
+`rl-insight server install` downloads supported Linux binaries into `~/.rl-insight/services`. `rl-insight server start` runs the RL-Insight server with Prometheus, Tempo, and Grafana with data persisted under `~/.rl-insight/data` by default.
 
 ## Training API
 
@@ -79,8 +94,8 @@ RL-Insight manages three open-source services locally on Linux:
 |---|---|
 | `init(project=None, experiment_name=None, config=None)` | Enable monitoring once per process and attach global labels. |
 | `metric_count(name, amount=1.0, documentation="", **labels)` | Increment a Prometheus counter. |
-| `metric_value(name, value, documentation="", **labels)` | Record the latest value for a gauge. |
-| `metric_distribution(name, value, documentation="", **labels)` | Add one sample to a histogram. |
+| `metric_gauge(name, value, documentation="", **labels)` | Record the latest value for a gauge. |
+| `metric_histogram(name, value, documentation="", **labels)` | Add one sample to a histogram. |
 | `trace_state(state_name, state_lane_id=None, **labels)` | Record a named RL state interval. |
 | `trace_op(name=None, extra_labels=None, **static_labels)` | Decorate a synchronous function and emit one duration span per call. |
 | `finish()` | Reset in-process monitor state. |
@@ -95,14 +110,10 @@ insight.init(
         "server": {
             "namespace": "rl_insight_monitor",
             "backend": "ray",
-            "service_ip": "10.0.0.8",
+            "url": "http://<server-ip>:18080",
         },
         "prometheus": {
             "metrics_report_port": 9092,
-            "prometheus_port": 9090,
-        },
-        "otel": {
-            "otel_port": 4318,
         },
     },
 )
@@ -112,10 +123,7 @@ Useful environment variables:
 
 | Variable | Purpose |
 |---|---|
-| `RL_INSIGHT_SERVICE_IP` | RL-Insight server IP used by training workers to export traces. |
-| `RL_INSIGHT_OTEL_PORT` | OTLP HTTP port, default `4318`. |
-| `RL_INSIGHT_PROMETHEUS_PORT` | Prometheus HTTP port, default `9090`. |
-| `RL_INSIGHT_PROMETHEUS_CONFIG_FILE` | Prometheus config path when the monitor hub updates scrape targets. |
+| `RL_INSIGHT_SERVER_URL` | RL-Insight server URL, for example `http://<server-ip>:18080`. |
 
 ## Recipe Offline Analysis
 
@@ -130,6 +138,7 @@ Offline timeline, heatmap, and parser utilities are kept under `recipe/`; see [R
 
 - [Quick Start](./docs/monitor/quick_start.md): install RL-Insight, start the services, instrument code, and open Grafana.
 - [Server Installation](./docs/monitor/server_installation.md): Linux service requirements, supported OS/CPU combinations, and version policy.
+- [Hardware Monitoring](./docs/monitor/hardware/index.md): install exporters and register CPU or Ascend NPU scrape targets.
 - [Default server config](./rl_insight/config/config.yaml): bundled ports, retention settings, and service config paths.
 - [Recipe README](./recipe/README.md): offline timeline, heatmap, and parser utilities.
 

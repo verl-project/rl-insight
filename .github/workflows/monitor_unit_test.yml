@@ -1,0 +1,47 @@
+name: Unit Test Monitor
+
+on:
+  push:
+    branches:
+      - main
+      - v0.*
+  pull_request:
+    branches:
+      - main
+      - v0.*
+    paths:
+      - "rl_insight/api.py"
+      - "rl_insight/client/**"
+      - "rl_insight/collector/**"
+      - "rl_insight/utils/**"
+      - "tests/monitor/ut/**"
+      - ".github/workflows/monitor_unit_test.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  unit_test_monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install monitor test dependencies
+        run: pip install -e .
+
+      - name: Run monitor unit tests
+        run: pytest -s -x tests/monitor/ut

@@ -62,6 +62,14 @@ GMMKEYS: tuple[str, ...] = (
     "expert_index",
     "load",
 )
+# Required DataFrame columns for MEMORY_SUMMARY validation (memory visualizer).
+MEMORYKEYS: tuple[str, ...] = (
+    "name",
+    "size_kb",
+    "start_time_ms",
+    "duration_ms",
+    "total_allocated_mb",
+)
 
 
 class MemoryEventRow(TypedDict):

@@ -20,7 +20,9 @@ from loguru import logger
 import os
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Union
+
+from omegaconf import DictConfig
 
 from .parser import BaseClusterParser, register_cluster_parser
 from recipe.utils.schema import Constant, DataMap
@@ -124,7 +126,7 @@ class MemoryClusterParser(BaseClusterParser):
 
     input_type: DataEnum = DataEnum.ASCEND_MEMORY
 
-    def __init__(self, params) -> None:
+    def __init__(self, params: Union[DictConfig, dict]) -> None:
         super().__init__(params)
 
     def parse_analysis_data(

@@ -1,4 +1,4 @@
-name: unit_test
+name: Unit Test Recipe
 
 on:
   push:
@@ -23,7 +23,7 @@ permissions:
   contents: read
 
 jobs:
-  unit_test:
+  unit_test_recipe:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     strategy:

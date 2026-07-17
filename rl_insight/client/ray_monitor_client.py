@@ -32,8 +32,19 @@ logger.setLevel(logging.WARNING)
 __all__ = ["MonitorRayClient", "create_ray_monitor_client", "get_or_create_monitor_hub"]
 
 
+def _current_job_actor_name() -> str:
+    """Return a hub actor name scoped to the current Ray job."""
+    job_id = ray.get_runtime_context().get_job_id()
+    job_id_str = job_id if isinstance(job_id, str) else job_id.hex()
+    return f"{MonitorRayActor.NAME}_{job_id_str}"
+
+
 def get_or_create_monitor_hub(conf: DictConfig) -> Any:
-    """Get the detached ``MonitorHubActor`` handle, creating it on first use (race-safe).
+    """Get or create a job-scoped MonitorHubActor with health check.
+
+    Each Ray job gets its own hub actor named
+    ``MonitorRayActor.NAME_{job_id}``. The actor is not detached, so it
+    cleans up automatically when the job exits.
 
     Args:
         conf: Merged trainer monitor config passed to the actor constructor.
@@ -45,20 +56,23 @@ def get_or_create_monitor_hub(conf: DictConfig) -> Any:
         RuntimeError: If Ray is not initialized.
     """
 
-    actor_name = MonitorRayActor.NAME
+    actor_name = _current_job_actor_name()
     namespace = MonitorRayActor.NAMESPACE
 
     try:
         handle = ray.get_actor(actor_name, namespace=namespace)
-        logger.info("Connected to existing monitor hub actor %r.", actor_name)
+        logger.info(
+            "[rl-insight] Connected to existing monitor hub actor %r.", actor_name
+        )
         return handle
     except ValueError:
-        logger.info("No existing monitor hub actor %r found; creating one.", actor_name)
-
+        logger.info(
+            "[rl-insight] No existing monitor hub actor %r found; creating one.",
+            actor_name,
+        )
     actor_options: dict[str, Any] = {
         "name": actor_name,
         "namespace": namespace,
-        "lifetime": "detached",
     }
 
     try:
@@ -66,7 +80,8 @@ def get_or_create_monitor_hub(conf: DictConfig) -> Any:
         return actor_cls.options(**actor_options).remote(conf)
     except ValueError:
         logger.info(
-            "Monitor hub actor %r was created concurrently; connecting to it.",
+            "[rl-insight] Monitor hub actor %r was created concurrently; "
+            "connecting to it.",
             actor_name,
         )
         return ray.get_actor(actor_name, namespace=namespace)
@@ -82,7 +97,7 @@ def create_ray_monitor_client(conf: DictConfig) -> MonitorRayClient | None:
         Client instance, or ``None`` if Ray is not initialized (monitoring disabled).
     """
     if not ray.is_initialized():
-        logger.warning("Ray is not initialized; monitoring is disabled.")
+        logger.warning("[rl-insight] Ray is not initialized; monitoring is disabled.")
         return None
 
     handle = get_or_create_monitor_hub(conf)

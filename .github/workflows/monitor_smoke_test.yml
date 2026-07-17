@@ -1,0 +1,119 @@
+name: Special E2e Monitor Smoke Test
+
+on:
+  push:
+    branches:
+      - main
+      - v0.*
+  pull_request:
+    branches:
+      - main
+      - v0.*
+    paths:
+      - "**/*.py"
+      - .github/workflows/monitor_smoke_test.yml
+      - "rl_insight/server/**"
+      - "rl_insight/config/services/**"
+      - "tests/monitor/special_e2e/**"
+      - "docs/monitor/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  special_e2e_monitor_smoke_test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Verify CLI entry point
+        run: rl-insight --help
+
+      - name: Install server services (Prometheus, Tempo, Grafana)
+        timeout-minutes: 20
+        run: |
+          rl-insight server install
+          echo "Installed server binaries under ~/.rl-insight/services"
+          ls -la ~/.rl-insight/services/*/
+
+      - name: Start server stack
+        run: |
+          rl-insight server start --detach
+          echo "Server stack started in detached mode."
+
+      - name: Wait for services to be ready
+        run: |
+          echo "Waiting for RL-Insight server (port 18080)..."
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:18080/healthz > /dev/null 2>&1; then
+              echo "RL-Insight server is ready."
+              break
+            fi
+            echo "  attempt $i/30: hub not ready yet, waiting..."
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:18080/healthz > /dev/null
+
+          echo "Waiting for Prometheus (port 9090)..."
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:9090/-/ready > /dev/null 2>&1; then
+              echo "Prometheus is ready."
+              break
+            fi
+            echo "  attempt $i/30: Prometheus not ready yet, waiting..."
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:9090/-/ready > /dev/null
+
+          echo "Waiting for Tempo (port 3200)..."
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:3200/ready > /dev/null 2>&1; then
+              echo "Tempo is ready."
+              break
+            fi
+            echo "  attempt $i/30: Tempo not ready yet, waiting..."
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:3200/ready > /dev/null
+
+          echo "Waiting for Grafana (port 3000)..."
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:3000/api/health > /dev/null 2>&1; then
+              echo "Grafana is ready."
+              break
+            fi
+            echo "  attempt $i/30: Grafana not ready yet, waiting..."
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:3000/api/health > /dev/null
+
+      - name: Run monitor smoke test
+        run: pytest -s -v tests/monitor/special_e2e/test_monitor_smoke.py
+
+      - name: Stop server stack
+        if: always()
+        run: |
+          echo "Stopping RL-Insight server stack..."
+          rl-insight server stop || true
+          # Clean up any lingering Ray processes.
+          ray stop --force 2>/dev/null || true
+          rm -rf ~/.rl-insight/services

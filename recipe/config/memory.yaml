@@ -1,0 +1,18 @@
+# Memory visualization preset
+
+pipeline:
+  type: OfflineInsightPipeline  # OfflineInsightPipeline
+
+input:
+  rank_list: all               # Rank id list, e.g. '0,1,2' or 'all'
+
+output:
+  path: output                 # Output directory path
+
+memory:
+  parser:
+    type: memory                # memory
+    step: null                  # Step filter, e.g. '1' or '1,2'
+    role: null                  # Role filter
+  visualizer:
+    type: memory_html           # memory_html

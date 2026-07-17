@@ -1,4 +1,4 @@
-name: check documentation urls
+name: Check Documentation Urls
 
 # 触发时机：每次 PR 创建/更新、每次推送到主分支
 on:
@@ -10,7 +10,7 @@ on:
 
 # 任务
 jobs:
-  check-doc-urls:
+  check_doc_urls:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 

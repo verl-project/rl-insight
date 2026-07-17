@@ -10,6 +10,8 @@
 
 server:
   backend: local
+  enable: true
+  port: 18080
 
 prometheus:
   binary_path: ""
@@ -41,7 +43,6 @@ grafana:
   config_file: ${service_root}/services/grafana/grafana.ini
   provisioning_dir: ${service_root}/services/grafana/provisioning
   dashboards_dir: ${service_root}/services/grafana/dashboards
-
 
 
 

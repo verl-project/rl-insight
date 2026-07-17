@@ -1,6 +1,6 @@
-# Memory Parser 开发者指南
+# Memory 模块开发者指南
 
-本文面向 Memory Parser 的开发者，介绍其设计思路、内部接口约定以及扩展开发指南。用户侧快速入门见 [Memory Parser Quickstart](../overview/memory_parser_quickstart.md)。
+本文面向 Memory 模块（Parser + Visualizer）的开发者，介绍设计思路、内部接口约定以及扩展开发指南。用户侧快速入门见 [Memory Quickstart](../overview/memory_quickstart.md)。
 
 ## 1. 设计概述
 
@@ -36,7 +36,17 @@ MemoryClusterParser
     ├── reducer_func()           ← 汇总排序
     │
     ▼
-OutputData (SUMMARY_MEMORY_EVENT) → pd.DataFrame
+┌───────────────────────────────┐
+│  OutputData (MEMORY_SUMMARY)  │ → pd.DataFrame
+│  DataChecker 校验             │
+│    ├── ParserOutputValidator  │    列结构：5 个必需列
+│    └── MemoryContentRule      │    内容：数值/非空/正值
+└───────────────────────────────┘
+    │
+    ▼
+MemoryVisualizer
+    │
+    └── generate_memory_timeline()  → HTML + detail_data.js
 ```
 
 ### 1.3 类结构
@@ -56,6 +66,14 @@ BaseClusterParser (recipe/parser/parser.py)
         ├── _get_rank_id()                → 从 profiler_info_*.json 提取 rank_id
         ├── _get_task_role()              → 从 profiler_metadata.json 提取 role
         └── _extract_timestamp_key()      → 提取目录名中的时间戳排序键
+
+BaseVisualizer (recipe/visualizer/visualizer.py)
+  └── MemoryVisualizer (recipe/visualizer/memory_visualizer.py)
+        ├── input_type = DataEnum.MEMORY_SUMMARY
+        ├── run(data)                     → 委派 generate_memory_timeline
+        ├── generate_memory_timeline()    → 主流程：过滤→向量化→输出
+        ├── _build_chart1_data()          → 双指针滑动窗口，Chart1 hover 数据
+        └── _build_memory_html()          → JSON 序列化 + 模板占位符替换
 ```
 
 ---
@@ -72,16 +90,16 @@ class MemoryClusterParser(BaseClusterParser):
 
 | 属性 | 值 | 说明 |
 |------|-----|------|
-| 注册名 | `"memory"` | CLI `--profiler-type memory` |
+| 注册名 | `"memory"` | CLI `timeline.parser.type=memory` |
 | `input_type` | `DataEnum.ASCEND_MEMORY` | 输入数据类型 |
-| 输出类型 | `DataEnum.SUMMARY_MEMORY_EVENT` | Parser 输出 / Visualizer 输入 |
+| 输出类型 | `DataEnum.MEMORY_SUMMARY` | Parser 输出 / Visualizer 输入 |
 
 `DataEnum` 新增值（定义在 `recipe/data/data_checker.py`）：
 
 ```python
 class DataEnum(Enum):
-    ASCEND_MEMORY = "ascend_memory"              # Memory Parser 输入
-    SUMMARY_MEMORY_EVENT = "summary_memory_event" # Memory Parser 输出
+    ASCEND_MEMORY = "ascend_memory"    # Memory Parser 输入
+    MEMORY_SUMMARY = "memory_summary"  # Memory Parser 输出 / Visualizer 输入
 ```
 
 ### 2.2 MemoryEventRow
@@ -188,9 +206,87 @@ if idx < 0:
 
 ### 2.7 DataChecker 校验
 
-`DataEnum.ASCEND_MEMORY` 当前未注册校验规则（`DataChecker.rules` 中为空列表），输入校验由 Parser 内部的文件存在性检查承担。`DataEnum.SUMMARY_MEMORY_EVENT` 同样未注册校验规则。
+**输入侧**：`DataEnum.ASCEND_MEMORY` 当前未注册校验规则（`DataChecker.rules` 中为空列表），输入校验由 Parser 内部的文件存在性检查承担。
+
+**输出侧**：`DataEnum.MEMORY_SUMMARY` 已注册两条校验规则：
+
+| 规则 | 类 | 校验内容 |
+|------|-----|----------|
+| 列结构 | `ParserOutputValidatorRule` | DataFrame 需包含 `name`、`size_kb`、`start_time_ms`、`duration_ms`、`total_allocated_mb` |
+| 内容合法性 | `MemoryContentRule` | 数值列可转 float；`name` 不含空值；`size_kb` 至少一个正值 |
+
+常量定义在 `recipe/utils/schema.py`（`MEMORYKEYS`），规则实现在 `recipe/data/rules.py`（`MemoryContentRule`）。
 
 如需增加校验，参考 [DataRule 扩展说明](./rule_extending_guide.md)。
+
+### 2.8 Visualizer 注册与数据类型
+
+```python
+@register_cluster_visualizer("memory_html")
+class MemoryVisualizer(BaseVisualizer):
+    input_type: DataEnum = DataEnum.MEMORY_SUMMARY
+```
+
+| 属性 | 值 | 说明 |
+|------|-----|------|
+| 注册名 | `"memory_html"` | CLI `timeline.visualizer.type=memory_html` |
+| `input_type` | `DataEnum.MEMORY_SUMMARY` | 接收 Parser 输出的 DataFrame |
+
+渲染常量：
+
+| 常量 | 值 | 说明 |
+|------|-----|------|
+| `_MAX_TIMELINE_POINTS` | 2000 | Chart1 折线最大点数，超出均匀下采样 |
+| `_HOVER_TOP_N` | 10 | Chart1 hover 显示前 N 大活跃算子 |
+
+### 2.9 generate_memory_timeline()
+
+主流程，串联 5 个处理阶段：
+
+```
+输入: pd.DataFrame（MEMORYKEYS 5 列）
+  │
+  ├── 阶段1: 过滤 size_kb > 0，计算 end_time_ms、size_mb
+  ├── 阶段2: 向量化构建 Chart1 事件序列
+  │     └── np.concatenate([starts, ends]) → groupby("time") → cumsum()
+  ├── 阶段3: Chart2 并行数组构建
+  │     └── 7 列 .tolist() 预提取，CS_POOL + CS_IDX 池化去重
+  ├── 阶段4: _build_chart1_data() → tl_xy, tl_active
+  └── 阶段5: _build_memory_html() → 写入单文件
+  │
+  ▼
+输出: memory_timeline_{role}_rank{id}.html 路径
+```
+
+**输入校验**（直接返回 None）：
+- `data is None` 或 `data.empty`
+- 过滤后全部 `size_kb <= 0` 导致 `data.empty`
+
+### 2.10 _build_chart1_data()
+
+静态方法，双指针滑动窗口算法，O(N+M)：
+
+```python
+active_intervals = []
+interval_idx = 0
+for point in memory_timeline:
+    # 入队：start <= t 的 interval
+    while interval_idx < n and intervals[interval_idx][0] <= t:
+        active_intervals.append(...)
+    # 惰性删除：end <= t 已结束
+    active_intervals = [x for x in active_intervals if x[1] > t]
+    # 按 size_kb 降序取 top-10 存入 tl_active
+```
+
+返回 `(tl_xy, tl_active)`，`tl_active` 每点存 `[活跃总数, [[算子名, size], ...]]`，供 Chart1 hover 使用。
+
+### 2.11 _build_memory_html()
+
+生成一对文件字符串：
+
+- **detail_data.js**：13 个 JS 变量声明，使用紧凑 JSON（`separators=(",", ":")`）
+- **HTML**：读取 `memory_template.html`，替换占位符：
+  - `__DATA_FILE__` → `detail_data_{role}_rank{id}.js` 文件名
 
 ---
 
@@ -198,7 +294,7 @@ if idx < 0:
 
 ### 3.1 新增内存数据校验规则
 
-适用于：为 `ASCEND_MEMORY` 或 `SUMMARY_MEMORY_EVENT` 增加输入/输出校验。
+适用于：为 `ASCEND_MEMORY` 增加输入校验。
 
 1. 在 `recipe/data/rules.py` 中继承 `ValidationRule`，实现 `check()` 和 `error_message`
 2. 在 `DataChecker.rules` 中为新类型挂载规则
@@ -241,37 +337,11 @@ class DataChecker:
     }
 ```
 
-### 3.2 新增 Memory Visualizer
+### 3.2 已有 Memory Visualizer
 
-适用于：为 `MemoryEventRow` 输出增加可视化能力。
+Memory Visualizer 已完成实现，代码位于 `recipe/visualizer/memory_visualizer.py`。内部接口详见 [2.8 - 2.11](#28-visualizer-注册与数据类型)。
 
-1. 新增模块 `recipe/visualizer/memory_visualizer.py`
-2. 继承 `BaseVisualizer`，设置 `input_type = DataEnum.SUMMARY_MEMORY_EVENT`
-3. 实现 `run()` 方法，消费 `pd.DataFrame` 生成图表
-4. 使用 `@register_cluster_visualizer("<name>")` 注册
-5. 更新 `main.py` 中 `--vis-type` 的 help 文本
-6. 在 `recipe/visualizer/__init__.py` 中导出新类
-
-示例：
-
-```python
-# recipe/visualizer/memory_visualizer.py
-from .visualizer import BaseVisualizer, register_cluster_visualizer
-from recipe.data import DataEnum
-
-@register_cluster_visualizer("memory_heatmap")
-class MemoryHeatmapVisualizer(BaseVisualizer):
-    input_type: DataEnum = DataEnum.SUMMARY_MEMORY_EVENT
-
-    def __init__(self, config: dict):
-        super().__init__(config)
-        self.output_path = config.get("output_path", "output")
-
-    def run(self, data):
-        # 实现内存热力图可视化
-        # data 为 pd.DataFrame，包含 MemoryEventRow 字段
-        ...
-```
+如需新增其他形式的 Memory Visualizer（如热力图），参考 [Visualizer 扩展指南](./extending_guide.md)。
 
 ### 3.3 支持 GPU（CUDA）内存分析
 
@@ -282,7 +352,7 @@ class MemoryHeatmapVisualizer(BaseVisualizer):
 3. 使用 `@register_cluster_parser("cuda_memory")` 注册
 4. 定义 `CudaMemoryEventRow`（若字段与 `MemoryEventRow` 不同）或复用 `MemoryEventRow`
 5. 在 `DataChecker.rules` 中为新类型挂载校验规则
-6. 更新 `main.py` 中 `--profiler-type` 的 help 文本
+6. 更新 `main.py` 中对应 parser type 的注册名
 7. 在 `docs/recipe/data/data_specification.md` 中补充数据形态说明
 
 ### 3.4 改进调用栈匹配精度
@@ -297,19 +367,21 @@ class MemoryHeatmapVisualizer(BaseVisualizer):
 
 ## 4. 依赖
 
+**Parser**：
+
 | 库 | 用途 | 说明 |
 |----|------|------|
 | `ijson` | 流式解析大 JSON | 需安装: `pip install ijson` |
 | `csv` | 解析 CSV | 标准库 |
 | `bisect` | 二分查找调用栈 | 标准库 |
 
+**Visualizer**：无额外依赖（`numpy`、`pandas`、`loguru`、`omegaconf` 均为项目公共依赖；Plotly.js 通过 HTML 模板 CDN 加载）。
+
 ## 5. 测试
 
-测试文件位于 `tests/recipe/parser/test_memory_parser.py`，覆盖以下场景：
+测试文件：
 
-- Parser 注册（`"memory"` 在 `CLUSTER_PARSER_REGISTRY` 中）
-- `_build_call_stack_index`：过滤 `cpu_op`、过滤无调用栈事件、按 `name` 分组、按 `ts` 排序、空 JSON
-- `_match_call_stack`：匹配成功、多条记录取最近、未命中、所有 `ts` 大于 `allocation_time`
-- `_parse_operator_memory`：正常解析、空 CSV、调用栈匹配/未匹配
-- `allocate_prof_data`：目录扫描、rank_id 提取、role 提取
-- E2E：完整解析流程
+| 测试文件 | 覆盖范围 |
+|----------|----------|
+| `tests/recipe/parser/test_memory_parser.py` | Parser 单元测试：注册、`_build_call_stack_index`、`_match_call_stack`、`_parse_operator_memory`、`allocate_prof_data` |
+| `tests/recipe/special_e2e/test_memory_e2e.py` | E2E：完整 Pipeline（Parser + DataChecker + Visualizer），使用 `data/recipe/memory_data/` 样本数据 |

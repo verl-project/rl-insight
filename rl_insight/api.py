@@ -20,6 +20,7 @@ import functools
 import inspect
 import logging
 import os
+import threading
 import time
 import warnings
 from contextlib import contextmanager
@@ -31,7 +32,6 @@ from omegaconf import DictConfig
 from .client import create_monitor_client
 from .utils.monitor_config_loader import load_monitor_config
 from .utils import MonitorEventKind
-from .utils.constants import MonitorEnv
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
@@ -40,8 +40,8 @@ __all__ = [
     "finish",
     "init",
     "metric_count",
-    "metric_distribution",
-    "metric_value",
+    "metric_gauge",
+    "metric_histogram",
     "trace_state",
     "trace_op",
 ]
@@ -90,17 +90,18 @@ def init(
     global _STATE
     if _STATE.enabled:
         warnings.warn(
-            "monitor.init() called more than once; ignoring re-initialization.",
+            "[rl-insight] monitor.init() called more than once; "
+            "ignoring re-initialization.",
             RuntimeWarning,
             stacklevel=2,
         )
         return
 
     monitor_conf = load_monitor_config(config)
-    if not str(monitor_conf.server.service_ip).strip():
+    if not str(monitor_conf.server.url).strip():
         logger.error(
-            "RL-Insight service IP is required; set %s or server.service_ip in init config.",
-            MonitorEnv.SERVICE_IP,
+            "[rl-insight] RL-Insight server URL is required; set RL_INSIGHT_SERVER_URL "
+            "or server.url in init config."
         )
         return
     client = create_monitor_client(monitor_conf)
@@ -128,6 +129,7 @@ def finish() -> None:
     """
     global _STATE
     _STATE = _MonitorState()
+    _LANES.clear()
 
 
 def metric_count(
@@ -145,10 +147,10 @@ def metric_count(
     _emit(MonitorEventKind.COUNTER, name, float(amount), doc, labels)
 
 
-def metric_value(
+def metric_gauge(
     name: str, value: float, documentation: str = "", **labels: Any
 ) -> None:
-    """Record the latest value for a metric.
+    """Record the latest value for a Prometheus gauge.
 
     Args:
         name: Metric name.
@@ -160,10 +162,10 @@ def metric_value(
     _emit(MonitorEventKind.GAUGE, name, float(value), doc, labels)
 
 
-def metric_distribution(
+def metric_histogram(
     name: str, value: float, documentation: str = "", **labels: Any
 ) -> None:
-    """Record one sample into a metric distribution.
+    """Record one sample into a Prometheus histogram.
 
     Args:
         name: Metric name.
@@ -175,6 +177,21 @@ def metric_distribution(
     _emit(MonitorEventKind.HISTOGRAM, name, float(value), doc, labels)
 
 
+@dataclass
+class _LaneState:
+    """Per-lane state so a lane reports one state at a time."""
+
+    occupant: str | None = None
+    count: int = 0
+    start_ns: int = 0
+    attributes: dict[str, Any] = field(default_factory=dict)
+
+
+# lane_id -> _LaneState, guarded by the lock for thread + coroutine safety.
+_LANES: dict[str, _LaneState] = {}
+_LANES_LOCK = threading.Lock()
+
+
 @contextmanager
 def trace_state(
     state_name: str,
@@ -184,9 +201,12 @@ def trace_state(
 ) -> Generator[None, None, None]:
     """Record a named runtime state as a timeline interval on a logical lane.
 
-    Each ``with trace_state(...)`` block becomes one state span. ``state_lane_id``
-    groups spans into timeline columns/lanes, so Grafana can show one row per
-    worker, replica, or process:
+    Overlapping states on the same ``state_lane_id`` are collapsed so that only
+    one state is reported at any instant: same-name overlaps merge into one span,
+    and a different-named state entered while the lane is occupied is dropped.
+
+    ``state_lane_id`` groups spans into timeline columns/lanes, so Grafana can
+    show one row per worker, replica, or process:
 
     ``time ->        t0              t1              t2              t3              t4``
     ``replica_0     | [generate responses---------------------------] [sync weights-----]``
@@ -204,18 +224,19 @@ def trace_state(
         state_name: Span name and human-readable state label (e.g. ``"rollout"``).
         state_lane_id: Optional id for grouping state intervals in trace UIs (swim lane).
             Defaults to the current OS process id: one lane per process unless you pass
-            a custom id (e.g. Ray worker). Overlapping ``trace_state`` calls for the same
-            lane show as overlapping intervals.
+            a custom id (e.g. Ray worker).
         **labels: Extra span attributes. Keys ``state_name``, ``state_lane_id``, and
             ``monitor.trace_segment`` cannot be overridden; they are set after merging.
 
     Yields:
-        Control during the covered code block; emits the span in ``finally``.
+        Control during the covered code block; the span is emitted on exit.
     """
 
-    lane_id = state_lane_id if state_lane_id is not None else _STATE.process_id
+    if not _STATE.enabled or _STATE.client is None:
+        yield
+        return
 
-    start_time_ns = time.time_ns()
+    lane_id = state_lane_id if state_lane_id is not None else _STATE.process_id
     attributes = {
         **labels,
         "monitor.trace_segment": "state_interval",
@@ -223,15 +244,44 @@ def trace_state(
         "state_lane_id": lane_id,
     }
 
+    with _LANES_LOCK:
+        lane = _LANES.setdefault(lane_id, _LaneState())
+        if lane.occupant is None:  # idle lane: take it and open the interval
+            lane.occupant = state_name
+            lane.count = 1
+            lane.start_ns = time.time_ns()
+            lane.attributes = attributes
+            counted = True
+        elif state_name == lane.occupant:  # same-name overlap: keep the union open
+            lane.count += 1
+            counted = True
+        else:  # different name while occupied: shadowed, not reported
+            counted = False
+
     try:
         yield
     finally:
-        _emit_trace_span(
-            name=state_name,
-            start_time_ns=start_time_ns,
-            end_time_ns=time.time_ns(),
-            attributes=attributes,
-        )
+        emit_args: tuple[str, int, int, dict[str, Any]] | None = None
+        with _LANES_LOCK:
+            # Identity check guards against finish() replacing the lane mid-block.
+            if counted and _LANES.get(lane_id) is lane:
+                lane.count -= 1
+                if lane.count == 0:  # occupant closed: emit merged span, free lane
+                    emit_args = (
+                        state_name,
+                        lane.start_ns,
+                        time.time_ns(),
+                        lane.attributes,
+                    )
+                    _LANES.pop(lane_id, None)
+        # Emit outside the lock so the backend submit never blocks other callers.
+        if emit_args is not None:
+            _emit_trace_span(
+                name=emit_args[0],
+                start_time_ns=emit_args[1],
+                end_time_ns=emit_args[2],
+                attributes=emit_args[3],
+            )
 
 
 def trace_op(
@@ -261,7 +311,8 @@ def trace_op(
         """Return ``func`` unchanged for coroutine functions; else attach span timing wrapper."""
         if inspect.iscoroutinefunction(func):
             warnings.warn(
-                "trace_op does not support coroutine functions; decorator is a no-op.",
+                "[rl-insight] trace_op does not support coroutine functions; "
+                "decorator is a no-op.",
                 RuntimeWarning,
                 stacklevel=2,
             )
@@ -270,6 +321,9 @@ def trace_op(
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             """Call the wrapped function and record one duration span around it."""
+            if not _STATE.enabled or _STATE.client is None:
+                return func(*args, **kwargs)
+
             span_name = name or func.__qualname__
             merged: dict[str, Any] = dict(static_labels)
             if extra_labels is not None and args:

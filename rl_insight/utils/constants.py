@@ -24,6 +24,7 @@ _MONITOR_DIR = Path(__file__).resolve().parents[1]
 class MonitorPaths:
     """Bundled monitor config and service file locations."""
 
+    STATE_ROOT = Path.home() / ".rl-insight"
     CONFIG_DIR = _MONITOR_DIR / "config"
     CONFIG_FILE = CONFIG_DIR / "config.yaml"
     SERVICES_DIR = CONFIG_DIR / "services"
@@ -44,10 +45,7 @@ class MonitorRayActor:
 class MonitorEnv:
     """Environment variable names used by trainer-side monitor config overrides."""
 
-    SERVICE_IP = "RL_INSIGHT_SERVICE_IP"
-    OTEL_PORT = "RL_INSIGHT_OTEL_PORT"
-    PROMETHEUS_PORT = "RL_INSIGHT_PROMETHEUS_PORT"
-    PROMETHEUS_CONFIG_FILE = "RL_INSIGHT_PROMETHEUS_CONFIG_FILE"
+    SERVER_URL = "RL_INSIGHT_SERVER_URL"
 
 
 class MonitorDefaults:
@@ -55,8 +53,6 @@ class MonitorDefaults:
 
     NAMESPACE = "rl_insight_monitor"
     METRICS_REPORT_PORT = 9092
-    PROMETHEUS_PORT = 9090
-    OTEL_PORT = 4318
 
 
 class MonitorBackend:
@@ -72,6 +68,15 @@ class MonitorEventKind:
     GAUGE = "gauge"
     HISTOGRAM = "histogram"
     TRACE = "trace"
+
+
+class MonitorServer:
+    """HTTP API defaults used by the RL-Insight server and trainer-side discovery."""
+
+    API_PREFIX = "/api/v1"
+    SERVICE_DISCOVERY_RETRIES = 5
+    SERVICE_DISCOVERY_TIMEOUT_SECONDS = 2
+    SERVICE_DISCOVERY_RETRY_DELAY_SECONDS = 1
 
 
 class PrometheusScrape:

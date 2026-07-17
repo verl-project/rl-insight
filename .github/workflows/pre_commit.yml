@@ -1,5 +1,5 @@
 # c.f. https://github.com/pre-commit/action?tab=readme-ov-file#using-this-action
-name: pre_commit
+name: Pre Commit
 
 # No need to avoid / cancel lightweight pre-commit jobs
 on:

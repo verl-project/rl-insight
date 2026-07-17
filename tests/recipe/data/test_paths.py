@@ -20,3 +20,4 @@ PROJECT_ROOT = CURRENT_FILE.parents[3]
 MSTX_PROFILE_PATH = PROJECT_ROOT / "data/recipe/mstx_data/mstx_profile"
 NVTX_PROFILE_PATH = PROJECT_ROOT / "data/recipe/nvtx_data/nvtx_profile"
 TORCH_PROFILE_PATH = PROJECT_ROOT / "data/recipe/torch_data/torch_profile"
+MEMORY_DATA_PATH = PROJECT_ROOT / "data/recipe/memory_data"

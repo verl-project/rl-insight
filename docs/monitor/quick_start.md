@@ -39,7 +39,7 @@ If your environment already provides compatible system packages, `server start` 
 
 ## 3. Start The Stack
 
-Start Prometheus, Tempo, and Grafana:
+Start the RL-Insight server stack:
 
 ```bash
 rl-insight server start
@@ -67,10 +67,10 @@ Default endpoints:
 
 ## 4. Instrument Training Code
 
-Set the RL-Insight server IP before launching or initializing training workers. Use the server IP printed by `rl-insight server start`:
+Set the RL-Insight server URL before launching or initializing training workers. Use the server address printed by `rl-insight server start`:
 
 ```bash
-export RL_INSIGHT_SERVICE_IP=<server-ip>
+export RL_INSIGHT_SERVER_URL=http://<server-ip>:18080
 ```
 
 Then run a small continuous demo. It uses the three metric helpers and one `trace_state` span inside a loop, so Prometheus and Grafana keep receiving representative live samples while it runs:
@@ -91,8 +91,8 @@ while True:
         time.sleep(2)
 
     insight.metric_count("train_step_total", amount=1, **labels)
-    insight.metric_value("reward_mean", value=1.0 + step * 0.01, **labels)
-    insight.metric_distribution(
+    insight.metric_gauge("reward_mean", value=1.0 + step * 0.01, **labels)
+    insight.metric_histogram(
         "step_latency_ms", value=200 + (step % 5) * 20, **labels
     )
 
@@ -100,7 +100,6 @@ while True:
     time.sleep(0.5)
 ```
 
-The demo starts a local Ray runtime. If you already have a Ray cluster for a real training job, connect to it instead, for example `ray.init(address="auto", namespace="rl-insight-monitor")` or by setting `RAY_ADDRESS`. If your RL framework already integrates RL-Insight, you can start the corresponding RL training job after the server stack is running and `RL_INSIGHT_SERVICE_IP` is set. The demo above is for quickly checking custom metric reporting.
 
 ## 5. Open Grafana
 
@@ -159,14 +158,10 @@ insight.init(
         "server": {
             "namespace": "rl_insight_monitor",
             "backend": "ray",
-            "service_ip": "10.0.0.8",
+            "url": "http://<server-ip>:18080",
         },
         "prometheus": {
             "metrics_report_port": 9092,
-            "prometheus_port": 9090,
-        },
-        "otel": {
-            "otel_port": 4318,
         },
     },
 )
@@ -176,10 +171,7 @@ Environment variables take precedence for common deployment settings:
 
 | Variable | Purpose |
 |---|---|
-| `RL_INSIGHT_SERVICE_IP` | Server IP used by training workers. |
-| `RL_INSIGHT_OTEL_PORT` | OTLP HTTP port, default `4318`. |
-| `RL_INSIGHT_PROMETHEUS_PORT` | Prometheus HTTP port, default `9090`. |
-| `RL_INSIGHT_PROMETHEUS_CONFIG_FILE` | Prometheus config path used by target registration logic. |
+| `RL_INSIGHT_SERVER_URL` | RL-Insight server URL, for example `http://<server-ip>:18080`. |
 
 ## Troubleshooting
 
@@ -189,7 +181,6 @@ If `server start` reports missing or incompatible services, run:
 rl-insight server install
 ```
 
-If training workers emit no traces, check that `RL_INSIGHT_SERVICE_IP` points to the node running Tempo and that workers can reach `http://<server-ip>:4318/v1/traces`.
 
 If metrics do not appear, check that the monitor hub process is reachable from Prometheus and that the Prometheus configuration points to the hub `/metrics` endpoint.
 

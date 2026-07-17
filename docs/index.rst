@@ -5,6 +5,9 @@ RL-Insight is a performance insight and observability toolkit for reinforcement 
 It focuses on online observability for distributed RL training, with offline analysis utilities collected
 under Recipe.
 
+To collect CPU, memory, disk, network, or Ascend NPU metrics, start with
+:doc:`Hardware Monitoring <monitor/hardware/index>`.
+
 --------------------------------------------
 
 .. _Contents:
@@ -15,6 +18,15 @@ under Recipe.
 
    Quick Start <monitor/quick_start>
    Server Installation <monitor/server_installation>
+   Hardware Monitoring <monitor/hardware/index>
+
+.. toctree::
+   :hidden:
+
+   monitor/hardware/cpu_monitoring_zh
+   monitor/hardware/cpu_monitoring_en
+   monitor/hardware/npu_monitoring_zh
+   monitor/hardware/npu_monitoring_en
 
 .. toctree::
    :maxdepth: 2
@@ -23,7 +35,7 @@ under Recipe.
    Architecture <recipe/overview/architecture>
    RL Timeline quickstart <recipe/overview/RL_Timeline_quickstart>
    GMM Expert Load visualization quickstart <recipe/overview/gmm_heatmap_quickstart>
-   Memory Parser quickstart <recipe/overview/memory_parser_quickstart>
+   Memory quickstart <recipe/overview/memory_quickstart>
 
 .. toctree::
    :maxdepth: 2
@@ -44,7 +56,7 @@ under Recipe.
    Extending Guide <recipe/developer_guides/extending_guide>
    BaseClusterParser Interface <recipe/developer_guides/baseclusterparser_interface>
    DataRule Extending Guide <recipe/developer_guides/rule_extending_guide>
-   Memory Parser Guide <recipe/developer_guides/memory_parser_guide>
+   Memory Guide <recipe/developer_guides/memory_guide>
 
 Contribution
 -------------

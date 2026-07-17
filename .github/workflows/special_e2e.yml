@@ -1,4 +1,4 @@
-name: special_e2e
+name: Special E2e Recipe
 
 on:
   push:
@@ -23,7 +23,7 @@ permissions:
   contents: read
 
 jobs:
-  special_e2e:
+  special_e2e_recipe:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     strategy:

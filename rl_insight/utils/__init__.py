@@ -21,13 +21,15 @@ from .constants import (
     MonitorEventKind,
     MonitorPaths,
     MonitorRayActor,
+    MonitorServer,
     PrometheusScrape,
 )
 from .monitor_config_loader import load_monitor_config, load_server_config_file
 from .opentelemetry_utils import OpenTelemetryTraceCollector
 from .prometheus_utils import (
     MetricRegistry,
-    PrometheusScrapeUpdater,
+    PrometheusTarget,
+    PrometheusTargetStore,
     start_metrics_http_server,
     update_prometheus_config,
 )
@@ -40,9 +42,11 @@ __all__ = [
     "MonitorEventKind",
     "MonitorPaths",
     "MonitorRayActor",
+    "MonitorServer",
     "OpenTelemetryTraceCollector",
     "PrometheusScrape",
-    "PrometheusScrapeUpdater",
+    "PrometheusTarget",
+    "PrometheusTargetStore",
     "load_monitor_config",
     "load_server_config_file",
     "start_metrics_http_server",

@@ -24,12 +24,24 @@ class OfflineInsightPipeline:
         self.config = config
 
         timeline_parser_type = config.timeline.parser.type
+        memory_parser_type = config.memory.parser.type
+        heatmap_parser_type = config.heatmap.parser.type
+
         if timeline_parser_type is not None:
             parser_cls = get_cluster_parser_cls(timeline_parser_type)
             visualizer_cls = get_cluster_visualizer_cls(config.timeline.visualizer.type)
-        else:
-            parser_cls = get_cluster_parser_cls(config.heatmap.parser.type)
+        elif memory_parser_type is not None:
+            parser_cls = get_cluster_parser_cls(memory_parser_type)
+            visualizer_cls = get_cluster_visualizer_cls(config.memory.visualizer.type)
+        elif heatmap_parser_type is not None:
+            parser_cls = get_cluster_parser_cls(heatmap_parser_type)
             visualizer_cls = get_cluster_visualizer_cls(config.heatmap.visualizer.type)
+        else:
+            raise ValueError(
+                "No parser type configured. "
+                "Specify a preset (timeline/heatmap/memory) "
+                "or set a parser type explicitly."
+            )
 
         self.parser = parser_cls(self.config)
 

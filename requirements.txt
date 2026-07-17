@@ -10,6 +10,8 @@ torch
 requests
 ray
 omegaconf
+fastapi
+uvicorn
 prometheus_client
 opentelemetry-sdk
 opentelemetry-exporter-otlp-proto-http

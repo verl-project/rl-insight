@@ -87,6 +87,30 @@ class HeatmapConfig:
 
 
 @dataclass
+class MemoryParserConfig:
+    """Memory parser configuration."""
+
+    type: Optional[str] = None  # memory
+    step: Optional[str] = None  # Step filter, e.g. '1' or '1,2'
+    role: Optional[str] = None  # Role filter
+
+
+@dataclass
+class MemoryVisualizerConfig:
+    """Memory visualizer configuration."""
+
+    type: str = "memory_html"  # memory_html
+
+
+@dataclass
+class MemoryConfig:
+    """Memory configuration."""
+
+    parser: MemoryParserConfig = field(default_factory=MemoryParserConfig)
+    visualizer: MemoryVisualizerConfig = field(default_factory=MemoryVisualizerConfig)
+
+
+@dataclass
 class PipelineConfig:
     """Pipeline configuration."""
 
@@ -102,3 +126,4 @@ class AppConfig:
     output: OutputConfig = field(default_factory=OutputConfig)
     timeline: TimelineConfig = field(default_factory=TimelineConfig)
     heatmap: HeatmapConfig = field(default_factory=HeatmapConfig)
+    memory: MemoryConfig = field(default_factory=MemoryConfig)

@@ -24,6 +24,8 @@ from omegaconf import DictConfig
 
 from ..utils.constants import MonitorRayActor
 from .base import MonitorCollector
+from ..server.http_api import get_server_services
+from ..server.network import format_host_port, service_url_from_server_url
 from ..utils import (
     MetricRegistry,
     MonitorEventKind,
@@ -44,22 +46,22 @@ class MonitorHubActor(MonitorCollector):
 
     Actor methods run one at a time (no ``max_concurrency``), so hub state updates are serialized.
 
-    On startup it may rewrite the local Prometheus scrape config when ``server.backend`` is ``ray``.
+    On startup it registers its metrics endpoint with the RL-Insight server.
     """
 
     def __init__(self, conf: DictConfig) -> None:
         """
         Args:
-            conf: Merged monitor config with ``server``, ``otel``, and ``prometheus`` sections.
+            conf: Merged monitor config with ``server`` and ``prometheus`` sections.
         """
         self._conf = conf
 
         namespace = str(self._conf.server.namespace)
-        service_ip = str(self._conf.server.service_ip).strip()
-        trace_endpoint = (
-            f"http://{service_ip}:{int(self._conf.otel.otel_port)}/v1/traces"
-            if service_ip
-            else ""
+        services = get_server_services()
+        trace_endpoint = service_url_from_server_url(
+            str(self._conf.server.url),
+            services.get("otlp_port"),
+            "/v1/traces",
         )
         self._registry = MetricRegistry(namespace=namespace)
         self._trace_collector = OpenTelemetryTraceCollector(
@@ -67,7 +69,6 @@ class MonitorHubActor(MonitorCollector):
             endpoint=trace_endpoint,
         )
 
-        self._state_pending: dict[tuple[str, str], dict[str, Any]] = {}
         self._events_applied = 0
         self._node_ip = ray.util.get_node_ip_address()
         self._metrics_port = int(self._conf.prometheus.metrics_report_port)
@@ -79,9 +80,10 @@ class MonitorHubActor(MonitorCollector):
         }
 
         start_metrics_http_server(self._metrics_port, addr=self._node_ip)
-        update_prometheus_config(self._conf, [f"{self._node_ip}:{self._metrics_port}"])
+        update_prometheus_config([format_host_port(self._node_ip, self._metrics_port)])
         logger.info(
-            "MonitorHubActor HTTP bind %s:%s, Prometheus scrape target %s:%s",
+            "[rl-insight] MonitorHubActor HTTP bind %s:%s, "
+            "Prometheus scrape target %s:%s",
             self._node_ip,
             self._metrics_port,
             self._node_ip,
@@ -115,7 +117,11 @@ class MonitorHubActor(MonitorCollector):
             "actor_name": MonitorRayActor.NAME,
             "namespace": MonitorRayActor.NAMESPACE,
             "node_ip": self._node_ip,
-            "metrics_endpoint": f"http://{self._node_ip}:{self._metrics_port}/metrics",
+            "metrics_endpoint": (
+                "http://"
+                + format_host_port(self._node_ip, self._metrics_port)
+                + "/metrics"
+            ),
             "prometheus_metrics_enabled": True,
             "otel_traces_enabled": self._trace_collector.enabled,
             "events_applied": self._events_applied,
@@ -153,49 +159,16 @@ class MonitorHubActor(MonitorCollector):
         )
 
     def _handle_trace(self, event: dict[str, Any]) -> None:
-        """Dispatch trace events; state_interval spans are merged before export."""
+        """Export one trace span via OTLP (no-op if collector disabled)."""
         if not self._trace_collector.enabled:
             return
         attrs = dict(event.get("attributes") or {})
-        if attrs.get("monitor.trace_segment") == "state_interval":
-            self._handle_state_interval_trace(event, attrs)
-            return
         self._export_trace_span(
             event["name"],
             int(event["start_time_ns"]),
             int(event["end_time_ns"]),
             attrs,
         )
-
-    def _handle_state_interval_trace(
-        self, event: dict[str, Any], attrs: dict[str, Any]
-    ) -> None:
-        """Merge overlapping state intervals per (lane, name); flush on gap."""
-        key = (str(attrs["state_lane_id"]), event["name"])
-        start_ns = int(event["start_time_ns"])
-        end_ns = int(event["end_time_ns"])
-
-        pending = self._state_pending.get(key)
-        if pending is not None and start_ns > pending["end_ns"]:
-            self._export_trace_span(
-                pending["name"],
-                pending["start_ns"],
-                pending["end_ns"],
-                pending["attributes"],
-            )
-            pending = None
-
-        if pending is None:
-            self._state_pending[key] = {
-                "name": event["name"],
-                "start_ns": start_ns,
-                "end_ns": end_ns,
-                "attributes": attrs,
-            }
-            return
-
-        pending["start_ns"] = min(pending["start_ns"], start_ns)
-        pending["end_ns"] = max(pending["end_ns"], end_ns)
 
     def _export_trace_span(
         self,

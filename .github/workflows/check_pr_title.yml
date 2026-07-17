@@ -27,14 +27,14 @@
 #     - new workflow yaml is added to `.github/workflows`
 #     - new tests are added to workflow mentioned in 2.
 
-name: check_pr_title
+name: Check Pr Title
 
 on:
   pull_request:
     types: [opened, edited, synchronize]
 
 jobs:
-  check_title:
+  check_pr_title:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

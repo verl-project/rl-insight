@@ -330,7 +330,7 @@
         "kind": "Panel",
         "spec": {
           "id": 3,
-          "title": "metric_value",
+          "title": "metric_gauge",
           "description": "",
           "links": [],
           "data": {
@@ -448,7 +448,7 @@
         "kind": "Panel",
         "spec": {
           "id": 4,
-          "title": "metric_distribution",
+          "title": "metric_histogram",
           "description": "",
           "links": [],
           "data": {

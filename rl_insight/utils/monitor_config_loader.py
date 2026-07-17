@@ -32,37 +32,17 @@ _TRAINING_MONITOR_DEFAULTS = OmegaConf.create(
         "server": {
             "namespace": MonitorDefaults.NAMESPACE,
             "backend": MonitorBackend.RAY,
-            "service_ip": "",
+            "url": "",
         },
         "prometheus": {
             "metrics_report_port": MonitorDefaults.METRICS_REPORT_PORT,
-            "prometheus_port": MonitorDefaults.PROMETHEUS_PORT,
-            "config_file": str(MonitorPaths.PROMETHEUS_CONFIG_FILE.resolve()),
-        },
-        "otel": {
-            "otel_port": MonitorDefaults.OTEL_PORT,
         },
     }
 )
-
 __all__ = [
     "load_monitor_config",
     "load_server_config_file",
 ]
-
-
-def _apply_env_overrides(conf: DictConfig) -> None:
-    if MonitorEnv.SERVICE_IP in os.environ:
-        conf.server.service_ip = str(os.environ[MonitorEnv.SERVICE_IP]).strip()
-
-    if otel_port := os.environ.get(MonitorEnv.OTEL_PORT):
-        conf.otel.otel_port = int(otel_port)
-    if prometheus_port := os.environ.get(MonitorEnv.PROMETHEUS_PORT):
-        conf.prometheus.prometheus_port = int(prometheus_port)
-    if prometheus_config := os.environ.get(MonitorEnv.PROMETHEUS_CONFIG_FILE):
-        conf.prometheus.config_file = str(
-            Path(prometheus_config).expanduser().resolve()
-        )
 
 
 def load_monitor_config(
@@ -89,7 +69,8 @@ def load_monitor_config(
         )
         merged = OmegaConf.merge(base, user)
 
-    _apply_env_overrides(merged)
+    if url := os.environ.get(MonitorEnv.SERVER_URL):
+        merged.server.url = str(url).strip()
     return merged
 
 

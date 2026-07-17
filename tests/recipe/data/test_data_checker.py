@@ -22,6 +22,7 @@ from recipe.data.rules import DataValidationError
 from tests.recipe.data.test_paths import (
     MSTX_PROFILE_PATH,
     PROJECT_ROOT,
+    MEMORY_DATA_PATH,
 )
 
 
@@ -126,3 +127,22 @@ def test_data_checker_verl_log_fails_when_keywords_missing(tmp_path):
     err_text = str(exc_info.value)
     assert "Data validation failed" in err_text
     assert "critic/score/mean" in err_text
+
+
+def test_data_checker_ascend_memory_passes_on_sample_data():
+    checker = DataChecker(data_type=DataEnum.ASCEND_MEMORY, data=str(MEMORY_DATA_PATH))
+    checker.run()
+
+
+def test_data_checker_ascend_memory_accepts_path_object():
+    checker = DataChecker(data_type=DataEnum.ASCEND_MEMORY, data=MEMORY_DATA_PATH)
+    checker.run()
+
+
+def test_data_checker_ascend_memory_fails_on_missing_path():
+    checker = DataChecker(
+        data_type=DataEnum.ASCEND_MEMORY, data="C:/definitely/not/exist/path"
+    )
+    with pytest.raises(DataValidationError) as exc_info:
+        checker.run()
+    assert "Data validation failed" in str(exc_info.value)

@@ -54,7 +54,7 @@ def _add_server_parser(subparsers: argparse._SubParsersAction) -> None:
     commands = ServerCommands()
     server = subparsers.add_parser(
         "server",
-        help="Install and manage Prometheus, Tempo, and Grafana services.",
+        help="Install and manage the RL-Insight server stack.",
     )
     server_subparsers = server.add_subparsers(dest="server_command", required=True)
 
@@ -85,7 +85,7 @@ def _add_server_parser(subparsers: argparse._SubParsersAction) -> None:
 
     start = server_subparsers.add_parser(
         "start",
-        help="Start Prometheus, Tempo, and Grafana.",
+        help="Start the RL-Insight server stack.",
     )
     _add_common_config_args(start)
     mode_group = start.add_mutually_exclusive_group()
@@ -103,10 +103,27 @@ def _add_server_parser(subparsers: argparse._SubParsersAction) -> None:
 
     stop = server_subparsers.add_parser(
         "stop",
-        help="Stop Prometheus, Tempo, and Grafana.",
+        help="Stop the RL-Insight server stack.",
     )
     _add_common_config_args(stop)
     stop.set_defaults(func=commands.stop)
+
+    targets = server_subparsers.add_parser(
+        "targets",
+        help="Manage Prometheus scrape targets.",
+    )
+    target_subparsers = targets.add_subparsers(dest="targets_command", required=True)
+    add_targets = target_subparsers.add_parser(
+        "add",
+        help="Add scrape targets from a YAML file.",
+    )
+    add_targets.add_argument(
+        "target_file",
+        type=Path,
+        help="YAML file containing Prometheus jobs and targets.",
+    )
+    _add_common_config_args(add_targets)
+    add_targets.set_defaults(func=commands.add_targets)
 
 
 def _add_common_config_args(parser: argparse.ArgumentParser) -> None:
