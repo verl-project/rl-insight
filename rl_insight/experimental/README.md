@@ -7,11 +7,11 @@
 ```
 数据生成                      数据处理                        数据展示
 ─────────────────────────────────────────────────────────────────────
-                                                           ┌─ HTML Timeline (当前)
+                                                           ┌─ HTML Timeline (server.py)
 模拟脚本 ──┐                  ┌─ SampleRecord (内存)       │
-           ├── Builder ── BaseSample ─┤                     ├─ Grafana (后续)
+           ├── Builder ── BaseSample ─┤                     ├─ Grafana / Tempo (GrafanaRecord)
 uni-agent ─┘     ▲           └─ FileSampleRecord (文件) ──┤
-                 │                  └─ GrafanaRecord (后续) ┘
+                 │                  └─ GrafanaRecord          ┘
                  │
            两种事件格式（稳定不变）
 ```
@@ -21,8 +21,8 @@ uni-agent ─┘     ▲           └─ FileSampleRecord (文件) ──┤
 | 阶段 | 当前 | 后续替换 |
 |------|------|----------|
 | **数据生成** | Python 脚本模拟 agent 推理过程 | 接入 uni-agent Gateway，在实际 rollout 时发出相同的事件 |
-| **数据处理** | Builder 接收事件，驱动 `SampleRecord`（内存）或 `FileSampleRecord`（文件）落盘 | 新增面向 rl-insight + Grafana 的 `BaseSample` 实现，将数据写入 Prometheus 或 JSON API |
-| **数据展示** | Timeline HTML 页面，轮询文件系统渲染时序图 | 切换到 Grafana 面板，读取新 `BaseSample` 实现暴露的指标 |
+| **数据处理** | Builder 接收事件，驱动 `SampleRecord` / `FileSampleRecord` / `GrafanaRecord` | 接入更多存储后端（仍走同一 Protocol） |
+| **数据展示** | Timeline HTML 页面，或 Grafana State Timeline（`export_to_tempo.py`） | uni-agent 实网事件替换模拟脚本 |
 
 **链路中唯一设计为不变的，是 Builder 的事件协议。** 这个协议足够薄——只有两种 JSON 事件——但它足以表达 agent 推理的完整生命周期。数据生成端无论怎么换（模拟脚本、uni-agent、其他框架），数据处理端无论用什么存储（内存、文件、时序数据库），只要两边通过 Builder 对接，就不需要互相感知对方的存在。
 
@@ -107,9 +107,11 @@ builder = TrajectoryBuilder(
     lambda uid, si: FileSampleRecord.create("/data", uid=uid, sample_index=si)
 )
 
-# 后续 Grafana 版——也是换这一行
+# Grafana / Tempo 版——也是换这一行（见 export_to_tempo.py）
+from rl_insight.experimental.samples.grafana_record import GrafanaRecord, configure_exporter
+configure_exporter("http://127.0.0.1:4318/v1/traces")
 builder = TrajectoryBuilder(
-    lambda uid, si: GrafanaRecord.create("http://prom:9090", uid=uid, sample_index=si)
+    lambda uid, si: GrafanaRecord.create(uid=uid, sample_index=si)
 )
 
 # 接收事件
@@ -189,7 +191,7 @@ SampleRecord          ← 一个 RL 训练样本
 |------|----------|
 | 实验脚本、notebook 分析、JSONL 加载 | `SampleRecord` |
 | 分布式 rollout、多进程并发写入 | `FileSampleRecord` |
-| 后续 rl-insight 指标采集 | 新的 `BaseSample` 实现（如 GrafanaRecord） |
+| Grafana State Timeline（Tempo） | `GrafanaRecord` + `export_to_tempo.py` |
 
 ## 数据生成（当前：模拟脚本）
 
@@ -219,16 +221,30 @@ python rl_insight/experimental/server.py /tmp/my-trajs --port 8080
 
 **后续替换方向**：Grafana 面板读取新 `BaseSample` 实现暴露的指标，不再轮询文件系统。
 
+### Grafana / Tempo（本分支新增）
+
+在保留上述 HTML demo 的同时，可用 `GrafanaRecord` 把同一套 `generate`/`stream` 事件导出到 Tempo，在 Grafana 看板查看：
+
+```bash
+# 先启动 rl-insight（Tempo OTLP :4318，Grafana :3000）
+python rl_insight/experimental/export_to_tempo.py --samples 8 --seed 42
+```
+
+打开 Grafana → **verl_trainer_v1_with_sglang_engine** → **Agent Loop Trajectory**（Sample → Session → Trajectory Overview / Turn sequence / Turn details）。
+
 ## 目录结构
 
 ```
 experimental/
   ├── README.md           # 本文档
   ├── __init__.py         # 公开导出
-  ├── base.py             # BaseSample Protocol 定义（六个方法）
-  ├── sample.py           # SampleRecord 内存版（Pydantic 实现）
-  ├── file_sample.py      # FileSampleRecord 文件版
   ├── builder.py          # TrajectoryBuilder 事件驱动适配层
-  ├── generate_data.py    # 模拟数据生成脚本
-  └── server.py           # Timeline HTML 可视化服务
+  ├── generate_data.py    # 模拟数据生成脚本（勿改协议）
+  ├── export_to_tempo.py  # GrafanaRecord 导出入口
+  ├── server.py           # Timeline HTML 可视化服务
+  └── samples/
+        ├── base.py           # BaseSample Protocol
+        ├── sample.py         # SampleRecord 内存版
+        ├── file_sample.py    # FileSampleRecord 文件版
+        └── grafana_record.py # GrafanaRecord → Tempo
 ```

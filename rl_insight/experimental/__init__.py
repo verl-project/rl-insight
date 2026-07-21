@@ -50,6 +50,7 @@ Quick start::
 from rl_insight.experimental.samples import (
     BaseSample,
     FileSampleRecord,
+    GrafanaRecord,
     SampleRecord,
     SampleTag,
     SessionRecord,
@@ -67,6 +68,7 @@ __all__ = [
     "BaseSample",
     "TrajectoryBuilder",
     "FileSampleRecord",
+    "GrafanaRecord",
     "SampleRecord",
     "SampleTag",
     "SessionRecord",
