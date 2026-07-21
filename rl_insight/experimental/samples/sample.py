@@ -664,7 +664,7 @@ class SampleRecord(BaseModel):
         import json
         from collections import defaultdict
 
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             flat_trajs = [json.loads(line) for line in f]
 
         samples: dict[str, dict[int, list[dict]]] = defaultdict(

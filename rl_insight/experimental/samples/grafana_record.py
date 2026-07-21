@@ -103,6 +103,11 @@ def configure_exporter(
     _provider = TracerProvider(resource=Resource.create({SERVICE_NAME: service_name}))
     _provider.add_span_processor(SimpleSpanProcessor(OTLPSpanExporter(endpoint=endpoint)))
     _tracer = _provider.get_tracer(_TRACER_NAME)
+    # Suppress OpenTelemetry export warning/retry spam (match monitor hub policy).
+    logging.getLogger("opentelemetry.exporter.otlp.proto.http.trace_exporter").setLevel(
+        logging.ERROR
+    )
+    logging.getLogger("opentelemetry.sdk.trace.export").setLevel(logging.ERROR)
     # Anchor near "now" so Tempo's recent-search window picks spans up immediately.
     _clock_ns = int((time.time() - 60.0) * 1_000_000_000)
     logger.info("GrafanaRecord OTLP exporter ready: %s", endpoint)

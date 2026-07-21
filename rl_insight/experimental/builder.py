@@ -109,7 +109,7 @@ class TrajectoryBuilder:
         """Ingest all events from a JSONL file. Returns self for chaining."""
         import json
 
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             for line in f:
                 self.feed(json.loads(line))
         return self
