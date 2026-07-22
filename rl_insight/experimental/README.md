@@ -7,11 +7,10 @@
 ```
 数据生成                      数据处理                        数据展示
 ─────────────────────────────────────────────────────────────────────
-                                                           ┌─ HTML Timeline (当前)
+                                                           ┌─ HTML Timeline (server.py)
 模拟脚本 ──┐                  ┌─ SampleRecord (内存)       │
-           ├── Builder ── BaseSample ─┤                     ├─ Grafana (后续)
-uni-agent ─┘     ▲           └─ FileSampleRecord (文件) ──┤
-                 │                  └─ GrafanaRecord (后续) ┘
+           ├── Builder ── BaseSample ─┤                     ├─ Grafana / Tempo（generate --tempo
+uni-agent ─┘     ▲           └─ FileSampleRecord (文件) ──┘     → tempo_export → Rebuild）
                  │
            两种事件格式（稳定不变）
 ```
@@ -21,8 +20,8 @@ uni-agent ─┘     ▲           └─ FileSampleRecord (文件) ──┤
 | 阶段 | 当前 | 后续替换 |
 |------|------|----------|
 | **数据生成** | Python 脚本模拟 agent 推理过程 | 接入 uni-agent Gateway，在实际 rollout 时发出相同的事件 |
-| **数据处理** | Builder 接收事件，驱动 `SampleRecord`（内存）或 `FileSampleRecord`（文件）落盘 | 新增面向 rl-insight + Grafana 的 `BaseSample` 实现，将数据写入 Prometheus 或 JSON API |
-| **数据展示** | Timeline HTML 页面，轮询文件系统渲染时序图 | 切换到 Grafana 面板，读取新 `BaseSample` 实现暴露的指标 |
+| **数据处理** | Builder 接收事件，驱动 `SampleRecord` / `FileSampleRecord` / `GrafanaRecord` | 接入更多存储后端（仍走同一 Protocol） |
+| **数据展示** | Timeline HTML（`server.py`），或 `generate_data --tempo` → Grafana | Rebuild API / 实网 span |
 
 **链路中唯一设计为不变的，是 Builder 的事件协议。** 这个协议足够薄——只有两种 JSON 事件——但它足以表达 agent 推理的完整生命周期。数据生成端无论怎么换（模拟脚本、uni-agent、其他框架），数据处理端无论用什么存储（内存、文件、时序数据库），只要两边通过 Builder 对接，就不需要互相感知对方的存在。
 
@@ -107,18 +106,14 @@ builder = TrajectoryBuilder(
     lambda uid, si: FileSampleRecord.create("/data", uid=uid, sample_index=si)
 )
 
-# 后续 Grafana 版——也是换这一行
-builder = TrajectoryBuilder(
-    lambda uid, si: GrafanaRecord.create("http://prom:9090", uid=uid, sample_index=si)
-)
-
-# 接收事件
+# 接收事件（Tempo：事后 tempo_export，不要换 GrafanaRecord 工厂）
 builder.feed({"event": "trajectory_begin", "uid": "task-0001"})
 builder.feed({"event": "step", "uid": "task-0001", ...})
 
 # 批量加载
 builder.feed_jsonl("events.jsonl")
 samples = builder.samples
+# Tempo: export_samples_to_tempo(samples) → rebuild_from_tempo(...)
 ```
 
 ## BaseSample 接口
@@ -189,7 +184,7 @@ SampleRecord          ← 一个 RL 训练样本
 |------|----------|
 | 实验脚本、notebook 分析、JSONL 加载 | `SampleRecord` |
 | 分布式 rollout、多进程并发写入 | `FileSampleRecord` |
-| 后续 rl-insight 指标采集 | 新的 `BaseSample` 实现（如 GrafanaRecord） |
+| Grafana State Timeline（Tempo） | `SampleRecord` → `tempo_export` → Rebuild |
 
 ## 数据生成（当前：模拟脚本）
 
@@ -219,16 +214,45 @@ python rl_insight/experimental/server.py /tmp/my-trajs --port 8080
 
 **后续替换方向**：Grafana 面板读取新 `BaseSample` 实现暴露的指标，不再轮询文件系统。
 
+### Grafana / Tempo（本分支新增）
+
+黑盒边界：
+
+- **映射层**：只消费 PR#120 的 `SampleRecord` 树输出，写入 Tempo（自打 `run_id`）；不改 `generate_data` / Builder
+- **可视化 / Rebuild**：只读 Tempo 属性；不知道 SampleRecord，也不依赖 generate
+
+仍走 PR#120 同一套启动脚本；Grafana 只是 generate 之后的可选后处理：
+
+```bash
+# 1) 原 demo：生成 + HTML
+python rl_insight/experimental/generate_data.py /tmp/my-trajs --samples 8 --seed 42
+python rl_insight/experimental/server.py /tmp/my-trajs --port 8080
+
+# 2) 同一次 generate，额外映射到 Tempo（需 rl-insight server；不自动 Rebuild）
+python rl_insight/experimental/generate_data.py /tmp/my-trajs --samples 8 --seed 42 --tempo
+```
+
+`--tempo` 不会改事件协议 / Builder；只在 generate **完成之后**把 sample 树映射进 Tempo（打 `run_id`）。
+
+**不会改动** `verl_trainer_v1_with_sglang_engine`。轨迹面板在独立仪表盘 **`agent_loop_trajectory`**：选好时间窗后点顶栏 **Rebuild Agent Loop**。
+
 ## 目录结构
 
 ```
 experimental/
   ├── README.md           # 本文档
   ├── __init__.py         # 公开导出
-  ├── base.py             # BaseSample Protocol 定义（六个方法）
-  ├── sample.py           # SampleRecord 内存版（Pydantic 实现）
-  ├── file_sample.py      # FileSampleRecord 文件版
   ├── builder.py          # TrajectoryBuilder 事件驱动适配层
-  ├── generate_data.py    # 模拟数据生成脚本
-  └── server.py           # Timeline HTML 可视化服务
+  ├── generate_data.py    # 模拟数据生成脚本（勿改协议）
+  ├── tempo_export.py     # SampleRecord → Tempo 映射（打 run_id）
+  ├── agent_loop_rebuild.py  # 从 Tempo Rebuild 面板
+  ├── export_to_tempo.py  # 兼容 shim → generate_data.py --tempo
+  ├── generate_agent_loop_dashboard.py  # hierarchy → Grafana JSON
+  ├── agent_loop_panel_templates.json   # overview/seq/det 面板模板
+  ├── server.py           # Timeline HTML 可视化服务
+  └── samples/
+        ├── base.py           # BaseSample Protocol
+        ├── sample.py         # SampleRecord 内存版
+        ├── file_sample.py    # FileSampleRecord 文件版
+        └── grafana_record.py # 兼容 shim（无边写边导）
 ```
