@@ -232,17 +232,3 @@ experimental/
   ├── generate_data.py    # 模拟数据生成脚本
   └── server.py           # Timeline HTML 可视化服务
 ```
-
-## Grafana / Tempo（可选后处理）
-
-不改 Builder 事件协议。生成 SampleRecord 后可映射到 Tempo，再在独立仪表盘上 Rebuild：
-
-```bash
-# 需 rl-insight server（Tempo OTLP :4318）已启动
-python rl_insight/experimental/export_to_tempo.py --samples 2 --seed 42
-```
-
-然后打开 Grafana ``agent_loop_trajectory``，选时间窗，点顶栏 **Rebuild Agent Loop**。
-
-相关文件：``tempo_export.py``、``agent_loop_rebuild.py``、``generate_agent_loop_dashboard.py``、``agent_loop_panel_templates.json``、``config/.../agent_loop_trajectory.json``。
-
