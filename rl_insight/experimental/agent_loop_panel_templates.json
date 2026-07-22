@@ -1,0 +1,635 @@
+{
+  "overview": {
+    "kind": "Panel",
+    "spec": {
+      "id": 325,
+      "title": "Trajectory Overview",
+      "description": "All trajectories in sample 0 / session 0. One row per trajectory (state_lane_id); colored blocks are turn steps.",
+      "links": [],
+      "data": {
+        "kind": "QueryGroup",
+        "spec": {
+          "queries": [
+            {
+              "kind": "PanelQuery",
+              "spec": {
+                "query": {
+                  "kind": "DataQuery",
+                  "group": "tempo",
+                  "version": "v0",
+                  "datasource": {
+                    "name": "tempo"
+                  },
+                  "spec": {
+                    "limit": 1000,
+                    "metricsQueryType": "range",
+                    "query": "{span.state_lane_id =~ \"sample=0/session=0/.*\" && resource.service.name=\"agent-loop-poc\"}",
+                    "queryType": "traceql",
+                    "serviceMapUseNativeHistograms": false,
+                    "spss": 100,
+                    "tableType": "spans"
+                  }
+                },
+                "refId": "A",
+                "hidden": false
+              }
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "organize",
+              "spec": {
+                "options": {
+                  "excludeByName": {},
+                  "includeByName": {},
+                  "indexByName": {},
+                  "renameByName": {
+                    "time": "Start time",
+                    "duration": "Duration"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "calculateField",
+              "spec": {
+                "options": {
+                  "binary": {
+                    "left": {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "Duration"
+                      }
+                    },
+                    "operator": "/",
+                    "right": {
+                      "fixed": "1000000"
+                    }
+                  },
+                  "mode": "binary",
+                  "reduce": {
+                    "reducer": "sum"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "calculateField",
+              "spec": {
+                "options": {
+                  "alias": "End time",
+                  "mode": "reduceRow",
+                  "reduce": {
+                    "include": [
+                      "Start time",
+                      "Duration / 1000000"
+                    ],
+                    "reducer": "sum"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "convertFieldType",
+              "spec": {
+                "options": {
+                  "conversions": [
+                    {
+                      "destinationType": "time",
+                      "targetField": "Start time"
+                    },
+                    {
+                      "destinationType": "time",
+                      "targetField": "End time"
+                    }
+                  ],
+                  "fields": {}
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "organize",
+              "spec": {
+                "options": {
+                  "excludeByName": {
+                    "Duration": true,
+                    "Duration / 1000000": true,
+                    "Name": true,
+                    "name": true,
+                    "Span ID": true,
+                    "spanID": true,
+                    "Trace Service": true,
+                    "traceService": true,
+                    "traceIdHidden": true,
+                    "service.name": true,
+                    "sample": true,
+                    "session": true,
+                    "session_id": true,
+                    "turn": true,
+                    "traj": true,
+                    "type": true,
+                    "tools": true,
+                    "finish_reason": true,
+                    "content": true,
+                    "reward": true,
+                    "state_name": true,
+                    "sample_success_count": true,
+                    "sample_total_trajs": true
+                  },
+                  "includeByName": {},
+                  "indexByName": {},
+                  "renameByName": {}
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "partitionByValues",
+              "spec": {
+                "options": {
+                  "fields": [
+                    "state_lane_id"
+                  ],
+                  "keepFields": false
+                }
+              }
+            }
+          ],
+          "queryOptions": {}
+        }
+      },
+      "vizConfig": {
+        "kind": "VizConfig",
+        "group": "state-timeline",
+        "version": "13.0.2",
+        "spec": {
+          "options": {
+            "alignValue": "left",
+            "annotations": {
+              "clustering": -1,
+              "multiLane": false
+            },
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "mergeValues": true,
+            "rowHeight": 0.9,
+            "showValue": "auto",
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "length": {
+                      "color": "red",
+                      "index": 0
+                    },
+                    "stop": {
+                      "color": "blue",
+                      "index": 1
+                    },
+                    "tool_calls": {
+                      "color": "yellow",
+                      "index": 2
+                    },
+                    "unknown": {
+                      "color": "text",
+                      "index": 3
+                    }
+                  }
+                }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "axisPlacement": "auto",
+                "fillOpacity": 70,
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineWidth": 0,
+                "spanNulls": false
+              }
+            },
+            "overrides": []
+          }
+        }
+      }
+    }
+  },
+  "sequence": {
+    "kind": "Panel",
+    "spec": {
+      "id": 326,
+      "title": "Turn sequence",
+      "description": "Turn sequence for this trajectory. Hover for finish_reason and time.",
+      "links": [],
+      "data": {
+        "kind": "QueryGroup",
+        "spec": {
+          "queries": [
+            {
+              "kind": "PanelQuery",
+              "spec": {
+                "query": {
+                  "kind": "DataQuery",
+                  "group": "tempo",
+                  "version": "v0",
+                  "datasource": {
+                    "name": "tempo"
+                  },
+                  "spec": {
+                    "limit": 500,
+                    "metricsQueryType": "range",
+                    "query": "{span.state_lane_id = \"sample=0/session=0/traj=0\" && resource.service.name=\"agent-loop-poc\"}",
+                    "queryType": "traceql",
+                    "serviceMapUseNativeHistograms": false,
+                    "spss": 100,
+                    "tableType": "spans"
+                  }
+                },
+                "refId": "A",
+                "hidden": false
+              }
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "organize",
+              "spec": {
+                "options": {
+                  "excludeByName": {},
+                  "includeByName": {},
+                  "indexByName": {},
+                  "renameByName": {
+                    "time": "Start time",
+                    "duration": "Duration"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "calculateField",
+              "spec": {
+                "options": {
+                  "binary": {
+                    "left": {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "Duration"
+                      }
+                    },
+                    "operator": "/",
+                    "right": {
+                      "fixed": "1000000"
+                    }
+                  },
+                  "mode": "binary",
+                  "reduce": {
+                    "reducer": "sum"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "calculateField",
+              "spec": {
+                "options": {
+                  "alias": "End time",
+                  "mode": "reduceRow",
+                  "reduce": {
+                    "include": [
+                      "Start time",
+                      "Duration / 1000000"
+                    ],
+                    "reducer": "sum"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "convertFieldType",
+              "spec": {
+                "options": {
+                  "conversions": [
+                    {
+                      "destinationType": "time",
+                      "targetField": "Start time"
+                    },
+                    {
+                      "destinationType": "time",
+                      "targetField": "End time"
+                    }
+                  ],
+                  "fields": {}
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "organize",
+              "spec": {
+                "options": {
+                  "excludeByName": {
+                    "Duration": true,
+                    "Duration / 1000000": true,
+                    "Name": true,
+                    "name": true,
+                    "Span ID": true,
+                    "spanID": true,
+                    "Trace Service": true,
+                    "traceService": true,
+                    "traceIdHidden": true,
+                    "service.name": true,
+                    "sample": true,
+                    "session": true,
+                    "session_id": true,
+                    "turn": true,
+                    "traj": true,
+                    "type": true,
+                    "tools": true,
+                    "finish_reason": true,
+                    "content": true,
+                    "reward": true,
+                    "state_name": true,
+                    "sample_success_count": true,
+                    "sample_total_trajs": true,
+                    "state_lane_id": true
+                  },
+                  "includeByName": {},
+                  "indexByName": {},
+                  "renameByName": {}
+                }
+              }
+            }
+          ],
+          "queryOptions": {}
+        }
+      },
+      "vizConfig": {
+        "kind": "VizConfig",
+        "group": "state-timeline",
+        "version": "13.0.2",
+        "spec": {
+          "options": {
+            "alignValue": "left",
+            "annotations": {
+              "clustering": -1,
+              "multiLane": false
+            },
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "mergeValues": true,
+            "rowHeight": 0.9,
+            "showValue": "auto",
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "length": {
+                      "color": "red",
+                      "index": 0
+                    },
+                    "stop": {
+                      "color": "blue",
+                      "index": 1
+                    },
+                    "tool_calls": {
+                      "color": "yellow",
+                      "index": 2
+                    },
+                    "unknown": {
+                      "color": "text",
+                      "index": 3
+                    }
+                  }
+                }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "axisPlacement": "auto",
+                "fillOpacity": 70,
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineWidth": 0,
+                "spanNulls": false
+              }
+            },
+            "overrides": []
+          }
+        }
+      }
+    }
+  },
+  "details": {
+    "kind": "Panel",
+    "spec": {
+      "id": 327,
+      "title": "Turn details (tool / finish / response)",
+      "description": "Each row is one turn: tool, finish reason, and response content.",
+      "links": [],
+      "data": {
+        "kind": "QueryGroup",
+        "spec": {
+          "queries": [
+            {
+              "kind": "PanelQuery",
+              "spec": {
+                "query": {
+                  "kind": "DataQuery",
+                  "group": "tempo",
+                  "version": "v0",
+                  "datasource": {
+                    "name": "tempo"
+                  },
+                  "spec": {
+                    "limit": 500,
+                    "metricsQueryType": "range",
+                    "query": "{span.state_lane_id = \"sample=0/session=0/traj=0\" && resource.service.name=\"agent-loop-poc\"} | select(span.turn, span.state_name, span.type, span.tools, span.finish_reason, span.content, span.reward)",
+                    "queryType": "traceql",
+                    "serviceMapUseNativeHistograms": false,
+                    "spss": 100,
+                    "tableType": "spans"
+                  }
+                },
+                "refId": "A",
+                "hidden": false
+              }
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "organize",
+              "spec": {
+                "options": {
+                  "excludeByName": {
+                    "traceIdHidden": true,
+                    "spanID": true,
+                    "traceService": true,
+                    "traceName": true,
+                    "service.name": true,
+                    "state_lane_id": true,
+                    "name": true,
+                    "duration": true
+                  },
+                  "includeByName": {},
+                  "indexByName": {
+                    "time": 0,
+                    "turn": 1,
+                    "state_name": 2,
+                    "type": 3,
+                    "tools": 4,
+                    "finish_reason": 5,
+                    "reward": 6,
+                    "content": 7
+                  },
+                  "renameByName": {
+                    "time": "Start",
+                    "turn": "Turn",
+                    "state_name": "Finish",
+                    "type": "Type",
+                    "tools": "Tools",
+                    "finish_reason": "Finish",
+                    "reward": "Reward",
+                    "content": "Response"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "sortBy",
+              "spec": {
+                "options": {
+                  "fields": {},
+                  "sort": [
+                    {
+                      "field": "turn",
+                      "desc": false
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "queryOptions": {}
+        }
+      },
+      "vizConfig": {
+        "kind": "VizConfig",
+        "group": "table",
+        "version": "13.0.2",
+        "spec": {
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "enablePagination": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true
+          },
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "inspect": false
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Response"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 520
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

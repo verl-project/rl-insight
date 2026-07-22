@@ -17,7 +17,7 @@
 - ``BaseSample``: Protocol defining the six-method CRUD interface.
 - ``SampleRecord``: In-memory Pydantic model.
 - ``FileSampleRecord``: Filesystem-backed, one JSON per trajectory.
-- ``GrafanaRecord``: In-memory + Tempo/OTLP export for Grafana State Timeline.
+- ``GrafanaRecord``: Thin SampleRecord wrapper (deprecated; use ``tempo_export``).
 """
 
 from rl_insight.experimental.samples.base import BaseSample

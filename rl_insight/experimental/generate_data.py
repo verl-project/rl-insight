@@ -25,6 +25,9 @@ Usage::
 
     python generate_data.py /path/to/output --samples 8
     python generate_data.py /path/to/output --stream
+
+    # Optional Tempo mapping only (no Grafana Rebuild):
+    python generate_data.py /path/to/output --samples 8 --tempo
 """
 
 from __future__ import annotations
@@ -579,6 +582,19 @@ def main() -> None:
         action="store_true",
         help="Use in-memory SampleRecord instead of FileSampleRecord",
     )
+    parser.add_argument(
+        "--tempo",
+        action="store_true",
+        help=(
+            "After generate, map finished samples → Tempo "
+            "(requires rl-insight server / OTLP; does not Rebuild Grafana)"
+        ),
+    )
+    parser.add_argument(
+        "--tempo-endpoint",
+        default="http://127.0.0.1:4318/v1/traces",
+        help="OTLP/HTTP endpoint used with --tempo",
+    )
     args = parser.parse_args()
 
     if not args.no_clean and _Path(args.output_dir).exists():
@@ -610,6 +626,23 @@ def main() -> None:
 
     print("\nStart the viewer:")
     print(f"  python rl_insight/experimental/server.py {args.output_dir} --port 8080")
+
+    if args.tempo:
+        _export_to_tempo(builder.samples, endpoint=args.tempo_endpoint)
+
+
+def _export_to_tempo(samples: list[Any], *, endpoint: str) -> None:
+    """Post-hoc SampleRecord → Tempo mapper only (no dashboard Rebuild)."""
+    from rl_insight.experimental.tempo_export import (  # noqa: E402
+        SERVICE_NAME_VALUE,
+        export_samples_to_tempo,
+    )
+
+    result = export_samples_to_tempo(samples, endpoint=endpoint)
+    print("\nExported to Tempo (mapper).")
+    print(f"  service.name={SERVICE_NAME_VALUE}")
+    print(f"  run_id={result['run_id']}")
+    print(f"  spans={result['spans']}")
 
 
 if __name__ == "__main__":
