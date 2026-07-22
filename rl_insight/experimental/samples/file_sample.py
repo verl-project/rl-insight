@@ -72,9 +72,9 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
+
 
 from rl_insight.experimental.samples.sample import (
     SampleRecord,
@@ -139,33 +139,28 @@ class FileSampleRecord:
 
         ``trajectory_index`` is auto-incremented from existing trajectories
         in the same session.
-
-        Index updates are serialized with an exclusive file lock so concurrent
-        writers on the same sample do not clobber ``_index.json``.
         """
-        with self._index_lock():
-            index = self._read_index()
-            trajs = index.setdefault("trajectories", {})
-            si_key = str(session_index)
-            existing = list(trajs.get(si_key, []))
-            ti = len(existing)
-            if kwargs.get("trajectory_index") is not None:
-                ti = kwargs.pop("trajectory_index")
+        index = self._read_index()
+        trajs = index.setdefault("trajectories", {})
+        si_key = str(session_index)
+        existing = trajs.get(si_key, [])
+        ti = len(existing)
+        if kwargs.get("trajectory_index") is not None:
+            ti = kwargs.pop("trajectory_index")
 
-            traj = TrajectoryRecord.create(
-                uid=self.uid,
-                sample_index=index["sample_index"],
-                session_index=session_index,
-                trajectory_index=ti,
-                **kwargs,
-            )
-            self._write_traj(session_index, ti, traj)
+        traj = TrajectoryRecord.create(
+            uid=self.uid,
+            sample_index=index["sample_index"],
+            session_index=session_index,
+            trajectory_index=ti,
+            **kwargs,
+        )
+        self._write_traj(session_index, ti, traj)
 
-            if ti not in existing:
-                existing.append(ti)
-            trajs[si_key] = existing
-            self._write_index(index)
-            return traj
+        existing.append(ti)
+        trajs[si_key] = existing
+        self._write_index(index)
+        return traj
 
     def get_trajectory(
         self, session_index: int, trajectory_index: int
@@ -273,41 +268,16 @@ class FileSampleRecord:
             )
         return traj
 
-    @contextmanager
-    def _index_lock(self) -> Iterator[None]:
-        """Exclusive lock for ``_index.json`` read-modify-write updates."""
-        lock_path = self._dir / "_index.lock"
-        lock_path.touch(exist_ok=True)
-        with open(lock_path, "a+", encoding="utf-8") as lock_file:
-            try:
-                import fcntl
-
-                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-            except ImportError:
-                # Windows / non-POSIX: best-effort without flock.
-                pass
-            try:
-                yield
-            finally:
-                try:
-                    import fcntl
-
-                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
-                except ImportError:
-                    pass
-
     def _read_index(self) -> dict[str, Any]:
         if not self._index_path.exists():
             return {"sample_index": 0, "trajectories": {}}
-        return json.loads(self._index_path.read_text(encoding="utf-8"))
+        return json.loads(self._index_path.read_text())
 
     def _write_index(self, index: dict[str, Any]) -> None:
         self._atomic_write(self._index_path, index)
 
     def _read_traj(self, path: Path) -> TrajectoryRecord:
-        return TrajectoryRecord.model_validate(
-            json.loads(path.read_text(encoding="utf-8"))
-        )
+        return TrajectoryRecord.model_validate(json.loads(path.read_text()))
 
     def _write_traj(
         self, session_index: int, trajectory_index: int, traj: TrajectoryRecord

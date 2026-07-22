@@ -61,7 +61,7 @@
                       "spec": {
                         "limit": 100,
                         "metricsQueryType": "range",
-                        "query": "{span.state_lane_id != \"\" && resource.service.name !~ \"agent-loop-poc.*\"}",
+                        "query": "{span.state_lane_id != \"\"}",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 100,

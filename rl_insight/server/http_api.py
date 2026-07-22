@@ -283,20 +283,11 @@ def create_app(conf: DictConfig) -> FastAPI:
             ),
         )
 
-    @app.get("/agent-loop/rebuild")
-    def agent_loop_rebuild_page() -> Response:
-        """Optional manual Rebuild form (not the primary dashboard entry)."""
-        from rl_insight.experimental.agent_loop_rebuild_page import (  # noqa: PLC0415
-            REBUILD_PAGE_HTML,
-        )
-
-        return Response(content=REBUILD_PAGE_HTML, media_type="text/html; charset=utf-8")
-
     @app.post(f"{MonitorServer.API_PREFIX}/agent-loop/rebuild")
     def rebuild_agent_loop(
         payload: dict[str, Any] = Body(default_factory=dict),
     ) -> dict[str, Any]:
-        """JSON Rebuild API (used by scripts / optional form page)."""
+        """JSON Rebuild API (scripts / automation)."""
         start = _unix_seconds(payload.get("from"))
         end = _unix_seconds(payload.get("to"))
         run_id = payload.get("run_id")

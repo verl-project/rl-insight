@@ -26,7 +26,6 @@ __all__ = [
     "BaseSample",
     "TrajectoryBuilder",
     "FileSampleRecord",
-    "GrafanaRecord",
     "SampleRecord",
     "SampleTag",
     "SessionRecord",
@@ -44,10 +43,6 @@ _LAZY: dict[str, tuple[str, str]] = {
     "FileSampleRecord": (
         "rl_insight.experimental.samples.file_sample",
         "FileSampleRecord",
-    ),
-    "GrafanaRecord": (
-        "rl_insight.experimental.samples.grafana_record",
-        "GrafanaRecord",
     ),
     "SampleRecord": ("rl_insight.experimental.samples.sample", "SampleRecord"),
     "SampleTag": ("rl_insight.experimental.samples.sample", "SampleTag"),

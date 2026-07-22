@@ -125,6 +125,18 @@ def build_timeline_data(root_dir: Path) -> dict[str, Any]:
     }
 
 
+def _classify_tool(name: str) -> str:
+    """Map tool name to a display category for color coding."""
+    name_lower = name.lower()
+    if "bash" in name_lower:
+        return "Bash"
+    if "read" in name_lower:
+        return "Read"
+    if "edit" in name_lower or "write" in name_lower or "str_replace" in name_lower:
+        return "Edit"
+    return name
+
+
 # ---------------------------------------------------------------------------
 # HTTP server
 # ---------------------------------------------------------------------------

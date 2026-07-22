@@ -17,12 +17,10 @@
 - ``BaseSample``: Protocol defining the six-method CRUD interface.
 - ``SampleRecord``: In-memory Pydantic model.
 - ``FileSampleRecord``: Filesystem-backed, one JSON per trajectory.
-- ``GrafanaRecord``: Thin SampleRecord wrapper (deprecated; use ``tempo_export``).
 """
 
 from rl_insight.experimental.samples.base import BaseSample
 from rl_insight.experimental.samples.file_sample import FileSampleRecord
-from rl_insight.experimental.samples.grafana_record import GrafanaRecord
 from rl_insight.experimental.samples.sample import (
     SampleRecord,
     SampleTag,
@@ -39,7 +37,6 @@ from rl_insight.experimental.samples.sample import (
 __all__ = [
     "BaseSample",
     "FileSampleRecord",
-    "GrafanaRecord",
     "SampleRecord",
     "SampleTag",
     "SessionRecord",
