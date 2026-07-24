@@ -518,7 +518,7 @@ def stream(
         f"Streaming {total_trajs} trajectories across {sample_count} samples "
         f"(~{len(event_queue) * interval:.0f}s)."
     )
-    print("Open http://localhost:8080 to watch.\n")
+    print("Export with export_to_tempo.py, then Rebuild in Grafana.\n")
 
     for idx, (si, sess_i, ti, event) in enumerate(event_queue):
         uid = uids[si]
@@ -608,8 +608,9 @@ def main() -> None:
     else:
         generate(builder, args.samples, args.seed)
 
-    print("\nStart the viewer:")
-    print(f"  python rl_insight/experimental/server.py {args.output_dir} --port 8080")
+    print("\nTo visualize in Grafana:")
+    print("  python rl_insight/experimental/export_to_tempo.py --samples N")
+    print("  Then open agent_loop_trajectory and click Rebuild Agent Loop.")
 
 
 if __name__ == "__main__":

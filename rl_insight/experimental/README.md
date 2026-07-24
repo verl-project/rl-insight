@@ -1,44 +1,126 @@
 # experimental — 实验轨迹数据流水线（Demo）
 
-> **当前阶段：原型演示。** 这里展示的是一条完整的数据链路——从生成到处理再到展示。链路中的每个组件在后续都可以独立替换，但位于链路中间的事件协议和 Builder 层保持不变。
+> **当前阶段：原型演示。** 完整链路是「造数 → Builder → SampleRecord → TempoSpanMapper → Tempo → Rebuild → Grafana」。中间的事件协议与 Builder 层保持稳定；展示端是 Grafana Agent Loop（无 HTML Timeline）。
 
-## 整体架构
+---
+
+## 模块化设计
+
+按流水线拆成两块，职责分开、依赖单向：
+
+| 块 | 目录 / 文件 | 管什么 |
+|----|-------------|--------|
+| **源数据（#120）** | `samples/` + `builder.py` + `generate_data.py` | 事件 → `SampleRecord` 树；完整字段在这里 |
+| **可视化（本 PR）** | `agent_loop/` + `export_to_tempo.py` | 按协议子集进 Tempo，再 Rebuild 成 Grafana 嵌套面板 |
+
+**设计要点：**
+
+1. **模块化**：写 Tempo / 读 Tempo / 建树 / 写 Grafana / 编排各占一个模块，改一层不动另一层。
+2. **面向对象**：每阶段一个类（对齐 `TrajectoryBuilder`）——构造注入、公开方法少。
+3. **两套模型**：写路径用 `SampleRecord`；读路径只用 `TempoSpan`（Tempo 里的 attributes）。viz **不** import SampleRecord。
+4. **薄门面**：CLI / HTTP 调 `export_samples_to_tempo`、`rebuild_from_tempo` 等函数即可，不必绑死类名。
+
+### 模块怎么读
+
+按子包拆开：
+
+| 图上区域 | 对应目录 | 在干什么 |
+|----------|----------|----------|
+| **Source (#120)** | `samples/` + `builder` / `generate_data` | 造完整 `SampleRecord`；全文/token 等留在这里 |
+| **write/** | `agent_loop/write/` | 写路径：`TempoSpanMapper` 按显式 attribute 子集打 OTLP，带 `run_id` 进 Tempo |
+| **Tempo** | （外部） | span 存储 / 检索 |
+| **read/** | `agent_loop/read/` | 读路径零件：`TempoClient` 拉 span，`RunHierarchyBuilder` 建成 Run 树 |
+| **rebuild/** | `agent_loop/rebuild/` | 编排：Client → Hierarchy（含时间窗过滤）→ DashboardWriter |
+| **dashboard/** | `agent_loop/dashboard/` | 把树写成 Grafana runtime JSON（Turn details **无** Reward） |
+
+入口也画在边上：`export_to_tempo.py` → write；`http_api` Rebuild → rebuild。  
+底注：**只有 write/mapper 碰 SampleRecord**；可视化链路只用 `TempoSpan`。
 
 ```
-数据生成                      数据处理                        数据展示
-─────────────────────────────────────────────────────────────────────
-                                                           ┌─ HTML Timeline (当前)
-模拟脚本 ──┐                  ┌─ SampleRecord (内存)       │
-           ├── Builder ── BaseSample ─┤                     ├─ Grafana (后续)
-uni-agent ─┘     ▲           └─ FileSampleRecord (文件) ──┤
-                 │                  └─ GrafanaRecord (后续) ┘
-                 │
-           两种事件格式（稳定不变）
+数据生成                 数据处理                      可视化
+────────────────────────────────────────────────────────────────
+模拟脚本 ──┐             ┌─ SampleRecord (内存) ─┐
+           ├── Builder ──┤                       ├── write/TempoSpanMapper
+uni-agent ─┘     ▲       └─ FileSampleRecord ───┘         │
+                 │                                        ▼
+           两种事件格式（稳定）                          Tempo
+                                                          │
+                                                          ▼
+                         rebuild/（complete → filter_to_window → dashboard）
+                                                          │
+                                                          ▼
+                                      Grafana agent_loop_trajectory
+                                      （点 Rebuild；Turn details 无 Reward）
 ```
 
-整条链路分为三段，每段都可以独立演进：
+---
 
-| 阶段 | 当前 | 后续替换 |
-|------|------|----------|
-| **数据生成** | Python 脚本模拟 agent 推理过程 | 接入 uni-agent Gateway，在实际 rollout 时发出相同的事件 |
-| **数据处理** | Builder 接收事件，驱动 `SampleRecord`（内存）或 `FileSampleRecord`（文件）落盘 | 新增面向 rl-insight + Grafana 的 `BaseSample` 实现，将数据写入 Prometheus 或 JSON API |
-| **数据展示** | Timeline HTML 页面，轮询文件系统渲染时序图 | 切换到 Grafana 面板，读取新 `BaseSample` 实现暴露的指标 |
+## experimental 目录怎么分
 
-**链路中唯一设计为不变的，是 Builder 的事件协议。** 这个协议足够薄——只有两种 JSON 事件——但它足以表达 agent 推理的完整生命周期。数据生成端无论怎么换（模拟脚本、uni-agent、其他框架），数据处理端无论用什么存储（内存、文件、时序数据库），只要两边通过 Builder 对接，就不需要互相感知对方的存在。
+```
+experimental/
+  ├── README.md                 # 本文档
+  ├── __init__.py               # 包入口（懒导出 Builder / Sample 类型）
+  ├── builder.py                # TrajectoryBuilder：事件 → BaseSample
+  ├── generate_data.py          # 模拟造数 CLI / 库函数 generate()
+  ├── export_to_tempo.py        # CLI：造数 + Mapper → Tempo（不 Rebuild）
+  ├── samples/                  # 源数据层
+  └── agent_loop/               # 可视化 OO 包
+```
+
+### 根目录文件
+
+| 文件 | 功能 |
+|------|------|
+| `__init__.py` | 对外懒导出 `TrajectoryBuilder`、`SampleRecord` 等，避免 server 侧误拉重依赖 |
+| `builder.py` | **数据处理核心**：吃 `trajectory_begin` / `step` 两种事件，经 `BaseSample` 建树 |
+| `generate_data.py` | **造数**：模拟 agent 推理事件；可落盘或内存；也可被 `export_to_tempo` 调用 |
+| `export_to_tempo.py` | **导出入口**：`generate` → `TempoSpanMapper.export`；看盘需再点 Grafana Rebuild |
+| `README.md` | 架构、模块分配、用法（本文档） |
+
+### `samples/` — 源数据
+
+| 文件 | 功能 |
+|------|------|
+| `base.py` | `BaseSample` Protocol（六个 CRUD 方法） |
+| `sample.py` | `SampleRecord` 内存实现（Pydantic：Sample→Session→Traj→Step） |
+| `file_sample.py` | `FileSampleRecord` 文件实现（每 traj 一个 JSON） |
+| `__init__.py` | 导出上述类型 |
+
+完整字段（含 token、tool action/observation 等）留在这里；**不**全部进 Tempo。
+
+### `agent_loop/` — 可视化
+
+| 路径 | 类 / 角色 | 功能 |
+|------|-----------|------|
+| `constants.py` | — | `service.name`、Grafana uid/slug、默认 URL（包根共享） |
+| `__init__.py` | — | 包对外 API（`export_samples_to_tempo` / `rebuild_from_tempo` 等） |
+| `write/` | WRITE | SampleRecord → Tempo |
+| `write/mapper.py` | `TempoSpanMapper` | SampleRecord → OTLP span（写 Tempo；显式 attribute 子集） |
+| `read/` | READ | Tempo → hierarchy |
+| `read/client.py` | `TempoClient` / `TempoSpan` | HTTP 读 Tempo → span 列表 |
+| `read/hierarchy.py` | `RunHierarchyBuilder` | 分组 / 补全 / **按时间窗过滤** / 建 Run 树 |
+| `dashboard/` | Grafana | 树 → dashboard JSON |
+| `dashboard/writer.py` | `AgentLoopDashboardWriter` | 树 → Grafana 嵌套 JSON（读同目录 `panel_templates.json`） |
+| `dashboard/panel_templates.json` | — | overview / sequence / details 面板模板（details **无** Reward 列） |
+| `rebuild/` | 编排 | Client + Hierarchy + Writer |
+| `rebuild/service.py` | `AgentLoopRebuild` | fetch → complete → **filter_to_window** → 写盘（新 run 在前） |
+
+**依赖边界：** 只有 `write.mapper` 可碰 `samples`；`read` / `dashboard` / `rebuild` 不 import SampleRecord。
+
+---
 
 ## Builder：不变的中间层
 
-Builder 是整个流水线的核心枢纽。它接收两种事件，通过 `BaseSample` 接口驱动下游存储，对上游生成端和下游存储端都保持透明。
+Builder 接收两种事件，通过 `BaseSample` 驱动下游存储。**链路中唯一设计为不变的是这两种事件格式。**
 
 ### 两种事件类型
 
 **`trajectory_begin`** — 新轨迹开始
 
-新轨迹的创建时机有三种，对应 Gateway 层的实际行为：
-
-- `reason: "initial"` — session 刚创建，没有任何历史上下文
-- `reason: "split"` — 新请求的消息前缀与当前 chain 不匹配，旧 chain 固化，开新 chain
-- `reason: "budget"` — response 长度预算耗尽后被截断，在已有历史基础上继续
+- `reason: "initial"` — session 刚创建
+- `reason: "split"` — 消息前缀不匹配，开新 chain
+- `reason: "budget"` — 长度预算耗尽后继续
 
 ```json
 {
@@ -52,7 +134,7 @@ Builder 是整个流水线的核心枢纽。它接收两种事件，通过 `Base
 }
 ```
 
-必填字段只有 `uid`，其余都可以缺省。`trajectory_index` 不传时自动递增。
+必填只有 `uid`；`trajectory_index` 缺省时自动递增。
 
 **`step`** — 一步推理（模型思考 + 工具调用）
 
@@ -70,165 +152,56 @@ Builder 是整个流水线的核心枢纽。它接收两种事件，通过 `Base
 }
 ```
 
-`finish_reason` 字段控制 Builder 的状态流转：
+`finish_reason`：`tool_calls` 继续；`stop` / `length` 结束并前进 cursor。
 
-- `tool_calls` → 轨迹继续，cursor 停留在当前 trajectory
-- `stop` → 轨迹正常结束，cursor 前进到下一个 trajectory_index
-- `length` → 轨迹被截断结束，标记为 truncated，cursor 前进
-
-**典型时序**——一个 sample 的某次 session 的事件流：
-
-```
-trajectory_begin  (reason=initial)     ← 首次开始
-step  (finish_reason=tool_calls)       ← 工具调用，继续
-step  (finish_reason=tool_calls)       ← 继续
-step  (finish_reason=stop)             ← 正常结束
-
-trajectory_begin  (reason=split)       ← 不匹配，开新 chain
-step  (finish_reason=tool_calls)
-step  (finish_reason=length)           ← 被截断
-
-trajectory_begin  (reason=budget)      ← 截断后继续
-step  (finish_reason=stop)
-```
-
-### Builder 使用方式
-
-Builder 通过工厂函数解耦存储端，换存储只需换工厂：
+### 使用方式
 
 ```python
 from rl_insight.experimental import TrajectoryBuilder
+from rl_insight.experimental.samples import FileSampleRecord
 
-# 内存版
-builder = TrajectoryBuilder()
-
-# 文件版——只换这一行
+builder = TrajectoryBuilder()  # 内存 SampleRecord
+# 或：
 builder = TrajectoryBuilder(
     lambda uid, si: FileSampleRecord.create("/data", uid=uid, sample_index=si)
 )
 
-# 后续 Grafana 版——也是换这一行
-builder = TrajectoryBuilder(
-    lambda uid, si: GrafanaRecord.create("http://prom:9090", uid=uid, sample_index=si)
-)
-
-# 接收事件
 builder.feed({"event": "trajectory_begin", "uid": "task-0001"})
 builder.feed({"event": "step", "uid": "task-0001", ...})
-
-# 批量加载
-builder.feed_jsonl("events.jsonl")
 samples = builder.samples
 ```
 
-## BaseSample 接口
+可视化：对已有树用 Mapper / `export_to_tempo.py` 写 Tempo，不是再实现一个 `BaseSample`。
 
-`BaseSample` 是一个 Python Protocol，定义了六个方法。任何对象只要实现了这六个方法，就能作为 Builder 的下游目标——不需要继承任何基类，不依赖任何框架。
-
-| 方法 | 用途 |
+| 场景 | 推荐 |
 |------|------|
-| `new_trajectory(session_index)` | 在指定 session 下创建一条新轨迹，返回轨迹对象 |
-| `get_trajectory(session_index, traj_idx)` | 读取一条轨迹，不存在时返回 None |
-| `add_step(session_index, traj_idx, step)` | 向轨迹追加一个推理 step |
-| `finish_trajectory(session_index, traj_idx, reason, status)` | 标记轨迹结束，记录退出原因和状态 |
-| `set_trajectory_reward(session_index, traj_idx, score)` | 设置轨迹的 reward 分数 |
-| `set_trajectory_token_data(session_index, traj_idx, ...)` | 设置 token 级别的数据（prompt_ids、response_mask 等） |
+| 实验脚本、分析 | `SampleRecord` |
+| 分布式并发写 | `FileSampleRecord` |
+| 进 Grafana | `agent_loop.write.mapper` → Tempo |
 
-这是一个极简的 CRUD 接口。它不预设存储方式，不关心并发模型，也不包含任何业务逻辑。所有业务语义（何时创建轨迹、何时结束、如何从 step 推断 finish_reason）都在 Builder 层完成。
+---
 
-## 两种 BaseSample 实现
+## 怎么跑
 
-### SampleRecord — 内存版
-
-数据完全驻留在 Pydantic 模型字段中。适合单进程分析、实验 JSONL 加载、以及任何需要快速随机访问的场景。
-
-内部层级结构与 uni-agent 保持一致：
-
-```
-SampleRecord          ← 一个 RL 训练样本
-  └── SessionRecord   ← 对应一次 GatewaySession（一次 rollout 尝试）
-        └── TrajectoryRecord  ← 对应一条 chain / trajectory
-              └── Step        ← 一次模型调用 + 工具执行
-                    └── ToolResult  ← 一次工具调用结果
-```
-
-- **Step** 对应 uni-agent 的 `StepOutput`：包含 `step_idx`、`thought`、`response`、`tool_results`、`done`、`exit_reason`
-- **ToolResult** 对应 uni-agent 的 `ToolResult`：包含 `tool_call_id`、`name`、`action`、`observation`、`status`、`execution_time`
-- **TrajectoryRecord** 同时承载 token 级别数据（对应 `gateway.types.Trajectory`）和 step 列表
-
-序列化方式为 Pydantic 的 `model_dump()` / `model_validate()`，仅支持 JSON 格式。
-
-对外入口是 `SampleRecord.create(uid=..., sample_index=...)`，所有轨迹操作通过 `SampleRecord` 的方法完成，外部不直接操作 `SessionRecord` 或 `TrajectoryRecord`。
-
-### FileSampleRecord — 文件版
-
-每条轨迹存为一个独立的 JSON 文件，无内存常驻状态。适合分布式场景：多个进程写同一个 sample 的不同轨迹不会冲突。
-
-目录组织：
-
-```
-{root_dir}/{uid}/
-  ├── _index.json       # 索引：记录 sample_index 和已有的 (session, trajectory) 列表
-  ├── t_0_0.json        # session 0, trajectory 0（完整的 TrajectoryRecord JSON）
-  ├── t_0_1.json        # session 0, trajectory 1
-  └── t_1_0.json        # session 1, trajectory 0
-```
-
-关键设计：
-
-- **一个轨迹一个文件**：不同 `(session_index, trajectory_index)` 的组合对应不同文件，写操作天然隔离
-- **原子写入**：先写临时文件 → fsync → rename，不会读到半写状态
-- **轻量索引**：`_index.json` 记录轨迹列表，读操作不需要扫描目录
-- **按需加载**：调用 `load()` 方法可以把磁盘上所有轨迹批量读入 `SampleRecord`，用于聚合分析
-
-由于文件系统需要定位到具体目录，创建时必须提供 `uid` 参数（这是 `FileSampleRecord` 与 `SampleRecord` 在接口上的唯一差异：`SampleRecord` 的 `uid` 是字段，`FileSampleRecord` 的 `uid` 同时是路径组成部分）。
-
-### 选型指南
-
-| 场景 | 推荐实现 |
-|------|----------|
-| 实验脚本、notebook 分析、JSONL 加载 | `SampleRecord` |
-| 分布式 rollout、多进程并发写入 | `FileSampleRecord` |
-| 后续 rl-insight 指标采集 | 新的 `BaseSample` 实现（如 GrafanaRecord） |
-
-## 数据生成（当前：模拟脚本）
+**只造数（可落盘）：**
 
 ```bash
 python rl_insight/experimental/generate_data.py /tmp/my-trajs --stream
+python rl_insight/experimental/generate_data.py --memory --samples 4
 ```
 
-模拟 12 个编程任务（如修复 bug、优化查询、重构中间件）的 agent 推理过程。每条轨迹包含 2-7 个 step，使用 Bash / Read / Edit / finish 等工具，约 35% 的样本最终 reward=1。
-
-`--stream` 模式下每秒生成一条轨迹，约一分钟完成全部 60 条左右的轨迹。默认每次启动前清空目标目录（`--no-clean` 可跳过）。
-
-**后续替换方向**：在 uni-agent 的 Gateway 层，每次 `trajectory_begin` 和 `step` 发生时发出相同格式的 JSON 事件，喂给 Builder 即可。生成端不需要感知下游是内存、文件还是 Grafana。
-
-## 数据展示（当前：Timeline HTML）
+**造数并导出 Tempo：**
 
 ```bash
-python rl_insight/experimental/server.py /tmp/my-trajs --port 8080
+python rl_insight/experimental/export_to_tempo.py --samples 2 --seed 42
 ```
 
-浏览器打开 `http://localhost:8080`，提供：
+**看盘：**
 
-- 样本级总览：session 数、总 turn 数、总轨迹数、成功数
-- 时序色块图：每个 step 用颜色编码工具类型（Bash 绿 / Read 青 / Edit 黄 / LLM 蓝），被截断的轨迹带红色边框
-- Session 切换：每个 sample 的多轮 rollout 可以分 tab 查看
-- 交互细节：Hover 显示 step 详情，点击展开完整思考内容
-- 自动刷新：每 5 秒轮询文件系统，适合配合 `--stream` 实时观察生成进度
+1. 启动 rl-insight server（Tempo + Grafana）
+2. 跑 `export_to_tempo.py`
+3. 打开 Grafana `agent_loop_trajectory`，点 **Rebuild Agent Loop**
 
-**后续替换方向**：Grafana 面板读取新 `BaseSample` 实现暴露的指标，不再轮询文件系统。
+Rebuild 调 `rebuild_from_tempo`：拉 Tempo → 分组/补全 → **只保留与 Grafana `from`/`to` 时间重叠的 span/run**（窗外 run 不建树）→ 新 run 在前 → 写 runtime dashboard JSON。
 
-## 目录结构
-
-```
-experimental/
-  ├── README.md           # 本文档
-  ├── __init__.py         # 公开导出
-  ├── base.py             # BaseSample Protocol 定义（六个方法）
-  ├── sample.py           # SampleRecord 内存版（Pydantic 实现）
-  ├── file_sample.py      # FileSampleRecord 文件版
-  ├── builder.py          # TrajectoryBuilder 事件驱动适配层
-  ├── generate_data.py    # 模拟数据生成脚本
-  └── server.py           # Timeline HTML 可视化服务
-```
+这样树上出现的 Run 都能在当前时间窗里查到时序数据，避免「有树壳、面板报 Data does not have a time field」。

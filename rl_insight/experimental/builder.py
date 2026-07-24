@@ -17,6 +17,9 @@
 Accepts two event types and drives a ``BaseSample`` lifecycle internally.
 Works with any ``BaseSample`` implementation (in-memory or filesystem).
 
+To visualize, map ``SampleRecord`` trees via ``TempoSpanMapper`` /
+``export_to_tempo.py`` into Tempo, then Rebuild the Grafana Agent Loop dashboard.
+
 Events::
 
     trajectory_begin   → create a new trajectory in the target session

@@ -8,6 +8,19 @@ distributor:
         http:
           endpoint: 0.0.0.0:4318
 
+ingester:
+  # Cut blocks quickly so local backend search can see recent demo exports.
+  max_block_duration: 1m
+  complete_block_timeout: 2h
+  flush_all_on_shutdown: true
+
+query_frontend:
+  search:
+    # Keep trajectory demo windows searchable via ingester + local blocks.
+    query_ingesters_until: 2h
+    query_backend_after: 30m
+    max_duration: 168h
+
 storage:
   trace:
     backend: local
@@ -15,3 +28,4 @@ storage:
       path: /tmp/tempo/traces
     wal:
       path: /tmp/tempo/wal
+    blocklist_poll: 10s

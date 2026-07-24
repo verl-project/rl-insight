@@ -12,56 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Experiment data structures for RL training analysis.
+"""Experiment trajectory pipeline (PR#120).
 
-``SampleRecord`` is the primary data model. ``TrajectoryBuilder`` is the
-event-driven adapter that builds samples from ``trajectory_begin`` and
-``step`` events.
-
-Hierarchy::
-
-    TrajectoryBuilder      ← ingests events
-      └── SampleRecord     ← one RL dataset sample
-            └── SessionRecord   ← one GatewaySession (rollout attempt)
-                  └── TrajectoryRecord  ← one chain / trajectory
-                        └── Step        ← one model-call + tool-execution cycle
-                              └── ToolResult  ← one tool call result
-
-Quick start::
-
-    from rl_insight.experimental import TrajectoryBuilder
-
-    # Build from events
-    builder = TrajectoryBuilder()
-    builder.feed({"event": "trajectory_begin", "uid": "...", ...})
-    builder.feed({"event": "step", "uid": "...", ...})
-    samples = builder.samples
-
-    # Or load a JSONL directly
-    builder = TrajectoryBuilder.from_jsonl("events.jsonl")
-
-    # Query the built sample
-    sample = builder.get("uid")
-    traj = sample.get_trajectory(0, 0)
-    traj.num_turns           # int
-    traj.total_tool_calls    # int
+Imports are lazy so the py3.9 ``rl-insight-server`` can load Agent Loop Rebuild
+helpers without evaluating SampleRecord type annotations.
 """
 
-from rl_insight.experimental.samples import (
-    BaseSample,
-    FileSampleRecord,
-    SampleRecord,
-    SampleTag,
-    SessionRecord,
-    SessionTag,
-    Step,
-    ToolResult,
-    ToolStatus,
-    TrajectoryRecord,
-    TrajectoryTag,
-    TrainingStatus,
-)
-from rl_insight.experimental.builder import TrajectoryBuilder
+from __future__ import annotations
+
+from typing import Any
 
 __all__ = [
     "BaseSample",
@@ -78,3 +37,38 @@ __all__ = [
     "TrajectoryTag",
     "TrainingStatus",
 ]
+
+_LAZY: dict[str, tuple[str, str]] = {
+    "BaseSample": ("rl_insight.experimental.samples.base", "BaseSample"),
+    "FileSampleRecord": (
+        "rl_insight.experimental.samples.file_sample",
+        "FileSampleRecord",
+    ),
+    "SampleRecord": ("rl_insight.experimental.samples.sample", "SampleRecord"),
+    "SampleTag": ("rl_insight.experimental.samples.sample", "SampleTag"),
+    "SessionRecord": ("rl_insight.experimental.samples.sample", "SessionRecord"),
+    "SessionTag": ("rl_insight.experimental.samples.sample", "SessionTag"),
+    "Step": ("rl_insight.experimental.samples.sample", "Step"),
+    "ToolResult": ("rl_insight.experimental.samples.sample", "ToolResult"),
+    "ToolStatus": ("rl_insight.experimental.samples.sample", "ToolStatus"),
+    "TrajectoryRecord": (
+        "rl_insight.experimental.samples.sample",
+        "TrajectoryRecord",
+    ),
+    "TrajectoryTag": ("rl_insight.experimental.samples.sample", "TrajectoryTag"),
+    "TrainingStatus": ("rl_insight.experimental.samples.sample", "TrainingStatus"),
+    "TrajectoryBuilder": ("rl_insight.experimental.builder", "TrajectoryBuilder"),
+}
+
+
+def __getattr__(name: str) -> Any:
+    target = _LAZY.get(name)
+    if target is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_name, attr = target
+    import importlib
+
+    mod = importlib.import_module(module_name)
+    value = getattr(mod, attr)
+    globals()[name] = value
+    return value
