@@ -97,8 +97,30 @@ RL-Insight manages three open-source services locally on Linux:
 | `metric_gauge(name, value, documentation="", **labels)` | Record the latest value for a gauge. |
 | `metric_histogram(name, value, documentation="", **labels)` | Add one sample to a histogram. |
 | `trace_state(state_name, state_lane_id=None, **labels)` | Record a named RL state interval. |
-| `trace_op(name=None, extra_labels=None, **static_labels)` | Decorate a synchronous function and emit one duration span per call. |
+| `trace_op(name=None, extra_labels=None, **static_labels)` | Decorate a sync or async function and emit one duration span per call. |
+| `trace_span(name, start_time_ns, end_time_ns, attributes)` | Report one completed span directly, with a caller-supplied name, epoch-ns times, and attributes. |
 | `finish()` | Reset in-process monitor state. |
+
+`trace_op` times the wrapped call and reports through `trace_span`. Use `trace_span`
+directly when you already have a finished span — its own `name`, start/end times as
+Unix epoch nanoseconds, and attributes:
+
+```python
+import time
+
+start = time.time_ns()
+# ... work already measured elsewhere ...
+insight.trace_span(
+    name="tool_calls",
+    start_time_ns=start,
+    end_time_ns=time.time_ns(),
+    attributes={"run_id": run_id, "turn": "5"},
+)
+```
+
+Attribute values must be OpenTelemetry scalars (`str`, `bool`, `int`, `float`) or
+homogeneous sequences of them; RL-Insight does not coerce or JSON-encode them. The
+name, times, and attributes are forwarded unchanged through the hub to Tempo.
 
 Configuration can be passed to `insight.init(config=...)` or through environment variables:
 

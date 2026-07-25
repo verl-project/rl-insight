@@ -51,18 +51,21 @@ def _wait_for_json(
 ) -> dict[str, Any]:
     deadline = time.monotonic() + READY_TIMEOUT_SECONDS
     last_error: Exception | None = None
+    last_payload: dict[str, Any] | None = None
     while time.monotonic() < deadline:
         try:
             response = requests.get(url, params=params, timeout=3)
             response.raise_for_status()
             payload = response.json()
+            last_payload = payload
             if ready(payload):
                 return payload
         except (requests.RequestException, ValueError) as exc:
             last_error = exc
         time.sleep(1)
     raise AssertionError(
-        f"{url} was not ready within {READY_TIMEOUT_SECONDS}s: {last_error}"
+        f"{url} was not ready within {READY_TIMEOUT_SECONDS}s: "
+        f"last_error={last_error} last_payload={last_payload}"
     )
 
 
@@ -186,3 +189,105 @@ def test_monitor_trace_should_be_queryable_when_trace_is_reported(
 
     assert trace_name in serialized_trace
     assert TEST_RUN_ID in serialized_trace
+
+
+def test_monitor_direct_span_should_be_queryable_when_reported_via_trace_span(
+    monitor_stack: dict[str, str],
+) -> None:
+    """Report a span through the direct ``trace_span`` interface and verify Tempo."""
+    span_name = "monitor_e2e_direct_span"
+    start_time_ns = time.time_ns()
+    insight.trace_span(
+        name=span_name,
+        start_time_ns=start_time_ns,
+        end_time_ns=start_time_ns + 1_000_000,
+        attributes={"test_run": TEST_RUN_ID, "run_id": "direct-1", "turn": "0"},
+    )
+
+    search = _wait_for_json(
+        f"{monitor_stack['tempo']}/api/search",
+        params={"q": f'{{ name = "{span_name}" && span.test_run = "{TEST_RUN_ID}" }}'},
+        ready=lambda data: bool(data.get("traces")),
+    )
+    trace_id = search["traces"][0]["traceID"]
+    trace = _wait_for_json(f"{monitor_stack['tempo']}/api/traces/{trace_id}")
+    serialized_trace = json.dumps(trace)
+
+    assert span_name in serialized_trace
+    assert "direct-1" in serialized_trace
+    # trace_span does not add the compat-only segment marker.
+    assert "monitor.trace_segment" not in serialized_trace
+
+
+def test_monitor_trajectory_span_should_forward_contract_fields_transparently(
+    monitor_stack: dict[str, str],
+) -> None:
+    """A contract-ready trajectory span is forwarded to Tempo unchanged."""
+    span_name = "monitor_e2e_trajectory_tool_calls"
+    run_id = "550e8400-e29b-41d4-a716-446655440000"
+    start_time_ns = time.time_ns()
+    attributes = {
+        "test_run": TEST_RUN_ID,
+        "run_id": run_id,
+        "state_lane_id": run_id,
+        "sample": "3",
+        "session": "2",
+        "traj": "1",
+        "turn": "5",
+        "uid": "task-0098",
+        "monitor.trace_source": "trajectory",
+        "state_name": span_name,
+        "finish_reason": "tool_calls",
+        "type": "tool",
+        "tools": json.dumps(["搜索", "calculator"], ensure_ascii=False),
+        "content": "先检索相关资料，再核对计算结果。",
+        "trajectory.timing_source": "receive_time",
+    }
+    insight.trace_span(
+        name=span_name,
+        start_time_ns=start_time_ns,
+        end_time_ns=start_time_ns + 1_200_000_000,
+        attributes=attributes,
+    )
+
+    search = _wait_for_json(
+        f"{monitor_stack['tempo']}/api/search",
+        params={"q": f'{{ name = "{span_name}" && span.test_run = "{TEST_RUN_ID}" }}'},
+        ready=lambda data: bool(data.get("traces")),
+    )
+    trace_id = search["traces"][0]["traceID"]
+    trace = _wait_for_json(f"{monitor_stack['tempo']}/api/traces/{trace_id}")
+    serialized_trace = json.dumps(trace, ensure_ascii=False)
+
+    # Identity, source, and non-ASCII tool names survive transparent forwarding.
+    assert run_id in serialized_trace
+    assert "task-0098" in serialized_trace
+    assert "搜索" in serialized_trace
+
+
+def test_monitor_same_name_spans_should_stay_separate_when_reported_twice(
+    monitor_stack: dict[str, str],
+) -> None:
+    """Two spans sharing a name are stored as two independent spans, not merged."""
+    span_name = "monitor_e2e_repeated_span"
+    for occurrence in range(2):
+        start_time_ns = time.time_ns()
+        insight.trace_span(
+            name=span_name,
+            start_time_ns=start_time_ns,
+            end_time_ns=start_time_ns + 1_000_000,
+            attributes={"test_run": TEST_RUN_ID, "occurrence": str(occurrence)},
+        )
+
+    search = _wait_for_json(
+        f"{monitor_stack['tempo']}/api/search",
+        params={
+            "q": f'{{ name = "{span_name}" && span.test_run = "{TEST_RUN_ID}" }}',
+            "limit": "20",
+        },
+        # No order guarantee; wait until both independent spans are visible.
+        ready=lambda data: len(data.get("traces", [])) >= 2,
+    )
+
+    trace_ids = {trace["traceID"] for trace in search["traces"]}
+    assert len(trace_ids) >= 2
