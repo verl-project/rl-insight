@@ -94,4 +94,4 @@ rl-insight server targets add cpu_targets.yaml
 
 `targets add` 只注册 target 并 reload Prometheus，不管理 node_exporter 的生命周期。注册成功后，在 RL-Insight Grafana 看板中查看 CPU、实际内存用量和网络收发带宽。
 
-![RL-Insight CPU 硬件指标](https://github.com/mengchengTang/verl-data/blob/master/cpu%E6%8C%87%E6%A0%87.png?raw=1)
+![RL-Insight CPU 硬件指标](../../../assets/monitor/hardware/cpu_metrics.png)

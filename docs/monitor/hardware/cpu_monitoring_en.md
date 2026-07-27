@@ -94,4 +94,4 @@ rl-insight server targets add cpu_targets.yaml
 
 `targets add` only registers targets and reloads Prometheus; it does not manage node_exporter. After registration, view CPU, actual memory usage, and network throughput in the RL-Insight Grafana dashboards.
 
-![RL-Insight CPU hardware metrics](https://github.com/mengchengTang/verl-data/blob/master/cpu%E6%8C%87%E6%A0%87.png?raw=1)
+![RL-Insight CPU hardware metrics](../../../assets/monitor/hardware/cpu_metrics.png)

@@ -106,4 +106,4 @@ rl-insight server targets add npu_targets.yaml
 
 `targets add` 只注册 target 并 reload Prometheus，不管理 NPU Exporter 的生命周期。注册成功后，在 RL-Insight Grafana 看板中查看 NPU 利用率、显存、功耗、温度和网络吞吐等指标。
 
-![RL-Insight NPU 硬件指标](https://github.com/mengchengTang/verl-data/blob/master/npu%E6%8C%87%E6%A0%87.png?raw=1)
+![RL-Insight NPU 硬件指标](../../../assets/monitor/hardware/npu_metrics.png)
