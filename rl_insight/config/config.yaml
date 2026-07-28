@@ -37,8 +37,8 @@ tempo:
 grafana:
   binary_path: ""
   enable: true
-  min_version: 13.0.0
-  install_version: 13.0.0
+  min_version: 13.1.0
+  install_version: 13.1.0
   port: 3000
   config_file: ${service_root}/services/grafana/grafana.ini
   provisioning_dir: ${service_root}/services/grafana/provisioning

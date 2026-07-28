@@ -429,6 +429,14 @@ def build_trajectory_events(
                 is_last=is_last_step,
             )
         )
+        if is_last_step:
+            # `reward` was already computed above (decides whether the
+            # scenario "succeeds"); previously it was only used for the
+            # `finish` tool's observation text and never actually reached
+            # the trajectory, so reward_score/success were unrecoverable
+            # downstream. Attach it to the terminal event so the builder can
+            # persist it -- no new value is invented here.
+            events[-1]["reward"] = reward
 
     return events
 

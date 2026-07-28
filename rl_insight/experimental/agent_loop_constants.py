@@ -23,4 +23,3 @@ GRAFANA_DASHBOARD_SLUG = "agent-loop-trajectory"
 GRAFANA_DASHBOARD_TITLE = "agent_loop_trajectory"
 
 DEFAULT_GRAFANA_BASE = "http://127.0.0.1:3000"
-DEFAULT_REBUILD_API_BASE = "http://127.0.0.1:18080"

@@ -80,7 +80,7 @@ def wait_for_otlp(endpoint: str, *, timeout_s: float = 60.0) -> None:
     )
 
 
-def _coerce_sample(sample: Any) -> SampleRecord:
+def coerce_sample(sample: Any) -> SampleRecord:
     """Accept SampleRecord or PR120 FileSampleRecord / thin wrappers."""
     if isinstance(sample, SampleRecord):
         return sample
@@ -97,6 +97,10 @@ def _coerce_sample(sample: Any) -> SampleRecord:
     )
 
 
+# Back-compat alias.
+_coerce_sample = coerce_sample
+
+
 def _step_type(step: Step) -> str:
     return "tool" if step.tool_results else "llm"
 
@@ -108,12 +112,14 @@ def _tool_names(step: Step) -> list[str]:
 def _finish_reason_for_step(
     traj: TrajectoryRecord, step: Step, *, is_last: bool
 ) -> str:
-    if not is_last:
-        return step.exit_reason or "tool_calls"
     if step.exit_reason:
         return step.exit_reason
-    tag_fr = getattr(getattr(traj, "tag", None), "finish_reason", "") or ""
-    return tag_fr or "stop"
+    if is_last:
+        tag_fr = getattr(getattr(traj, "tag", None), "finish_reason", "") or ""
+        if tag_fr:
+            return tag_fr
+    # Keep missing upstream data explicit instead of inventing a business state.
+    return "unknown"
 
 
 def samples_to_span_dicts(
@@ -138,8 +144,6 @@ def samples_to_span_dicts(
             sess_i = int(session.session_index)
             for traj in session.trajectories:
                 ti = int(traj.trajectory_index)
-                reward = traj.reward_score
-                reward_s = "" if reward is None else str(reward)
                 steps = list(traj.steps)
                 for idx, step in enumerate(steps):
                     start_ns = clock
@@ -161,9 +165,7 @@ def samples_to_span_dicts(
                         "type": _step_type(step),
                         "tools": json.dumps(_tool_names(step), ensure_ascii=False),
                         "content": (step.thought or step.response or "")[:500],
-                        "reward": reward_s,
                         "monitor.trace_segment": "state_interval",
-                        "state_name": name,
                         "finish_reason": name,
                     }
                     out.append(
@@ -183,7 +185,7 @@ def compress_span_times(
     window_s: float = 1800.0,
     lag_s: float = 60.0,
 ) -> list[dict[str, Any]]:
-    """Fit spans into ``[now - lag - window, now - lag]`` for Tempo searchability."""
+    """Fit spans before ``now - lag`` without expanding already-short data."""
     if not spans or window_s <= 0:
         return spans
     starts = [item["start_time_ns"] for item in spans]
@@ -195,8 +197,13 @@ def compress_span_times(
         return spans
 
     target_end_ns = int((time.time() - lag_s) * 1_000_000_000)
-    target_start_ns = target_end_ns - int(window_s * 1_000_000_000)
-    scale = (target_end_ns - target_start_ns) / orig_span
+    window_ns = int(window_s * 1_000_000_000)
+    scale = min(1.0, window_ns / orig_span)
+    # Anchor the newest span at target_end. The old implementation always
+    # filled the complete window, which stretched a three-minute fixture over
+    # thirty minutes and pushed its first sessions outside Grafana's default
+    # last-15-minutes range.
+    target_start_ns = target_end_ns - int(orig_span * scale)
 
     out: list[dict[str, Any]] = []
     for item in spans:

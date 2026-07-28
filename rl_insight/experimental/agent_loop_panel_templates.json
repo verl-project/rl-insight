@@ -126,6 +126,7 @@
                     "Trace Service": true,
                     "traceService": true,
                     "traceIdHidden": true,
+                    "traceName": true,
                     "service.name": true,
                     "sample": true,
                     "session": true,
@@ -134,16 +135,16 @@
                     "traj": true,
                     "type": true,
                     "tools": true,
-                    "finish_reason": true,
                     "content": true,
-                    "reward": true,
-                    "state_name": true,
+                    "run_id": true,
                     "sample_success_count": true,
                     "sample_total_trajs": true
                   },
                   "includeByName": {},
                   "indexByName": {},
-                  "renameByName": {}
+                  "renameByName": {
+                    "finish_reason": "State"
+                  }
                 }
               }
             },
@@ -371,6 +372,7 @@
                     "Trace Service": true,
                     "traceService": true,
                     "traceIdHidden": true,
+                    "traceName": true,
                     "service.name": true,
                     "sample": true,
                     "session": true,
@@ -379,17 +381,17 @@
                     "traj": true,
                     "type": true,
                     "tools": true,
-                    "finish_reason": true,
                     "content": true,
-                    "reward": true,
-                    "state_name": true,
+                    "run_id": true,
                     "sample_success_count": true,
                     "sample_total_trajs": true,
                     "state_lane_id": true
                   },
                   "includeByName": {},
                   "indexByName": {},
-                  "renameByName": {}
+                  "renameByName": {
+                    "finish_reason": "State"
+                  }
                 }
               }
             }
@@ -482,8 +484,8 @@
     "kind": "Panel",
     "spec": {
       "id": 327,
-      "title": "Turn details (tool / finish / response)",
-      "description": "Each row is one turn: tool, finish reason, and response content.",
+      "title": "Turn details",
+      "description": "Each row is one turn: type, tools, finish reason, and content (thought, or response if thought is empty).",
       "links": [],
       "data": {
         "kind": "QueryGroup",
@@ -502,7 +504,7 @@
                   "spec": {
                     "limit": 500,
                     "metricsQueryType": "range",
-                    "query": "{span.state_lane_id = \"sample=0/session=0/traj=0\" && resource.service.name=\"agent-loop-poc\"} | select(span.turn, span.state_name, span.type, span.tools, span.finish_reason, span.content, span.reward)",
+                    "query": "{span.state_lane_id = \"sample=0/session=0/traj=0\" && resource.service.name=\"agent-loop-poc\"} | select(span.turn, span.type, span.tools, span.finish_reason, span.content)",
                     "queryType": "traceql",
                     "serviceMapUseNativeHistograms": false,
                     "spss": 100,
@@ -526,6 +528,7 @@
                     "traceService": true,
                     "traceName": true,
                     "service.name": true,
+                    "run_id": true,
                     "state_lane_id": true,
                     "name": true,
                     "duration": true
@@ -534,23 +537,34 @@
                   "indexByName": {
                     "time": 0,
                     "turn": 1,
-                    "state_name": 2,
-                    "type": 3,
-                    "tools": 4,
-                    "finish_reason": 5,
-                    "reward": 6,
-                    "content": 7
+                    "type": 2,
+                    "tools": 3,
+                    "finish_reason": 4,
+                    "content": 5
                   },
                   "renameByName": {
                     "time": "Start",
                     "turn": "Turn",
-                    "state_name": "Finish",
                     "type": "Type",
                     "tools": "Tools",
-                    "finish_reason": "Finish",
-                    "reward": "Reward",
-                    "content": "Response"
+                    "finish_reason": "Finish reason",
+                    "content": "Content"
                   }
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "convertFieldType",
+              "spec": {
+                "options": {
+                  "conversions": [
+                    {
+                      "destinationType": "number",
+                      "targetField": "turn"
+                    }
+                  ],
+                  "fields": {}
                 }
               }
             },
@@ -617,12 +631,16 @@
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Response"
+                  "options": "Content"
                 },
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 520
+                    "value": 480
+                  },
+                  {
+                    "id": "custom.inspect",
+                    "value": true
                   }
                 ]
               }

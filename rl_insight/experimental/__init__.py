@@ -14,8 +14,8 @@
 
 """Experiment trajectory pipeline (PR#120).
 
-Imports are lazy so the py3.9 ``rl-insight-server`` can load Agent Loop Rebuild
-helpers without evaluating SampleRecord type annotations.
+Imports are lazy so the py3.9 ``rl-insight-server`` can load Agent Loop helpers
+without evaluating SampleRecord type annotations.
 """
 
 from __future__ import annotations

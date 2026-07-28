@@ -21,12 +21,11 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 
 import requests
 import uvicorn
-from fastapi import Body, FastAPI, HTTPException, Query, Request, Response, status
-from fastapi.responses import HTMLResponse
+from fastapi import Body, FastAPI, HTTPException, status
 from omegaconf import DictConfig, OmegaConf
 
 from ..utils.constants import MonitorEnv, MonitorServer, PrometheusScrape
@@ -35,19 +34,6 @@ from ..utils.prometheus_utils import PrometheusTarget, PrometheusTargetStore
 from .network import local_addresses
 
 logger = logging.getLogger(__name__)
-
-
-def _unix_seconds(raw: Any) -> Optional[int]:
-    """Accept unix seconds or Grafana epoch milliseconds."""
-    if raw is None or raw == "":
-        return None
-    try:
-        value = int(float(str(raw)))
-    except (TypeError, ValueError):
-        return None
-    if value > 10**12:
-        value //= 1000
-    return value
 
 
 def server_url() -> str:
@@ -190,128 +176,6 @@ def create_app(conf: DictConfig) -> FastAPI:
                 exc,
             )
         return {"status": "ok", "prometheus_reloaded": reloaded, **result}
-
-    def _do_rebuild(
-        *,
-        start: Optional[int],
-        end: Optional[int],
-        run_id: Optional[str] = None,
-        gap_s: float = 300.0,
-        write_bundled: bool = False,
-    ) -> dict[str, Any]:
-        from rl_insight.experimental.agent_loop_constants import (  # noqa: PLC0415
-            SERVICE_NAME_VALUE,
-        )
-        from rl_insight.experimental.agent_loop_rebuild import (  # noqa: PLC0415
-            rebuild_from_tempo,
-        )
-
-        tempo_url = (
-            f"http://127.0.0.1:"
-            f"{int(OmegaConf.select(conf, 'tempo.query_port', default=3200))}"
-        )
-        return rebuild_from_tempo(
-            tempo_url=tempo_url,
-            service_name=SERVICE_NAME_VALUE,
-            start_unix=start,
-            end_unix=end,
-            run_id=run_id,
-            gap_s=gap_s,
-            write_bundled=write_bundled,
-        )
-
-    @app.get(f"{MonitorServer.API_PREFIX}/agent-loop/rebuild/go")
-    def rebuild_agent_loop_go(
-        request: Request,
-        from_ts: Optional[str] = Query(None, alias="from"),
-        to_ts: Optional[str] = Query(None, alias="to"),
-        return_url: Optional[str] = Query(None, alias="return"),
-        run_id: Optional[str] = Query(None),
-    ) -> Response:
-        """Dashboard-link target: Rebuild, then bounce back to Grafana (same tab)."""
-        from rl_insight.experimental.agent_loop_constants import (  # noqa: PLC0415
-            DEFAULT_GRAFANA_BASE,
-            GRAFANA_DASHBOARD_SLUG,
-            GRAFANA_DASHBOARD_UID,
-        )
-
-        start = _unix_seconds(from_ts)
-        end = _unix_seconds(to_ts)
-        try:
-            result = _do_rebuild(start=start, end=end, run_id=run_id)
-        except Exception as exc:  # noqa: BLE001
-            # Still clear panels + bounce back; never leave the user on an error page.
-            logger.exception("agent-loop rebuild/go failed: %s", exc)
-            try:
-                from rl_insight.experimental.generate_agent_loop_dashboard import (  # noqa: PLC0415
-                    write_agent_loop_from_runs,
-                )
-
-                write_agent_loop_from_runs(
-                    [], window_from=start, window_to=end
-                )
-            except Exception:  # noqa: BLE001
-                logger.exception("failed to clear Agent Loop after rebuild error")
-            result = {"runs": [], "empty": True}
-
-        dest = (return_url or "").strip()
-        referer = (request.headers.get("referer") or "").strip()
-        if not dest and referer and "/d/" in referer:
-            dest = referer.split("#", 1)[0]
-            if start is not None and end is not None and "from=" not in dest:
-                sep = "&" if "?" in dest else "?"
-                dest = f"{dest}{sep}from={start * 1000}&to={end * 1000}"
-        if not dest:
-            dest = (
-                f"{DEFAULT_GRAFANA_BASE}/d/{GRAFANA_DASHBOARD_UID}/"
-                f"{GRAFANA_DASHBOARD_SLUG}"
-            )
-            if start is not None and end is not None:
-                dest = f"{dest}?from={start * 1000}&to={end * 1000}"
-
-        n_runs = len(result.get("runs") or [])
-        return HTMLResponse(
-            status_code=200,
-            content=(
-                "<!DOCTYPE html><html><head><meta charset=utf-8>"
-                f'<meta http-equiv="refresh" content="0;url={dest}">'
-                f"<script>location.replace({dest!r});</script>"
-                "</head><body style='font-family:sans-serif;padding:1.5rem'>"
-                f"<p>Rebuilt {n_runs} run(s). Returning to Grafana…</p>"
-                f'<p><a href="{dest}">Continue</a></p>'
-                "</body></html>"
-            ),
-        )
-
-    @app.post(f"{MonitorServer.API_PREFIX}/agent-loop/rebuild")
-    def rebuild_agent_loop(
-        payload: dict[str, Any] = Body(default_factory=dict),
-    ) -> dict[str, Any]:
-        """JSON Rebuild API (scripts / automation)."""
-        start = _unix_seconds(payload.get("from"))
-        end = _unix_seconds(payload.get("to"))
-        run_id = payload.get("run_id")
-        gap_s = float(payload.get("gap_s") or 300.0)
-        write_bundled = bool(payload.get("write_bundled") or False)
-        try:
-            return _do_rebuild(
-                start=start,
-                end=end,
-                run_id=str(run_id) if run_id else None,
-                gap_s=gap_s,
-                write_bundled=write_bundled,
-            )
-        except RuntimeError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=str(exc),
-            ) from exc
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("agent-loop rebuild failed")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=str(exc),
-            ) from exc
 
     return app
 

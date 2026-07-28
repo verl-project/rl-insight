@@ -154,7 +154,9 @@ class TrajectoryBuilder:
         session_index = event.get("session_index", cursor[0])
         trajectory_index = event.get("trajectory_index", cursor[1])
         step_index = event.get("step_index", 0)
-        finish_reason = event.get("finish_reason", "tool_calls")
+        # Preserve absence as absence. The exporter will display ``unknown``
+        # rather than inventing a business state for malformed/upstream data.
+        finish_reason = event.get("finish_reason", "")
         assistant_msg = event.get("assistant_msg")
         thought = event.get("thought", "")
         tool_results_raw = event.get("tool_results", [])
@@ -168,7 +170,10 @@ class TrajectoryBuilder:
             thought=thought,
             tool_results=tool_results,
             done=False,
-            exit_reason="",
+            # Preserve the per-turn value supplied by the upstream event.
+            # Previously only terminal reasons survived finish_trajectory(),
+            # which forced visualization exporters to guess "tool_calls".
+            exit_reason=finish_reason,
         )
         if assistant_msg and isinstance(assistant_msg, dict):
             step.response = assistant_msg.get("content", "")
@@ -176,13 +181,20 @@ class TrajectoryBuilder:
         sample.add_step(session_index, trajectory_index, step)
 
         # Finish the trajectory if this step ends it.
-        if finish_reason in ("stop", "length"):
+        if finish_reason in ("stop", "length", "max_step_limit"):
             status: TrainingStatus = "success"
-            if finish_reason == "length":
+            if finish_reason in ("length", "max_step_limit"):
                 status = "truncated"
             sample.finish_trajectory(
                 session_index, trajectory_index, finish_reason, status
             )
+            # Pass through demo/upstream reward when present (already computed
+            # by generate_data; do not invent a value here).
+            reward = event.get("reward")
+            if reward is not None:
+                sample.set_trajectory_reward(
+                    session_index, trajectory_index, float(reward)
+                )
             self._cursor[uid] = (session_index, trajectory_index + 1)
         else:
             self._cursor[uid] = (session_index, trajectory_index)
