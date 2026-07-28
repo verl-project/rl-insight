@@ -34,6 +34,11 @@ recipe = [
   "torch",
   "ijson",
 ]
+degradation = [
+  "numpy",
+  "scipy",
+  "paramiko",
+]
 test = [
   "pytest",
 ]
@@ -41,14 +46,29 @@ test = [
 [project.scripts]
 rl-insight = "rl_insight.cli:main"
 rl-insight-recipe = "recipe:main"
+rl-insight-degradation = "experiment.degradation_perception.main:main"
 
 [project.urls]
 Homepage = "https://github.com/verl-project/rl-insight"
 Source = "https://github.com/verl-project/rl-insight"
 
+[tool.setuptools]
+include-package-data = false
+
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["rl_insight", "rl_insight.*", "recipe", "recipe.*"]
+include = [
+  "rl_insight",
+  "rl_insight.*",
+  "recipe",
+  "recipe.*",
+  "experiment",
+  "experiment.*",
+]
+exclude = [
+  "experiment.degradation_perception.tests",
+  "experiment.degradation_perception.tests.*",
+]
 
 [tool.setuptools.package-data]
 rl_insight = [
@@ -66,6 +86,11 @@ rl_insight = [
 recipe = [
   "config/*.yaml",
   "config/*.yml",
+]
+"experiment.degradation_perception" = [
+  "*.yaml",
+  "*.yml",
+  "sample_data.json",
 ]
 
 [tool.pytest.ini_options]

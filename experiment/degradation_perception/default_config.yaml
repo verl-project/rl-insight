@@ -1,0 +1,32 @@
+metric: ""
+abnormal_type: UP
+alpha: 0.01
+upper_ratio: 1.15
+lower_ratio: 1.15
+minimum_standard_points: 3
+minimum_inference_points: 5
+normalization:
+  type: identity
+kde:
+  kernel: gaussian
+  bandwidth: auto
+  grid_size: 1024
+  padding_ratio: 0.10
+  tail_bandwidths: 6.0
+  zero_range_epsilon: 1.0e-8
+  random_seed: 42
+  peak_prominence_ratio: 0.01
+stable_segment:
+  std_factor: 2.0
+  within_std_coefficient: 1.05
+  minimum_passed_flags: 4
+  mean_tolerance_ratio: 0.02
+  time_gap_factor: 3.0
+  maximum_time_gap: null
+abnormal_interval:
+  minimum_duration: 0.5
+  minimum_abnormal_points: 5
+  minimum_abnormal_rate: 0.60
+  max_normal_points_between: 1
+  time_gap_factor: 3.0
+  maximum_time_gap: null

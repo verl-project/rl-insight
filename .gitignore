@@ -208,3 +208,9 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Degradation-perception runtime configuration and cursors
+experiment/degradation_perception/monitor_config.yaml
+experiment/degradation_perception/config/*.yaml
+!experiment/degradation_perception/config/.gitkeep
+experiment/degradation_perception/*offset*.json

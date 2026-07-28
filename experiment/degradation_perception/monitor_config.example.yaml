@@ -1,0 +1,19 @@
+host: monitor.example.com
+port: 22
+username: rl-insight
+key_filename: /path/to/read-only-key
+connect_timeout: 10
+source:
+  type: file
+  remote_path: /var/log/training/metrics.jsonl
+  # For Docker use:
+  # type: docker
+  # container: verl-trainer
+  # tail_lines: 1000
+offset_path: ./remote-monitor.offset.json
+metrics:
+  - timing_s/step
+task_id: example-task
+start_time: null
+end_time: null
+config_dir: ./config
