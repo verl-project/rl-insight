@@ -138,7 +138,7 @@ def test_trace_state_should_merge_same_state_and_ignore_shadow_when_lane_is_busy
     }
 
 
-def test_trace_op_should_report_duration_when_wrapped_function_raises(
+def test_trace_op_sync_should_propagate_exception_and_report_duration_span(
     recording_client: RecordingClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -171,11 +171,11 @@ def test_finish_should_disable_future_events_when_monitoring_was_enabled(
 
 
 # ---------------------------------------------------------------------------
-# Section 7: direct span reporting and sync/async ``trace_op`` (U1-U13).
+# Direct span reporting and sync/async ``trace_op``.
 # ---------------------------------------------------------------------------
 
 
-def test_u1_trace_span_should_emit_complete_trace_event_when_reported_directly(
+def test_trace_span_should_emit_complete_trace_event_when_reported_directly(
     recording_client: RecordingClient,
 ) -> None:
     api.trace_span(
@@ -192,19 +192,10 @@ def test_u1_trace_span_should_emit_complete_trace_event_when_reported_directly(
     assert (event["start_time_ns"], event["end_time_ns"]) == (1000, 2000)
     assert event["attributes"]["run_id"] == "abc"
     assert event["attributes"]["turn"] == "5"
-
-
-def test_u2_trace_span_should_preserve_explicit_time_and_not_add_trace_segment(
-    recording_client: RecordingClient,
-) -> None:
-    api.trace_span(name="span", start_time_ns=123, end_time_ns=456, attributes={})
-
-    event = recording_client.events[0]
-    assert (event["start_time_ns"], event["end_time_ns"]) == (123, 456)
     assert "monitor.trace_segment" not in event["attributes"]
 
 
-def test_u3_trace_span_should_merge_init_attributes(
+def test_trace_span_should_merge_init_attributes(
     recording_client: RecordingClient,
 ) -> None:
     api.trace_span(name="span", start_time_ns=1, end_time_ns=2, attributes={"k": "v"})
@@ -216,7 +207,7 @@ def test_u3_trace_span_should_merge_init_attributes(
     assert attributes["k"] == "v"
 
 
-def test_u4_trace_span_should_copy_attributes_so_later_mutation_is_isolated(
+def test_trace_span_should_copy_attributes_so_later_mutation_is_isolated(
     recording_client: RecordingClient,
 ) -> None:
     attributes = {"k": "v"}
@@ -230,7 +221,7 @@ def test_u4_trace_span_should_copy_attributes_so_later_mutation_is_isolated(
     assert "added_later" not in stored
 
 
-def test_u5_trace_op_sync_should_return_value_and_report_duration_span(
+def test_trace_op_sync_should_return_value_and_report_duration_span(
     recording_client: RecordingClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -250,7 +241,7 @@ def test_u5_trace_op_sync_should_return_value_and_report_duration_span(
     assert event["attributes"]["monitor.trace_segment"] == "duration"
 
 
-def test_u6_trace_op_async_should_report_span_around_await(
+def test_trace_op_async_should_report_span_around_await(
     recording_client: RecordingClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -270,7 +261,7 @@ def test_u6_trace_op_async_should_report_span_around_await(
     assert event["attributes"]["monitor.trace_segment"] == "duration"
 
 
-def test_u7_trace_op_async_should_preserve_coroutine_function_identity(
+def test_trace_op_async_should_preserve_coroutine_function_identity(
     recording_client: RecordingClient,
 ) -> None:
     @api.trace_op()
@@ -280,27 +271,7 @@ def test_u7_trace_op_async_should_preserve_coroutine_function_identity(
     assert inspect.iscoroutinefunction(compute)
 
 
-def test_u8_trace_op_sync_should_propagate_exception_and_still_emit_span(
-    recording_client: RecordingClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    timestamps = iter([1, 2])
-    monkeypatch.setattr(api.time, "time_ns", lambda: next(timestamps))
-
-    @api.trace_op("boom")
-    def fail() -> None:
-        raise ValueError("nope")
-
-    with pytest.raises(ValueError, match="nope"):
-        fail()
-
-    event = recording_client.events[0]
-    assert event["name"] == "boom"
-    assert (event["start_time_ns"], event["end_time_ns"]) == (1, 2)
-    assert event["attributes"]["monitor.trace_segment"] == "duration"
-
-
-def test_u9_trace_op_async_should_propagate_exception_and_still_emit_span(
+def test_trace_op_async_should_propagate_exception_and_still_emit_span(
     recording_client: RecordingClient,
 ) -> None:
     @api.trace_op("async_boom")
@@ -316,7 +287,7 @@ def test_u9_trace_op_async_should_propagate_exception_and_still_emit_span(
     assert recording_client.events[0]["name"] == "async_boom"
 
 
-def test_u9_trace_op_async_should_emit_span_and_propagate_cancellation(
+def test_trace_op_async_should_emit_span_and_propagate_cancellation(
     recording_client: RecordingClient,
 ) -> None:
     @api.trace_op("async_cancel")
@@ -336,7 +307,7 @@ def test_u9_trace_op_async_should_emit_span_and_propagate_cancellation(
     assert recording_client.events[0]["name"] == "async_cancel"
 
 
-def test_u10_trace_op_should_warn_and_keep_static_labels_when_extra_labels_fails(
+def test_trace_op_should_warn_and_keep_static_labels_when_extra_labels_fails(
     recording_client: RecordingClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -356,7 +327,7 @@ def test_u10_trace_op_should_warn_and_keep_static_labels_when_extra_labels_fails
     assert recording_client.events[0]["attributes"]["static"] == "s"
 
 
-def test_u11_trace_op_should_skip_timing_and_extra_labels_and_emit_when_disabled(
+def test_trace_op_should_skip_timing_labels_and_emission_when_monitoring_is_disabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # No ``recording_client`` fixture, so monitoring stays disabled.
@@ -379,7 +350,7 @@ def test_u11_trace_op_should_skip_timing_and_extra_labels_and_emit_when_disabled
     assert called == {"extra": False}
 
 
-def test_u12_trace_span_and_trace_op_should_produce_same_event_shape(
+def test_trace_span_and_trace_op_should_produce_same_event_shape(
     recording_client: RecordingClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -407,25 +378,3 @@ def test_u12_trace_span_and_trace_op_should_produce_same_event_shape(
     # the one intended difference is the compat-only segment marker
     assert decorator_event["attributes"]["monitor.trace_segment"] == "duration"
     assert "monitor.trace_segment" not in direct_event["attributes"]
-
-
-def test_u13_trace_state_should_keep_lane_merge_and_shadow_behavior(
-    recording_client: RecordingClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # Regression guard: trace_state keeps its own lane semantics and is not
-    # migrated onto trace_span. See also the earlier trace_state merge test.
-    timestamps = iter([100, 200])
-    monkeypatch.setattr(api.time, "time_ns", lambda: next(timestamps))
-
-    with api.trace_state("rollout", state_lane_id="lane-0"):
-        with api.trace_state("rollout", state_lane_id="lane-0"):
-            pass
-        with api.trace_state("other", state_lane_id="lane-0"):
-            pass
-
-    assert len(recording_client.events) == 1
-    event = recording_client.events[0]
-    assert event["name"] == "rollout"
-    assert (event["start_time_ns"], event["end_time_ns"]) == (100, 200)
-    assert event["attributes"]["monitor.trace_segment"] == "state_interval"

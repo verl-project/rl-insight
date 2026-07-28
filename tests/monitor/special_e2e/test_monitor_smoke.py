@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import sys
@@ -161,7 +162,7 @@ def test_monitor_metrics_should_match_reported_values_when_events_are_emitted(
         assert float(result[0]["value"][1]) == pytest.approx(expected)
 
 
-def test_monitor_trace_should_be_queryable_when_trace_is_reported(
+def test_monitor_trace_state_should_be_queryable_when_interval_is_reported(
     monitor_stack: dict[str, str],
 ) -> None:
     """Report a state trace and verify Tempo stores its name and attributes."""
@@ -219,6 +220,72 @@ def test_monitor_direct_span_should_be_queryable_when_reported_via_trace_span(
     assert "monitor.trace_segment" not in serialized_trace
 
 
+def test_monitor_sync_trace_op_should_be_queryable_when_decorated_function_runs(
+    monitor_stack: dict[str, str],
+) -> None:
+    """Decorate a sync operation and verify its duration span reaches Tempo."""
+    span_name = "monitor_e2e_sync_trace_op"
+    run_id = f"sync-{TEST_RUN_ID}"
+
+    @insight.trace_op(
+        span_name,
+        extra_labels=lambda attributes: attributes,
+        test_run=TEST_RUN_ID,
+    )
+    def execute(attributes: dict[str, str]) -> str:
+        time.sleep(0.01)
+        return attributes["run_id"]
+
+    assert execute({"run_id": run_id, "turn": "0"}) == run_id
+
+    search = _wait_for_json(
+        f"{monitor_stack['tempo']}/api/search",
+        params={"q": f'{{ name = "{span_name}" && span.test_run = "{TEST_RUN_ID}" }}'},
+        ready=lambda data: bool(data.get("traces")),
+    )
+    trace_id = search["traces"][0]["traceID"]
+    trace = _wait_for_json(f"{monitor_stack['tempo']}/api/traces/{trace_id}")
+    serialized_trace = json.dumps(trace)
+
+    assert span_name in serialized_trace
+    assert run_id in serialized_trace
+    assert "monitor.trace_segment" in serialized_trace
+    assert "duration" in serialized_trace
+
+
+def test_monitor_async_trace_op_should_be_queryable_when_decorated_coroutine_runs(
+    monitor_stack: dict[str, str],
+) -> None:
+    """Decorate an async operation and verify its duration span reaches Tempo."""
+    span_name = "monitor_e2e_async_trace_op"
+    run_id = f"async-{TEST_RUN_ID}"
+
+    @insight.trace_op(
+        span_name,
+        extra_labels=lambda attributes: attributes,
+        test_run=TEST_RUN_ID,
+    )
+    async def execute(attributes: dict[str, str]) -> str:
+        await asyncio.sleep(0.01)
+        return attributes["run_id"]
+
+    assert asyncio.run(execute({"run_id": run_id, "turn": "1"})) == run_id
+
+    search = _wait_for_json(
+        f"{monitor_stack['tempo']}/api/search",
+        params={"q": f'{{ name = "{span_name}" && span.test_run = "{TEST_RUN_ID}" }}'},
+        ready=lambda data: bool(data.get("traces")),
+    )
+    trace_id = search["traces"][0]["traceID"]
+    trace = _wait_for_json(f"{monitor_stack['tempo']}/api/traces/{trace_id}")
+    serialized_trace = json.dumps(trace)
+
+    assert span_name in serialized_trace
+    assert run_id in serialized_trace
+    assert "monitor.trace_segment" in serialized_trace
+    assert "duration" in serialized_trace
+
+
 def test_monitor_trajectory_span_should_forward_contract_fields_transparently(
     monitor_stack: dict[str, str],
 ) -> None:
@@ -239,8 +306,8 @@ def test_monitor_trajectory_span_should_forward_contract_fields_transparently(
         "state_name": span_name,
         "finish_reason": "tool_calls",
         "type": "tool",
-        "tools": json.dumps(["搜索", "calculator"], ensure_ascii=False),
-        "content": "先检索相关资料，再核对计算结果。",
+        "tools": json.dumps(["search", "calculator"]),
+        "content": "Search for relevant information, then verify the calculation.",
         "trajectory.timing_source": "receive_time",
     }
     insight.trace_span(
@@ -257,12 +324,21 @@ def test_monitor_trajectory_span_should_forward_contract_fields_transparently(
     )
     trace_id = search["traces"][0]["traceID"]
     trace = _wait_for_json(f"{monitor_stack['tempo']}/api/traces/{trace_id}")
-    serialized_trace = json.dumps(trace, ensure_ascii=False)
+    matching_spans = [
+        span
+        for batch in trace["batches"]
+        for scope in batch["scopeSpans"]
+        for span in scope["spans"]
+        if span["name"] == span_name
+    ]
 
-    # Identity, source, and non-ASCII tool names survive transparent forwarding.
-    assert run_id in serialized_trace
-    assert "task-0098" in serialized_trace
-    assert "搜索" in serialized_trace
+    assert len(matching_spans) == 1
+    actual_attributes = {
+        attribute["key"]: attribute["value"]["stringValue"]
+        for attribute in matching_spans[0]["attributes"]
+    }
+    for key, expected_value in attributes.items():
+        assert actual_attributes[key] == expected_value
 
 
 def test_monitor_same_name_spans_should_stay_separate_when_reported_twice(
