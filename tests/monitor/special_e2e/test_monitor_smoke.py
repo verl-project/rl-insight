@@ -286,29 +286,27 @@ def test_monitor_async_trace_op_should_be_queryable_when_decorated_coroutine_run
     assert "duration" in serialized_trace
 
 
-def test_monitor_trajectory_span_should_forward_contract_fields_transparently(
+def test_monitor_agent_step_span_should_forward_contract_fields_transparently(
     monitor_stack: dict[str, str],
 ) -> None:
-    """A contract-ready trajectory span is forwarded to Tempo unchanged."""
-    span_name = "monitor_e2e_trajectory_tool_calls"
-    run_id = "550e8400-e29b-41d4-a716-446655440000"
+    """A contract-ready Agent Step span is forwarded to Tempo unchanged."""
+    span_name = "agent_step"
+    session_id = "session-sample-3-rollout-2-550e8400e29b41d4"
     start_time_ns = time.time_ns()
     attributes = {
         "test_run": TEST_RUN_ID,
-        "run_id": run_id,
-        "state_lane_id": run_id,
-        "sample": "3",
-        "session": "2",
-        "traj": "1",
-        "turn": "5",
+        "session_id": session_id,
         "uid": "task-0098",
-        "monitor.trace_source": "trajectory",
-        "state_name": span_name,
-        "finish_reason": "tool_calls",
-        "type": "tool",
+        "sample_index": "3",
+        "session_index": "2",
+        "step_index": "5",
+        "monitor.trace_source": "agent_step",
+        "state_name": "tool_calls",
+        "step_outcome": "continue",
         "tools": json.dumps(["search", "calculator"]),
         "content": "Search for relevant information, then verify the calculation.",
-        "trajectory.timing_source": "receive_time",
+        "model.finish_reason": "tool_calls",
+        "agent_step.timing_source": "receive_time",
     }
     insight.trace_span(
         name=span_name,
