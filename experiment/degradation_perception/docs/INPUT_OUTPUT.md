@@ -81,15 +81,42 @@ python -m experiment.degradation_perception.main `
   --source-type prometheus
 ```
 
-The adapter requires `status=success`, `resultType=matrix`, and either an empty
-result or exactly one scalar label series. Aggregate or select labels in PromQL
-before exporting the response. Reduce native histograms to a scalar series.
-Query counters through `rate`, `irate`, or `increase` when a rate is the
-intended performance signal.
+The canonical loader used by `main.py` requires `status=success`,
+`resultType=matrix`, and either an empty result or exactly one scalar label
+series. Aggregate or select labels in PromQL before exporting that direct
+input.
+
+The separate offline simulation adapter accepts the same complete response and
+can apply an explicit `select_by_labels` policy. The filtered result must still
+be unique; it never selects `result[0]` or aggregates workers implicitly. See
+[Prometheus Matrix Simulation](PROMETHEUS_SIMULATION.md) for the outer package,
+diagnostics, structured errors, and runnable example.
 
 Prometheus string values are converted to numbers. Non-finite pairs are
-dropped. The module does not issue PromQL or HTTP requests and does not rename
-metric keys.
+dropped. The direct `main.py --path` loader does not issue PromQL or HTTP
+requests and does not rename metric keys. The separate
+`prometheus_workflow.py` entry point does issue `query_range` requests from its
+own YAML, then sends each full response through the same strict converter.
+Each metric declares separate `standard_query` and `inference_query` values.
+Both queries must isolate the intended run with labels that actually exist in
+that deployment; an unlabelled global aggregation across tasks is unsafe.
+
+Metric-type responsibilities remain at the real query layer:
+
+- Gauge values may be used directly; the simulator generates only Gauge-style
+  scalar values.
+- Counter values should use `rate()` or `increase()` in real PromQL when that
+  derived signal is intended.
+- Histogram data should use a quantile, mean, or another scalar PromQL
+  expression before it reaches this module.
+
+The adapter does not see a `_total` suffix and guess or calculate a rate. It
+does not implement PromQL semantics. A native histogram-only response is
+reported as `unsupported_native_histogram`, not silently ignored.
+
+The offline simulation validates Prometheus format compatibility and
+end-to-end algorithm behavior. It does not validate real production
+Prometheus data.
 
 ## Remote JSON Lines Contract
 
@@ -115,9 +142,16 @@ Source display rules are:
 ```text
 training_log:  raw numeric timestamps are preserved in output
 prometheus:    Unix seconds are preserved
-remote_monitor with value > 10000:
-               displayed as value / 10000 / 60
+remote_monitor series with every value <= 10000:
+               raw values are preserved
+remote_monitor series containing a value > 10000:
+               every display boundary uses value / 10000 / 60
 ```
+
+The remote-monitor mode is resolved once from the complete inference series,
+not independently for each interval endpoint. A series crossing `10000`
+therefore remains monotonic. Explicit `training_log` and `prometheus` source
+types take priority over numeric magnitude.
 
 `--source-type training_log` does not parse raw log text. It only selects the
 module's training-time convention.
@@ -135,6 +169,11 @@ Each metric has an independent state:
 State `0` does not mean “no anomaly.” Read
 `abnormalTimeRange.<metric>` to determine whether degradation was confirmed.
 States `1` and `2` do not fabricate thresholds or intervals.
+
+Configuration, malformed metric input, and unexpected per-metric detection
+failures are not business states. The failed metric is omitted from `states`
+and appears under the optional `metricErrors.<metric>` object with a stable
+`code`, exception `type`, and redacted `message`. Other metrics continue.
 
 ## Response Shape
 
@@ -162,6 +201,20 @@ The stable top-level shape is:
 
 `results.<metric>` also contains detailed point diagnostics, current intervals,
 and history confirmation fields when detection completes.
+
+When one metric fails independently, the response additionally contains:
+
+```json
+{
+  "metricErrors": {
+    "broken/metric": {
+      "code": "metric_input_error",
+      "type": "DataValidationError",
+      "message": "metric input could not be validated"
+    }
+  }
+}
+```
 
 The CLI prints exactly one standards-compliant compact JSON object. It rejects
 `NaN` and `Infinity`. Runtime errors use this shape and a non-zero exit code:

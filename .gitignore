@@ -214,3 +214,6 @@ experiment/degradation_perception/monitor_config.yaml
 experiment/degradation_perception/config/*.yaml
 !experiment/degradation_perception/config/.gitkeep
 experiment/degradation_perception/*offset*.json
+.run-output/
+test_output/
+*.pyc

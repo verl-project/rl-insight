@@ -1,0 +1,31 @@
+{
+  "status": "success",
+  "data": {
+    "resultType": "matrix",
+    "result": [
+      {
+        "metric": {
+          "__name__": "rl_insight_monitor_request_duration_seconds",
+          "project": "verl",
+          "experiment_name": "mock_inference",
+          "job": "trainer_metrics",
+          "instance": "127.0.0.1:9092",
+          "worker": "trainer_0"
+        },
+        "histograms": [
+          [
+            1785301200.0,
+            {
+              "count": "2",
+              "sum": "2.0",
+              "buckets": [
+                [1, "0", "0.5", "1"],
+                [2, "0.5", "1", "1"]
+              ]
+            }
+          ]
+        ]
+      }
+    ]
+  }
+}

@@ -64,6 +64,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="One or more metric names; names may contain path separators.",
     )
     parser.add_argument(
+        "--association-target",
+        nargs="+",
+        default=None,
+        help="One or more explicit Top metrics for post-KDE association analysis.",
+    )
+    parser.add_argument(
         "--task-id",
         default=None,
         help='Detection task identifier; omitted values become "default".',
@@ -94,9 +100,11 @@ def run_detection(args: argparse.Namespace) -> dict[str, Any]:
         "task_id": args.task_id,
         "source_type": args.source_type,
     }
-    # Let the detector use its bundled default when --config-dir is omitted;
+    # Let the detector resolve its per-user default when --config-dir is omitted;
     # Path(None) is invalid and would turn a valid default invocation into an
     # interface error.
+    if args.association_target is not None:
+        detector_kwargs["association_targets"] = list(args.association_target)
     if args.config_dir is not None:
         detector_kwargs["config_dir"] = args.config_dir
     detector = DegradationPerception(**detector_kwargs)

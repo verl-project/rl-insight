@@ -1,0 +1,22 @@
+{
+  "status": "success",
+  "data": {
+    "resultType": "matrix",
+    "result": [
+      {
+        "metric": {
+          "__name__": "rl_insight_monitor_timing_s_step",
+          "project": "verl",
+          "experiment_name": "mock_inference",
+          "job": "trainer_metrics",
+          "instance": "127.0.0.1:9092",
+          "worker": "trainer_0"
+        },
+        "values": [
+          [1785301200.0, "+Inf"],
+          [1785301210.0, "0.998"]
+        ]
+      }
+    ]
+  }
+}

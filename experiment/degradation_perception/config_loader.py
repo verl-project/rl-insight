@@ -31,10 +31,41 @@ from typing import Any
 
 import yaml
 
+
+def get_default_config_dir(
+    *,
+    platform: str | None = None,
+    environ: Mapping[str, str] | None = None,
+    home: str | os.PathLike[str] | None = None,
+) -> Path:
+    """Return a conventional per-user writable configuration directory."""
+
+    selected_platform = os.name if platform is None else platform
+    selected_environ = os.environ if environ is None else environ
+    selected_home = Path.home() if home is None else Path(home)
+    if selected_platform == "nt":
+        appdata = selected_environ.get("APPDATA") or selected_environ.get(
+            "LOCALAPPDATA"
+        )
+        base = (
+            Path(appdata).expanduser()
+            if appdata
+            else selected_home / "AppData" / "Roaming"
+        )
+    else:
+        xdg_config_home = selected_environ.get("XDG_CONFIG_HOME")
+        base = (
+            Path(xdg_config_home).expanduser()
+            if xdg_config_home
+            else selected_home / ".config"
+        )
+    return base / "rl-insight" / "degradation-perception"
+
+
 MODULE_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG_PATH = MODULE_DIR / "default_config.yaml"
 COMMON_CONFIG_PATH = MODULE_DIR / "common_config.yaml"
-DEFAULT_CONFIG_DIR = MODULE_DIR / "config"
+DEFAULT_CONFIG_DIR = get_default_config_dir()
 _MAX_CONFIG_BYTES = 1024 * 1024
 _MAX_FILENAME_STEM_LENGTH = 160
 _WINDOWS_RESERVED_NAMES = {
@@ -58,6 +89,7 @@ _METRIC_CONFIG_KEYS = {
     "kde",
     "stable_segment",
     "abnormal_interval",
+    "association",
 }
 _NORMALIZATION_KEYS = {"type"}
 _KDE_KEYS = {
@@ -85,6 +117,26 @@ _ABNORMAL_INTERVAL_KEYS = {
     "max_normal_points_between",
     "time_gap_factor",
     "maximum_time_gap",
+}
+_ASSOCIATION_KEYS = {
+    "enabled",
+    "target_metrics",
+    "candidate_mode",
+    "weights",
+    "top_k",
+    "context_ratio",
+    "min_aligned_points",
+    "min_rf_samples",
+    "min_coverage_ratio",
+    "alignment_tolerance",
+    "random_forest",
+}
+_ASSOCIATION_WEIGHT_KEYS = {"correlation", "random_forest"}
+_ASSOCIATION_RANDOM_FOREST_KEYS = {
+    "n_estimators",
+    "class_weight",
+    "random_state",
+    "importance_method",
 }
 _COMMON_CONFIG_KEYS = {"n_keep_result", "n_keep_abnormal"}
 
@@ -142,7 +194,7 @@ def _safe_target(config_dir: str | os.PathLike[str], metric: str) -> Path:
 def ensure_metric_config(
     metric: str,
     *,
-    config_dir: str | os.PathLike[str] = DEFAULT_CONFIG_DIR,
+    config_dir: str | os.PathLike[str] | None = None,
     default_config_path: str | os.PathLike[str] = DEFAULT_CONFIG_PATH,
 ) -> Path:
     """Copy the complete default template once and bind it to ``metric``.
@@ -154,13 +206,21 @@ def ensure_metric_config(
     template = Path(default_config_path).expanduser().resolve()
     if not template.is_file():
         raise FileNotFoundError(f"Default metric config not found: {template}")
-    target = _safe_target(config_dir, metric)
+    selected_config_dir = (
+        get_default_config_dir() if config_dir is None else config_dir
+    )
+    target = _safe_target(selected_config_dir, metric)
     if target.exists():
         if not target.is_file():
             raise OSError(f"Metric config path is not a file: {target}")
         _verify_metric_binding(target, metric)
         return target
-    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise OSError(
+            f"Failed to create metric config directory {target.parent}: {exc}"
+        ) from exc
 
     # Reserve the target exclusively before copyfile. This closes the
     # exists/copy race without ever overwriting a concurrently created config.
@@ -270,7 +330,7 @@ def _deep_merge(base: dict[str, Any], override: Mapping[str, Any]) -> dict[str, 
 def load_metric_config(
     metric: str,
     *,
-    config_dir: str | os.PathLike[str] = DEFAULT_CONFIG_DIR,
+    config_dir: str | os.PathLike[str] | None = None,
     default_config_path: str | os.PathLike[str] = DEFAULT_CONFIG_PATH,
 ) -> dict[str, Any]:
     """Explicitly initialize and load one per-metric YAML config."""
@@ -463,6 +523,105 @@ def _validate_metric_config(config: Mapping[str, Any], metric: str) -> None:
     _require_optional_positive_number(
         interval.get("maximum_time_gap"), "abnormal_interval.maximum_time_gap"
     )
+
+    association = _require_mapping(config, "association", "metric config")
+    _reject_unknown_keys(association, _ASSOCIATION_KEYS, "association")
+    if not isinstance(association.get("enabled"), bool):
+        raise ValueError("association.enabled must be a boolean")
+    target_metrics = association.get("target_metrics")
+    if not isinstance(target_metrics, list):
+        raise ValueError("association.target_metrics must be a list")
+    if any(
+        not isinstance(target, str) or not target.strip()
+        for target in target_metrics
+    ):
+        raise ValueError(
+            "association.target_metrics must contain non-empty strings"
+        )
+    if association.get("candidate_mode") != "abnormal_lower_metrics":
+        raise ValueError(
+            "association.candidate_mode must be abnormal_lower_metrics"
+        )
+
+    weights = _require_mapping(association, "weights", "association")
+    _reject_unknown_keys(
+        weights, _ASSOCIATION_WEIGHT_KEYS, "association.weights"
+    )
+    correlation_weight = _require_number(
+        weights,
+        "correlation",
+        minimum=0.0,
+        context="association.weights",
+    )
+    random_forest_weight = _require_number(
+        weights,
+        "random_forest",
+        minimum=0.0,
+        context="association.weights",
+    )
+    if not math.isclose(
+        correlation_weight + random_forest_weight,
+        1.0,
+        rel_tol=1.0e-9,
+        abs_tol=1.0e-9,
+    ):
+        raise ValueError("association weights must sum to 1")
+
+    _require_integer(
+        association, "top_k", minimum=1, context="association"
+    )
+    _require_number(
+        association, "context_ratio", minimum=0.0, context="association"
+    )
+    _require_integer(
+        association,
+        "min_aligned_points",
+        minimum=1,
+        context="association",
+    )
+    _require_integer(
+        association, "min_rf_samples", minimum=1, context="association"
+    )
+    _require_number(
+        association,
+        "min_coverage_ratio",
+        minimum=0.0,
+        maximum=1.0,
+        context="association",
+    )
+    _require_optional_positive_number(
+        association.get("alignment_tolerance"),
+        "association.alignment_tolerance",
+    )
+
+    random_forest = _require_mapping(
+        association, "random_forest", "association"
+    )
+    _reject_unknown_keys(
+        random_forest,
+        _ASSOCIATION_RANDOM_FOREST_KEYS,
+        "association.random_forest",
+    )
+    _require_integer(
+        random_forest,
+        "n_estimators",
+        minimum=1,
+        context="association.random_forest",
+    )
+    if random_forest.get("class_weight") != "balanced":
+        raise ValueError(
+            "association.random_forest.class_weight must be balanced"
+        )
+    _require_integer(
+        random_forest,
+        "random_state",
+        minimum=0,
+        context="association.random_forest",
+    )
+    if random_forest.get("importance_method") != "permutation":
+        raise ValueError(
+            "association.random_forest.importance_method must be permutation"
+        )
 
 
 def _reject_unknown_keys(

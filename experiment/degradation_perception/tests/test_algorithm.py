@@ -254,6 +254,22 @@ def test_prometheus_matrix_runs_end_to_end_and_preserves_epoch_seconds(tmp_path)
     assert interval["endTime"] > interval["startTime"]
 
 
+def test_remote_monitor_interval_crossing_10000_uses_one_time_mode(tmp_path):
+    dataset = make_dataset(STANDARD_VALUES, UP_INFERENCE)
+    dataset["inference"][METRIC]["timestamps"] = list(range(9996, 10006))
+
+    response = detector(
+        tmp_path,
+        dataset,
+        source_type="remote_monitor",
+    ).detect()
+
+    interval = response["abnormalTimeRange"][METRIC][0]
+    assert interval["startTime"] == pytest.approx(9999 / 10000 / 60)
+    assert interval["endTime"] == pytest.approx(10006 / 10000 / 60)
+    assert interval["startTime"] <= interval["endTime"]
+
+
 def test_known_high_normal_mode_is_not_flagged_by_up_detection(tmp_path):
     standard = [1.00, 1.01, 1.02, 1.04, 1.05, 5.00, 5.01, 5.02]
     response = detector(
@@ -299,9 +315,60 @@ def test_multi_metric_failure_is_isolated(tmp_path):
         dataset,
         metrics=[bad_metric, METRIC],
     ).detect()
-    assert response["states"][bad_metric] == 1
-    assert "error" in response["results"][bad_metric]
+    assert bad_metric not in response["states"]
+    assert response["metricErrors"][bad_metric] == {
+        "code": "metric_input_error",
+        "type": "DataValidationError",
+        "message": "metric input could not be validated",
+    }
+    assert "state" not in response["results"][bad_metric]
     assert response["states"][METRIC] == 0
+
+
+def test_metric_config_error_is_not_reported_as_business_state(tmp_path):
+    bad_metric = "bad-config/metric"
+    config_dir = tmp_path / "config"
+    config_path = ensure_metric_config(bad_metric, config_dir=config_dir)
+    config_path.write_text(
+        "minimum_standard_points: 0\n",
+        encoding="utf-8",
+    )
+    response = detector(
+        tmp_path,
+        make_dataset(),
+        metrics=[bad_metric, METRIC],
+    )
+    response.config_dir = config_dir
+    output = response.detect()
+
+    assert bad_metric not in output["states"]
+    assert output["metricErrors"][bad_metric]["code"] == "metric_config_error"
+    assert output["states"][METRIC] == 0
+
+
+def test_internal_metric_error_is_serializable_and_redacted(
+    tmp_path,
+    monkeypatch,
+):
+    instance = detector(tmp_path, make_dataset())
+
+    def fail_detection(*args, **kwargs):
+        raise RuntimeError(
+            "token=do-not-expose http://sensitive.internal/full/address"
+        )
+
+    monkeypatch.setattr(instance, "build_standard_data", fail_detection)
+    response = instance.detect()
+
+    assert METRIC not in response["states"]
+    assert response["metricErrors"][METRIC] == {
+        "code": "metric_detection_error",
+        "type": "RuntimeError",
+        "message": "metric detection raised an internal error",
+    }
+    serialized = json.dumps(response, allow_nan=False)
+    assert "do-not-expose" not in serialized
+    assert "sensitive.internal" not in serialized
 
 
 def test_history_is_independent_and_requires_configured_number_of_abnormal_runs(

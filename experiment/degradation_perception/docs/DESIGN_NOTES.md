@@ -29,7 +29,9 @@ The current implementation uses:
 - a continuity-based fourth formal-interval condition;
 - three times the median positive sample gap as the default continuity limit;
 - explicit phase labels for remote JSON Lines;
-- rejection, rather than implicit merging, of multiple Prometheus series.
+- rejection, rather than implicit merging, of multiple Prometheus series;
+- optional exact label selection in the offline simulation adapter, with the
+  filtered result still required to be unique.
 
 The rules are centralized in the implementation and locked down by tests so
 that future changes are reviewable.
@@ -39,6 +41,12 @@ that future changes are reviewable.
 Per-metric configuration is created only during explicit loading. Importing the
 package does not create files, and existing user configuration is not
 overwritten.
+
+The package-owned `default_config.yaml` is a read-only template. Without an
+explicit `--config-dir`, generated per-metric files use
+`%APPDATA%/rl-insight/degradation-perception` on Windows and
+`${XDG_CONFIG_HOME:-~/.config}/rl-insight/degradation-perception` on POSIX.
+An explicit directory always takes precedence.
 
 Metric names are converted to deterministic safe filenames, while the original
 metric name remains inside the configuration:
@@ -61,11 +69,18 @@ The local loader requires one explicit UTF-8 JSON file. It validates
 timestamp/value lengths before paired processing, so mismatched arrays cannot
 be silently truncated.
 
-The Prometheus adapter accepts at most one scalar series. It does not merge
-equal timestamps across different label identities.
+The direct canonical Prometheus adapter accepts at most one scalar series. The
+offline simulation adapter may select one series by explicit labels, but it
+does not merge equal timestamps across different label identities.
+
+The real workflow requires separate standard and inference PromQL for every
+logical metric. Queries must isolate the intended task before any aggregation;
+the workflow records the actual phase, query, query window, returned count, and
+candidate labels in diagnostics.
 
 The CLI serializer produces standard JSON and rejects `NaN` and `Infinity`.
-A recoverable failure in one metric does not stop unrelated metrics.
+A recoverable failure in one metric does not stop unrelated metrics. Such an
+error is reported in `metricErrors`, not reclassified as business state `1`.
 
 ## Process-Local State
 
@@ -89,5 +104,5 @@ CLI output, Prometheus input, and mocked remote cleanup.
 
 The related monitor and Recipe tests verify repository alignment, but they
 require the Recipe dependency set. See
-[Verification](../README.md#verification) for the exact commands and success
+[Test and Verify](../README.md#test-and-verify) for the exact commands and success
 criteria.

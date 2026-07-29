@@ -15,17 +15,95 @@
 from __future__ import annotations
 
 import hashlib
+import stat
+from pathlib import Path
 
 import pytest
 import yaml
 
 from experiment.degradation_perception.config_loader import (
     ConfigCollisionError,
+    DEFAULT_CONFIG_PATH,
     ensure_metric_config,
+    get_default_config_dir,
     load_common_config,
     load_metric_config,
     metric_to_safe_filename,
 )
+
+
+def test_windows_default_config_dir_uses_roaming_appdata(tmp_path):
+    appdata = tmp_path / "Roaming"
+
+    result = get_default_config_dir(
+        platform="nt",
+        environ={
+            "APPDATA": str(appdata),
+            "LOCALAPPDATA": str(tmp_path / "Local"),
+        },
+        home=tmp_path / "home",
+    )
+
+    assert result == appdata / "rl-insight" / "degradation-perception"
+
+
+@pytest.mark.parametrize("use_xdg", [True, False])
+def test_posix_default_config_dir_uses_xdg_then_home(tmp_path, use_xdg):
+    xdg = tmp_path / "xdg"
+    environ = {"XDG_CONFIG_HOME": str(xdg)} if use_xdg else {}
+
+    result = get_default_config_dir(
+        platform="posix",
+        environ=environ,
+        home=tmp_path / "home",
+    )
+
+    base = xdg if use_xdg else tmp_path / "home" / ".config"
+    assert result == base / "rl-insight" / "degradation-perception"
+
+
+def test_read_only_package_template_copies_to_runtime_user_dir(
+    tmp_path,
+    monkeypatch,
+):
+    template = tmp_path / "read-only-package" / "default_config.yaml"
+    template.parent.mkdir()
+    template.write_text(
+        DEFAULT_CONFIG_PATH.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    template.chmod(stat.S_IREAD)
+    user_dir = tmp_path / "user-config"
+    monkeypatch.setattr(
+        "experiment.degradation_perception.config_loader."
+        "get_default_config_dir",
+        lambda: user_dir,
+    )
+
+    try:
+        target = ensure_metric_config(
+            "timing_s/step",
+            default_config_path=template,
+        )
+
+        assert target.parent == user_dir.resolve()
+        assert target.is_file()
+        assert template.read_text(encoding="utf-8") == (
+            DEFAULT_CONFIG_PATH.read_text(encoding="utf-8")
+        )
+    finally:
+        template.chmod(stat.S_IREAD | stat.S_IWRITE)
+
+
+def test_config_directory_creation_failure_has_clear_context(tmp_path):
+    not_a_directory = tmp_path / "config-file"
+    not_a_directory.write_text("occupied", encoding="utf-8")
+
+    with pytest.raises(
+        OSError,
+        match="Failed to create metric config directory",
+    ):
+        ensure_metric_config("metric", config_dir=not_a_directory)
 
 
 def test_metric_to_safe_filename_preserves_confirmed_mapping():

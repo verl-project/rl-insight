@@ -247,7 +247,8 @@ def test_remote_detection_or_fetch_failure_never_commits_or_reports_degradation(
         ),
     )
     response = monitor.run()
-    assert response["states"] == {METRIC: 2}
+    assert response["states"] == {}
+    assert "state" not in response["results"][METRIC]
     assert response["abnormalTimeRange"] == {METRIC: []}
     assert response["sourceStatus"] == "error"
     assert store.saved == []
@@ -258,8 +259,30 @@ def test_remote_detection_or_fetch_failure_never_commits_or_reports_degradation(
         lambda _cursor: (_ for _ in ()).throw(RemoteConnectionError("offline")),
     )
     response = monitor.run()
-    assert response["states"] == {METRIC: 2}
+    assert response["states"] == {}
+    assert "state" not in response["results"][METRIC]
     assert store.saved == []
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        module.RemoteDependencyError("dependency unavailable"),
+        module.RemoteDataError("remote data is invalid"),
+        OffsetStateError("offset is invalid"),
+    ],
+)
+def test_operational_error_categories_never_create_business_state(
+    tmp_path,
+    error,
+):
+    response = module._remote_error_response(config(tmp_path), error)
+
+    assert response["states"] == {}
+    assert response["sourceStatus"] == "error"
+    assert response["sourceError"]["code"] == error.code
+    assert "state" not in response["results"][METRIC]
+    json.dumps(response, allow_nan=False)
 
 
 class TrackingFile(io.BytesIO):
@@ -407,6 +430,7 @@ def test_sftp_resources_close_and_partial_line_is_not_committed(
         offset_store=store,
     ).run()
     assert response["sourceStatus"] == "ok"
+    assert response["states"] == {METRIC: 2}
     assert captured["dataset"]["standard"][METRIC]["values"] == [1.0]
     assert captured["dataset"]["inference"][METRIC]["values"] == []
     assert store.saved[0][1]["offset"] == len(complete)
@@ -418,7 +442,7 @@ def test_sftp_resources_close_and_partial_line_is_not_committed(
     assert isinstance(ssh.policy, FakeParamiko.RejectPolicy)
 
 
-def test_authentication_failure_closes_client_and_returns_empty_state_two(
+def test_authentication_failure_closes_client_without_business_state(
     monkeypatch, tmp_path
 ):
     remote_file = TrackingFile(b"")
@@ -430,6 +454,8 @@ def test_authentication_failure_closes_client_and_returns_empty_state_two(
         config(tmp_path), ssh_factory=lambda: ssh, offset_store=store
     ).run()
     assert response["sourceError"]["code"] == "REMOTE_AUTHENTICATION_FAILED"
+    assert response["states"] == {}
+    assert "state" not in response["results"][METRIC]
     assert response["abnormalTimeRange"] == {METRIC: []}
     assert ssh.close_called is True
     assert store.saved == []
@@ -442,7 +468,7 @@ def test_authentication_failure_closes_client_and_returns_empty_state_two(
         (TimeoutError(), "REMOTE_CONNECTION_FAILED"),
     ],
 )
-def test_host_key_and_timeout_failures_close_client_and_return_state_two(
+def test_host_key_and_timeout_failures_close_client_without_business_state(
     monkeypatch, tmp_path, error, expected_code
 ):
     ssh = FakeSSH(FakeSFTP(TrackingFile(b""), 0), connect_error=error)
@@ -452,7 +478,8 @@ def test_host_key_and_timeout_failures_close_client_and_return_state_two(
         config(tmp_path), ssh_factory=lambda: ssh, offset_store=store
     ).run()
     assert response["sourceError"]["code"] == expected_code
-    assert response["states"] == {METRIC: 2}
+    assert response["states"] == {}
+    assert "state" not in response["results"][METRIC]
     assert ssh.close_called is True
     assert store.saved == []
 
@@ -468,7 +495,8 @@ def test_remote_file_not_found_closes_sftp_and_client_without_save(
         config(tmp_path), ssh_factory=lambda: ssh, offset_store=store
     ).run()
     assert response["sourceError"]["code"] == "REMOTE_SOURCE_NOT_FOUND"
-    assert response["states"] == {METRIC: 2}
+    assert response["states"] == {}
+    assert "state" not in response["results"][METRIC]
     assert sftp.close_called is True
     assert ssh.close_called is True
     assert store.saved == []
@@ -491,7 +519,8 @@ def test_docker_nonzero_status_closes_all_streams_and_never_saves(
         docker_config, ssh_factory=lambda: ssh, offset_store=store
     ).run()
     assert response["sourceError"]["code"] == "REMOTE_COMMAND_FAILED"
-    assert response["states"] == {METRIC: 2}
+    assert response["states"] == {}
+    assert "state" not in response["results"][METRIC]
     assert response["abnormalTimeRange"] == {METRIC: []}
     assert stdin.close_called is True
     assert stdout.close_called is True

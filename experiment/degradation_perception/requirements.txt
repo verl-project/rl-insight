@@ -1,0 +1,2 @@
+# Supplemental dependency for optional anomaly-association analysis.
+scikit-learn>=1.5,<2

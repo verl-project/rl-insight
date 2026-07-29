@@ -39,7 +39,7 @@ from typing import Any
 
 import yaml
 
-from .config_loader import DEFAULT_CONFIG_DIR, metric_to_safe_filename
+from .config_loader import get_default_config_dir, metric_to_safe_filename
 
 try:  # Paramiko is optional for local-only degradation detection.
     import paramiko
@@ -273,7 +273,7 @@ class RemoteMonitor:
         self._detector: Any | None = None
 
     def run(self) -> dict[str, Any]:
-        """Return a detector response or a state-2 operational response."""
+        """Return a detector response or an explicit operational error."""
 
         source_key = _source_key(self.config)
         try:
@@ -579,7 +579,7 @@ def load_remote_monitor_config(
         "offset_path",
     )
     config_dir = _resolve_local_path(
-        config.get("config_dir", str(DEFAULT_CONFIG_DIR)),
+        config.get("config_dir", str(get_default_config_dir())),
         config_path.parent,
         "config_dir",
     )
@@ -905,7 +905,6 @@ def _remote_error_response(
     message = _safe_remote_text(str(exc).encode("utf-8"))
     results = {
         metric: {
-            "state": 2,
             "message": message,
             "thresholds": [],
             "abnormalTimeRange": [],
@@ -914,7 +913,7 @@ def _remote_error_response(
     }
     return {
         "taskId": config.task_id,
-        "states": {metric: 2 for metric in config.metrics},
+        "states": {},
         "results": results,
         "abnormalTimeRange": {metric: [] for metric in config.metrics},
         "sourceStatus": "error",

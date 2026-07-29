@@ -19,17 +19,56 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 
+IDENTITY_DISPLAY_MODE = "identity"
+REMOTE_MONITOR_DISPLAY_MODE = "remote_monitor_minutes"
+
+
 def infer_training_time_mode(time_value: float) -> str:
     """Use the confirmed training-log boundary."""
 
     return "step" if float(time_value) < 10000 else "millisecond"
 
 
-def to_display_time(raw_time: float, source_type: str) -> float:
-    """Apply the legacy remote display rule and preserve other source units."""
+def infer_display_time_mode(
+    timestamps: Sequence[float],
+    source_type: str,
+) -> str:
+    """Choose one display conversion for an entire source series."""
+
+    if source_type != "remote_monitor":
+        return IDENTITY_DISPLAY_MODE
+    return (
+        REMOTE_MONITOR_DISPLAY_MODE
+        if any(float(timestamp) > 10000 for timestamp in timestamps)
+        else IDENTITY_DISPLAY_MODE
+    )
+
+
+def to_display_time(
+    raw_time: float,
+    source_type: str,
+    *,
+    mode: str | None = None,
+) -> float:
+    """Convert one value using an explicit series mode when supplied."""
 
     value = float(raw_time)
-    if source_type == "remote_monitor" and value > 10000:
+    selected_mode = (
+        infer_display_time_mode([value], source_type)
+        if mode is None
+        else mode
+    )
+    supported_modes = {IDENTITY_DISPLAY_MODE, REMOTE_MONITOR_DISPLAY_MODE}
+    if selected_mode not in supported_modes:
+        raise ValueError(f"unsupported display time mode: {selected_mode!r}")
+    if (
+        selected_mode == REMOTE_MONITOR_DISPLAY_MODE
+        and source_type != "remote_monitor"
+    ):
+        raise ValueError(
+            "remote-monitor display mode requires source_type remote_monitor"
+        )
+    if selected_mode == REMOTE_MONITOR_DISPLAY_MODE:
         return value / 10000 / 60
     return value
 

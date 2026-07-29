@@ -30,3 +30,22 @@ abnormal_interval:
   max_normal_points_between: 1
   time_gap_factor: 3.0
   maximum_time_gap: null
+association:
+  enabled: false
+  target_metrics:
+    - timing_s/step
+  candidate_mode: abnormal_lower_metrics
+  weights:
+    correlation: 0.5
+    random_forest: 0.5
+  top_k: 5
+  context_ratio: 1.0
+  min_aligned_points: 10
+  min_rf_samples: 30
+  min_coverage_ratio: 0.6
+  alignment_tolerance: null
+  random_forest:
+    n_estimators: 200
+    class_weight: balanced
+    random_state: 42
+    importance_method: permutation

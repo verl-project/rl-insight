@@ -22,7 +22,7 @@ from typing import Any
 
 import numpy as np
 from scipy.integrate import cumulative_trapezoid
-from scipy.signal import find_peaks, peak_prominences
+from scipy.signal import peak_prominences
 from scipy.stats import gaussian_kde
 
 

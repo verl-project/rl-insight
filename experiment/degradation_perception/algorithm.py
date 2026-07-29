@@ -24,9 +24,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .association_analysis import AssociationAnalyzer, resolve_association_config
 from .config_loader import (
     COMMON_CONFIG_PATH,
-    DEFAULT_CONFIG_DIR,
+    get_default_config_dir,
     load_common_config,
     load_metric_config,
 )
@@ -44,7 +45,11 @@ from .perception_config import (
 from .preprocessing import extract_metric_series, load_dataset
 from .serialization import to_json_serializable
 from .stable_segment_detector import StableSegmentDetector
-from .time_utils import adjust_time_bounds, to_display_time
+from .time_utils import (
+    adjust_time_bounds,
+    infer_display_time_mode,
+    to_display_time,
+)
 
 
 def get_standard_data(dataset: Mapping[str, Any], metric: str) -> TimeSeries:
@@ -244,9 +249,10 @@ class DegradationPerception:
         metrics: Sequence[str] | str | None = None,
         task_id: str | None = None,
         source_type: str = "training_log",
-        config_dir: str | os.PathLike[str] | None = DEFAULT_CONFIG_DIR,
+        config_dir: str | os.PathLike[str] | None = None,
         common_config_path: str | os.PathLike[str] | None = COMMON_CONFIG_PATH,
         dataset: Mapping[str, Any] | None = None,
+        association_targets: Sequence[str] | str | None = None,
     ) -> None:
         self.path = None if path is None else os.fspath(path)
         self.start_time = None if start_time is None else float(start_time)
@@ -274,11 +280,31 @@ class DegradationPerception:
             raise ValueError(f"unsupported source_type: {source_type!r}")
         if dataset is not None and not isinstance(dataset, Mapping):
             raise TypeError("dataset must be a mapping")
+        if isinstance(association_targets, str):
+            raw_association_targets: Sequence[str] | None = [
+                association_targets
+            ]
+        elif association_targets is None:
+            raw_association_targets = None
+        else:
+            raw_association_targets = list(association_targets)
+        if raw_association_targets is None:
+            self.association_targets: list[str] | None = None
+        else:
+            self.association_targets = list(
+                dict.fromkeys(str(item) for item in raw_association_targets)
+            )
+            if not self.association_targets or any(
+                not item.strip() for item in self.association_targets
+            ):
+                raise ValueError(
+                    "association_targets must contain non-empty metric names"
+                )
 
         self.task_id = "default" if task_id is None else str(task_id)
         self.source_type = source_type
         self.config_dir = Path(
-            DEFAULT_CONFIG_DIR if config_dir is None else config_dir
+            get_default_config_dir() if config_dir is None else config_dir
         )
         self.common_config_path = Path(
             COMMON_CONFIG_PATH
@@ -400,11 +426,16 @@ class DegradationPerception:
         states: dict[str, int] = {}
         results: dict[str, dict[str, Any]] = {}
         confirmed_ranges: dict[str, list[dict[str, Any]]] = {}
+        metric_errors: dict[str, dict[str, str]] = {}
+        metric_configs: dict[str, dict[str, Any]] = {}
+        metric_context: dict[str, dict[str, Any]] = {}
 
         for metric in metrics:
+            error_stage = "configuration"
             try:
                 config = load_metric_config(metric, config_dir=self.config_dir)
                 self.config_dict[metric] = config
+                metric_configs[metric] = config
                 abnormal_type = str(config.get("abnormal_type", "UP")).upper()
                 if abnormal_type not in SUPPORTED_ABNORMAL_TYPES:
                     raise ValueError(
@@ -415,15 +446,31 @@ class DegradationPerception:
                 if minimum_standard <= 0 or minimum_inference <= 0:
                     raise ValueError("minimum data counts must be positive")
 
+                inference_section = dataset.get("inference")
+                metric_context[metric] = {
+                    "input_present": (
+                        isinstance(inference_section, Mapping)
+                        and metric in inference_section
+                    ),
+                    "series": None,
+                    "raw_events": [],
+                }
+                error_stage = "input"
                 standard = self.get_standard_data(dataset, metric)
                 inference = _clip_series(
                     extract_metric_series(dataset, "inference", metric),
                     start_time,
                     end_time,
                 )
+                metric_context[metric]["series"] = inference
+                error_stage = "detection"
+                detection_config = {
+                    key: value for key, value in config.items()
+                    if key != "association"
+                }
                 cached_models = self.standard_models.get(metric, [])
                 cache_is_valid = bool(cached_models) and (
-                    self._standard_model_configs.get(metric) == config
+                    self._standard_model_configs.get(metric) == detection_config
                 )
                 if len(standard) < minimum_standard and not cache_is_valid:
                     state = MetricState.STANDARD_DATA_INSUFFICIENT
@@ -453,7 +500,7 @@ class DegradationPerception:
                     continue
                 if len(standard) >= minimum_standard:
                     self.standard_models[metric] = list(models)
-                    self._standard_model_configs[metric] = dict(config)
+                    self._standard_model_configs[metric] = detection_config
                 if len(inference) < minimum_inference:
                     state = MetricState.INFERENCE_DATA_INSUFFICIENT
                     states[metric] = int(state)
@@ -480,7 +527,7 @@ class DegradationPerception:
                     abnormal_flags.append(abnormal)
                     point_diagnostics.append(diagnostic)
 
-                current_ranges = self._formal_intervals(
+                current_ranges, raw_event_records = self._formal_interval_records(
                     inference,
                     abnormal_flags,
                     config,
@@ -491,6 +538,23 @@ class DegradationPerception:
                 published_ranges, history_confirmed, abnormal_history_count = (
                     self._update_history(metric, current_ranges)
                 )
+                contextual_events: list[dict[str, Any]] = []
+                for published_range in published_ranges:
+                    current_record = next(
+                        (
+                            record
+                            for record in raw_event_records
+                            if record["targetAbnormalRange"] == published_range
+                        ),
+                        None,
+                    )
+                    contextual_events.append(
+                        current_record
+                        if current_record is not None
+                        else {"targetAbnormalRange": dict(published_range)}
+                    )
+                metric_context[metric]["raw_events"] = contextual_events
+                metric_context[metric]["abnormal_flags"] = abnormal_flags
                 state = MetricState.NORMAL
                 states[metric] = int(state)
                 confirmed_ranges[metric] = published_ranges
@@ -511,17 +575,34 @@ class DegradationPerception:
                     "pointDiagnostics": point_diagnostics,
                 }
             except Exception as exc:  # Per-metric isolation is a required behavior.
-                state = MetricState.STANDARD_DATA_INSUFFICIENT
-                states[metric] = int(state)
+                error_codes = {
+                    "configuration": "metric_config_error",
+                    "input": "metric_input_error",
+                    "detection": "metric_detection_error",
+                }
+                error_messages = {
+                    "configuration": (
+                        "metric configuration could not be loaded or validated"
+                    ),
+                    "input": "metric input could not be validated",
+                    "detection": "metric detection raised an internal error",
+                }
+                error = {
+                    "code": error_codes[error_stage],
+                    "type": type(exc).__name__,
+                    "message": error_messages[error_stage],
+                }
+                metric_errors[metric] = error
                 confirmed_ranges[metric] = []
                 results[metric] = {
-                    **self._state_result(
-                        state,
-                        f"metric detection failed: {exc}",
-                    ),
-                    "error": type(exc).__name__,
+                    "message": error["message"],
+                    "thresholds": [],
+                    "abnormalTimeRange": [],
+                    "error": error,
                 }
 
+        for metric in metric_errors:
+            self.states.pop(metric, None)
         self.states.update(states)
         response = {
             "taskId": self.task_id,
@@ -529,6 +610,31 @@ class DegradationPerception:
             "results": results,
             "abnormalTimeRange": confirmed_ranges,
         }
+        if metric_errors:
+            response["metricErrors"] = metric_errors
+        try:
+            association_config = resolve_association_config(
+                metrics,
+                metric_configs,
+                self.association_targets,
+            )
+            if association_config is not None:
+                response["associationAnalysis"] = AssociationAnalyzer(
+                    association_config,
+                    source_type=self.source_type,
+                ).analyze(metric_context, response)
+        except Exception as exc:
+            # Association is post-processing: expose its failure without
+            # changing any completed per-metric KDE state or interval.
+            response["associationAnalysis"] = {
+                "enabled": True,
+                "status": "analysis_error",
+                "error": {
+                    "type": type(exc).__name__,
+                    "message": str(exc),
+                },
+                "targets": {},
+            }
         return to_json_serializable(response)
 
     @staticmethod
@@ -549,13 +655,39 @@ class DegradationPerception:
         requested_start: float | None,
         requested_end: float | None,
     ) -> list[dict[str, Any]]:
+        formal, _ = self._formal_interval_records(
+            inference,
+            abnormal_flags,
+            config,
+            abnormal_type,
+            requested_start,
+            requested_end,
+        )
+        return formal
+
+    def _formal_interval_records(
+        self,
+        inference: TimeSeries,
+        abnormal_flags: Sequence[bool],
+        config: Mapping[str, Any],
+        abnormal_type: str,
+        requested_start: float | None,
+        requested_end: float | None,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """Build public ranges plus private raw boundaries from the same labels."""
+
         interval_config = config.get("abnormal_interval", {})
         candidates = build_candidate_intervals(
             inference.timestamps,
             abnormal_flags,
             interval_config,
         )
+        display_time_mode = infer_display_time_mode(
+            inference.timestamps,
+            self.source_type,
+        )
         formal: list[dict[str, Any]] = []
+        raw_events: list[dict[str, Any]] = []
         for candidate in candidates:
             valid, details = validate_candidate_interval(candidate, interval_config)
             if not valid:
@@ -567,20 +699,40 @@ class DegradationPerception:
                 int(candidate["start_index"]),
                 int(candidate["stop_index"]),
             )
-            formal.append(
+            display_start = to_display_time(
+                adjusted_start,
+                self.source_type,
+                mode=display_time_mode,
+            )
+            display_end = to_display_time(
+                adjusted_end,
+                self.source_type,
+                mode=display_time_mode,
+            )
+            if display_start > display_end:
+                raise ValueError("converted display interval is reversed")
+            public_range = {
+                "startTime": display_start,
+                "endTime": display_end,
+                "duration": float(candidate["duration"]),
+                "totalPointCount": int(candidate["total_point_count"]),
+                "abnormalPointCount": int(candidate["abnormal_point_count"]),
+                "abnormalRate": float(candidate["abnormal_rate"]),
+                "abnormalType": abnormal_type,
+                "validationDetail": details,
+                "maximumAllowedGap": float(candidate["maximum_allowed_gap"]),
+            }
+            formal.append(public_range)
+            raw_events.append(
                 {
-                    "startTime": to_display_time(adjusted_start, self.source_type),
-                    "endTime": to_display_time(adjusted_end, self.source_type),
-                    "duration": float(candidate["duration"]),
-                    "totalPointCount": int(candidate["total_point_count"]),
-                    "abnormalPointCount": int(candidate["abnormal_point_count"]),
-                    "abnormalRate": float(candidate["abnormal_rate"]),
-                    "abnormalType": abnormal_type,
-                    "validationDetail": details,
-                    "maximumAllowedGap": float(candidate["maximum_allowed_gap"]),
+                    "rawStartTime": float(candidate["start_time"]),
+                    "rawEndTime": float(candidate["end_time"]),
+                    "startIndex": int(candidate["start_index"]),
+                    "stopIndex": int(candidate["stop_index"]),
+                    "targetAbnormalRange": public_range,
                 }
             )
-        return formal
+        return formal, raw_events
 
     def _update_history(
         self,

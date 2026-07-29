@@ -1,0 +1,88 @@
+# Real Prometheus one-command acceptance configuration.
+# Replace every placeholder below with values from the target deployment.
+prometheus:
+  # Prometheus base URL; do not append /api/v1/query_range.
+  base_url: "http://127.0.0.1:9090"
+  timeout_seconds: 30
+  use_environment_proxy: false
+  # Keep null without authentication. With a bearer token, put only the
+  # environment variable name here; never store the token in this file.
+  bearer_token_env: null
+
+# Both windows use the same sampling step.
+query_step_seconds: 10
+
+windows:
+  standard:
+    start: "2026-07-29T00:00:00Z"
+    end: "2026-07-29T00:20:00Z"
+  inference:
+    start: "2026-07-29T01:00:00Z"
+    end: "2026-07-29T01:30:00Z"
+
+association_target: "timing_s/step"
+
+# standard_query and inference_query are deliberately separate. Every query
+# must isolate one run/task and return exactly one scalar series.
+#
+# The selectors below are examples, not a promise that every deployment emits
+# every label. Inspect the real series first, then keep the applicable
+# combination of project, experiment_name, instance, worker, replica, and/or
+# run_id that uniquely identifies the intended run. Remove labels that are not
+# emitted and add any deployment-specific identity label needed for isolation.
+# Never replace these selectors with an unlabelled global avg(...) or sum(...).
+metrics:
+  "timing_s/step":
+    standard_query: 'rl_insight_monitor_timing_s_step{project="verl", experiment_name="replace_with_standard_run", instance="replace_with_instance", worker="replace_with_worker"}'
+    inference_query: 'rl_insight_monitor_timing_s_step{project="verl", experiment_name="replace_with_inference_run", instance="replace_with_instance", worker="replace_with_worker"}'
+    abnormal_type: UP
+    series_policy: exactly_one
+
+  "kv_cache_usage_perc":
+    standard_query: 'vllm:kv_cache_usage_perc{project="verl", experiment_name="replace_with_standard_run", instance="replace_with_instance", replica="replace_with_replica"}'
+    inference_query: 'vllm:kv_cache_usage_perc{project="verl", experiment_name="replace_with_inference_run", instance="replace_with_instance", replica="replace_with_replica"}'
+    abnormal_type: UP
+    series_policy: exactly_one
+
+  "response_length_mean":
+    standard_query: 'rl_insight_monitor_response_length_mean{project="verl", experiment_name="replace_with_standard_run", instance="replace_with_instance", worker="replace_with_worker"}'
+    inference_query: 'rl_insight_monitor_response_length_mean{project="verl", experiment_name="replace_with_inference_run", instance="replace_with_instance", worker="replace_with_worker"}'
+    abnormal_type: UP
+    series_policy: exactly_one
+
+  "num_requests_swapped":
+    standard_query: 'vllm:num_requests_swapped{project="verl", experiment_name="replace_with_standard_run", instance="replace_with_instance", replica="replace_with_replica"}'
+    inference_query: 'vllm:num_requests_swapped{project="verl", experiment_name="replace_with_inference_run", instance="replace_with_instance", replica="replace_with_replica"}'
+    abnormal_type: UP
+    series_policy: exactly_one
+
+  "e2e_request_latency":
+    # Convert this histogram pair to one scalar series without aggregating
+    # unrelated runs. The numerator and denominator use identical selectors.
+    standard_query: 'rate(vllm:e2e_request_latency_seconds_sum{project="verl", experiment_name="replace_with_standard_run", instance="replace_with_instance", replica="replace_with_replica"}[1m]) / rate(vllm:e2e_request_latency_seconds_count{project="verl", experiment_name="replace_with_standard_run", instance="replace_with_instance", replica="replace_with_replica"}[1m])'
+    inference_query: 'rate(vllm:e2e_request_latency_seconds_sum{project="verl", experiment_name="replace_with_inference_run", instance="replace_with_instance", replica="replace_with_replica"}[1m]) / rate(vllm:e2e_request_latency_seconds_count{project="verl", experiment_name="replace_with_inference_run", instance="replace_with_instance", replica="replace_with_replica"}[1m])'
+    abnormal_type: UP
+    series_policy: exactly_one
+
+  "global_seqlen_minimax_diff":
+    # The emitted metric is named minmax; the logical result name stays minimax.
+    standard_query: 'rl_insight_monitor_global_seqlen_minmax_diff{project="verl", experiment_name="replace_with_standard_run", instance="replace_with_instance", worker="replace_with_worker"}'
+    inference_query: 'rl_insight_monitor_global_seqlen_minmax_diff{project="verl", experiment_name="replace_with_inference_run", instance="replace_with_instance", worker="replace_with_worker"}'
+    abnormal_type: UP
+    series_policy: exactly_one
+
+association:
+  weights:
+    correlation: 0.5
+    random_forest: 0.5
+  top_k: 5
+  context_ratio: 0.2
+  min_aligned_points: 10
+  min_rf_samples: 30
+  min_coverage_ratio: 0.6
+  alignment_tolerance: null
+  random_forest:
+    n_estimators: 128
+    class_weight: balanced
+    random_state: 42
+    importance_method: permutation

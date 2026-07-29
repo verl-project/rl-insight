@@ -104,12 +104,20 @@ Failed reads and failed detections do not skip data.
 
 ## Failure Response
 
-Remote failures return state `2` and no degradation interval:
+Remote operational failures are reported through `sourceError`; they do not
+pretend that inference data was insufficient. Failed metrics are absent from
+`states`; their result entries have no `state`, and no degradation interval is
+reported:
 
 ```json
 {
-  "states": {
-    "timing_s/step": 2
+  "states": {},
+  "results": {
+    "timing_s/step": {
+      "message": "...",
+      "thresholds": [],
+      "abnormalTimeRange": []
+    }
   },
   "abnormalTimeRange": {
     "timing_s/step": []
@@ -123,7 +131,9 @@ Remote failures return state `2` and no degradation interval:
 ```
 
 A transport failure is operational failure, not evidence of performance
-degradation.
+degradation. A detector-produced state `2` is still passed through when the
+remote batch was read successfully and inference data is genuinely
+insufficient.
 
 ## Safety and Testing
 

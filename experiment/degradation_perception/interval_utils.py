@@ -124,7 +124,7 @@ def validate_candidate_interval(
     )
     condition_1 = duration > float(cfg.get("minimum_duration", 0.5))
     condition_2 = abnormal_points >= int(cfg.get("minimum_abnormal_points", 5))
-    condition_3 = abnormal_rate > float(cfg.get("minimum_abnormal_rate", 0.60))
+    condition_3 = abnormal_rate >= float(cfg.get("minimum_abnormal_rate", 0.60))
     condition_4 = bool(interval.get("continuous", False))
     details = {
         "condition_1": condition_1,

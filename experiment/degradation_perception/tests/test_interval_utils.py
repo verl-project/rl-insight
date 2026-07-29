@@ -87,7 +87,7 @@ def test_validation_exposes_the_required_four_condition_keys():
         ({"duration": 0.500001}, True),
         ({"abnormal_point_count": 4, "total_point_count": 5}, False),
         ({"abnormal_point_count": 5, "total_point_count": 8}, True),
-        ({"abnormal_point_count": 6, "total_point_count": 10}, False),
+        ({"abnormal_point_count": 6, "total_point_count": 10}, True),
         ({"abnormal_point_count": 7, "total_point_count": 10}, True),
         ({"continuous": False}, False),
         ({"abnormal_point_count": 0, "total_point_count": 0}, False),
@@ -98,6 +98,45 @@ def test_formal_interval_strict_boundaries(changes, expected):
     interval.update(changes)
     valid, _ = validate_candidate_interval(interval)
     assert valid is expected
+
+
+@pytest.mark.parametrize(
+    (
+        "abnormal_points",
+        "total_points",
+        "minimum_rate",
+        "expected_condition",
+        "expected_valid",
+    ),
+    [
+        (6, 10, 0.60, True, True),
+        (10, 10, 1.0, True, True),
+        (59, 100, 0.60, False, False),
+        (0, 10, 0.0, True, False),
+    ],
+)
+def test_minimum_abnormal_rate_is_an_inclusive_lower_bound(
+    abnormal_points,
+    total_points,
+    minimum_rate,
+    expected_condition,
+    expected_valid,
+):
+    interval = valid_interval()
+    interval.update(
+        {
+            "abnormal_point_count": abnormal_points,
+            "total_point_count": total_points,
+        }
+    )
+
+    valid, details = validate_candidate_interval(
+        interval,
+        {"minimum_abnormal_rate": minimum_rate},
+    )
+
+    assert details["condition_3"] is expected_condition
+    assert valid is expected_valid
 
 
 def test_any_one_of_four_conditions_failing_rejects_interval():

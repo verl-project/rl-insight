@@ -17,7 +17,10 @@ from __future__ import annotations
 import pytest
 
 from experiment.degradation_perception.time_utils import (
+    IDENTITY_DISPLAY_MODE,
+    REMOTE_MONITOR_DISPLAY_MODE,
     adjust_time_bounds,
+    infer_display_time_mode,
     infer_training_time_mode,
     to_display_time,
 )
@@ -38,6 +41,42 @@ def test_remote_display_time_has_a_distinct_strict_boundary():
     )
     assert to_display_time(10001, "training_log") == 10001
     assert to_display_time(1_710_000_000, "prometheus") == 1_710_000_000
+
+
+@pytest.mark.parametrize(
+    ("timestamps", "expected"),
+    [
+        ([9998, 9999, 10000], IDENTITY_DISPLAY_MODE),
+        ([10001, 10002], REMOTE_MONITOR_DISPLAY_MODE),
+        ([9999, 10000, 10001], REMOTE_MONITOR_DISPLAY_MODE),
+    ],
+)
+def test_remote_display_mode_is_resolved_once_for_the_whole_series(
+    timestamps,
+    expected,
+):
+    mode = infer_display_time_mode(timestamps, "remote_monitor")
+    converted = [
+        to_display_time(value, "remote_monitor", mode=mode)
+        for value in timestamps
+    ]
+
+    assert mode == expected
+    assert converted == sorted(converted)
+
+
+def test_explicit_source_types_take_priority_over_numeric_magnitude():
+    assert infer_display_time_mode([10001], "training_log") == (
+        IDENTITY_DISPLAY_MODE
+    )
+    assert infer_display_time_mode([1_710_000_000], "prometheus") == (
+        IDENTITY_DISPLAY_MODE
+    )
+    assert to_display_time(
+        9999,
+        "remote_monitor",
+        mode=REMOTE_MONITOR_DISPLAY_MODE,
+    ) == pytest.approx(9999 / 10000 / 60)
 
 
 def test_adjust_time_bounds_uses_exclusive_stop_and_one_raw_unit_padding():

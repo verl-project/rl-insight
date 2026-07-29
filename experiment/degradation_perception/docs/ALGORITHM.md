@@ -105,7 +105,7 @@ all four checks:
 ```text
 condition_1: duration > minimum_duration
 condition_2: abnormal point count >= minimum_abnormal_points
-condition_3: abnormal rate > minimum_abnormal_rate
+condition_3: abnormal rate >= minimum_abnormal_rate
 condition_4: every adjacent timestamp gap is within the continuity limit
 ```
 
