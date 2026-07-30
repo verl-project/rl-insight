@@ -42,6 +42,7 @@ __all__ = [
     "metric_count",
     "metric_gauge",
     "metric_histogram",
+    "trace_span",
     "trace_state",
     "trace_op",
 ]
@@ -284,64 +285,158 @@ def trace_state(
             )
 
 
+def trace_span(
+    *,
+    name: str,
+    start_time_ns: int,
+    end_time_ns: int,
+    attributes: Mapping[str, Any],
+) -> None:
+    """Report one completed span directly through the existing TRACE event path.
+
+    This is the general-purpose direct reporting interface: the caller supplies a
+    final span name, explicit start/end times, and attributes. RL-Insight does not
+    re-time, validate, or normalize any of them; it copies ``attributes`` and hands
+    the event to the backend fire-and-forget. Unlike ``trace_op``/``trace_state``,
+    no ``monitor.trace_segment`` marker is added.
+
+    Args:
+        name: Final span name; the backend does not override it.
+        start_time_ns: Span start as Unix epoch nanoseconds (caller-provided).
+        end_time_ns: Span end as Unix epoch nanoseconds (caller-provided).
+        attributes: Span attributes. Values must be OpenTelemetry scalars (``str``,
+            ``bool``, ``int``, ``float``) or homogeneous sequences of them; the
+            mapping is copied so later caller mutation does not affect the event.
+
+    Note:
+        No-op when monitoring is disabled. Init-level labels (``process_id`` and the
+        ``init`` labels) are merged in by the shared emit helper.
+    """
+    _emit_trace_span(
+        name=name,
+        start_time_ns=start_time_ns,
+        end_time_ns=end_time_ns,
+        attributes=dict(attributes),
+    )
+
+
+class _TraceOpInvocation:
+    """Shared lifecycle for one ``trace_op`` call, used by both wrappers.
+
+    Owns the disabled fast path, attribute assembly, timing, and best-effort span
+    emission, so the sync and async wrappers only differ by ``func(...)`` vs
+    ``await func(...)``. An ``extra_labels`` callback that raises is downgraded to
+    a ``RuntimeWarning`` and never replaces the wrapped function's result,
+    exception, or cancellation.
+    """
+
+    def __init__(
+        self,
+        *,
+        name: str | None,
+        func: Callable[..., Any],
+        args: tuple[Any, ...],
+        static_labels: dict[str, Any],
+        extra_labels: Callable[[Any], Mapping[str, Any]] | None,
+    ) -> None:
+        # Snapshot the enabled state once so timing and emit stay consistent.
+        self._enabled = _STATE.enabled and _STATE.client is not None
+        self.name = name or func.__qualname__
+        self.attributes: dict[str, Any] = {}
+        self._start_time_ns = 0
+        if not self._enabled:
+            return
+        self.attributes = dict(static_labels)
+        if extra_labels is not None and args:
+            try:
+                self.attributes.update(extra_labels(args[0]))
+            except Exception:  # observation failure, not a business error
+                warnings.warn(
+                    "[rl-insight] trace_op extra_labels callback failed; "
+                    "keeping static labels only.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+
+    def __enter__(self) -> _TraceOpInvocation:
+        if self._enabled:
+            self._start_time_ns = time.time_ns()
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        # Emit even when the wrapped call raised or was cancelled; never suppress it.
+        # Returning None (not False) keeps the exception propagating and satisfies mypy.
+        if self._enabled:
+            trace_span(
+                name=self.name,
+                start_time_ns=self._start_time_ns,
+                end_time_ns=time.time_ns(),
+                attributes={**self.attributes, "monitor.trace_segment": "duration"},
+            )
+
+
 def trace_op(
     name: str | None = None,
     *,
-    extra_labels: Callable[[Any], dict[str, Any]] | None = None,
+    extra_labels: Callable[[Any], Mapping[str, Any]] | None = None,
     **static_labels: Any,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """Decorator that records one root span per synchronous call.
+    """Decorator that records one root duration span per call (sync or async).
 
-    Async callables are not wrapped: a :class:`RuntimeWarning` is issued and the
-    function is returned unchanged.
+    Coroutine functions are wrapped so timing brackets the ``await`` lifecycle and
+    the wrapped callable stays a coroutine function. Both wrappers share one
+    invocation implementation and ultimately report through :func:`trace_span`;
+    a ``monitor.trace_segment=duration`` marker is always written last.
+
+    Attribute override order is ``static_labels`` -> ``extra_labels`` ->
+    ``monitor.trace_segment``.
 
     Args:
         name: Span name; defaults to ``func.__qualname__``.
         extra_labels: If set, ``extra_labels(first_positional_arg)`` is merged after
-            ``static_labels`` when the wrapped function is called. The first positional
-            is often ``self`` for bound methods; if there are no positional args, it is
-            not called.
+            ``static_labels`` before the wrapped call. The first positional is often
+            ``self`` for bound methods; not called if there are no positional args.
         **static_labels: Extra attributes attached to every span for this operation.
 
     Returns:
-        Decorator that replaces sync functions with a span-wrapped version (async functions unchanged with warning).
+        Decorator that wraps sync or async functions with span timing.
+
+    Note:
+        A raising or cancelled call still emits a span. An ``extra_labels`` failure
+        warns and falls back without changing the wrapped function's result,
+        exception, or cancellation. To set attributes derived from the return value,
+        report the span directly with :func:`trace_span`.
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        """Return ``func`` unchanged for coroutine functions; else attach span timing wrapper."""
+        """Attach a sync or async span-timing wrapper based on ``func``."""
         if inspect.iscoroutinefunction(func):
-            warnings.warn(
-                "[rl-insight] trace_op does not support coroutine functions; "
-                "decorator is a no-op.",
-                RuntimeWarning,
-                stacklevel=2,
-            )
-            return func
+
+            @functools.wraps(func)
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                with _TraceOpInvocation(
+                    name=name,
+                    func=func,
+                    args=args,
+                    static_labels=static_labels,
+                    extra_labels=extra_labels,
+                ):
+                    return await func(*args, **kwargs)
+
+            return async_wrapper
 
         @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            """Call the wrapped function and record one duration span around it."""
-            if not _STATE.enabled or _STATE.client is None:
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+            with _TraceOpInvocation(
+                name=name,
+                func=func,
+                args=args,
+                static_labels=static_labels,
+                extra_labels=extra_labels,
+            ):
                 return func(*args, **kwargs)
 
-            span_name = name or func.__qualname__
-            merged: dict[str, Any] = dict(static_labels)
-            if extra_labels is not None and args:
-                merged.update(extra_labels(args[0]))
-
-            start_time_ns = time.time_ns()
-            attributes = {**merged, "monitor.trace_segment": "duration"}
-            try:
-                return func(*args, **kwargs)
-            finally:
-                _emit_trace_span(
-                    name=span_name,
-                    start_time_ns=start_time_ns,
-                    end_time_ns=time.time_ns(),
-                    attributes=attributes,
-                )
-
-        return wrapper
+        return sync_wrapper
 
     return decorator
 

@@ -57,6 +57,7 @@ _EXPORTS = {
     "metric_gauge": ".api",
     "metric_histogram": ".api",
     "trace_op": ".api",
+    "trace_span": ".api",
     "trace_state": ".api",
     "update_prometheus_config": ".utils",
 }
