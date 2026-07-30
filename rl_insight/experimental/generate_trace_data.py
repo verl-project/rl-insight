@@ -232,6 +232,7 @@ def _wait_for_search(
     session_id: str,
     expected_spans: int,
     timeout: float,
+    auth: tuple[str, str] | None = None,
 ) -> dict[str, Any]:
     import requests
 
@@ -246,6 +247,7 @@ def _wait_for_search(
                     "q": f'{{ span.session_id = "{session_id}" }}',
                     "limit": str(max(20, expected_spans)),
                 },
+                auth=auth,
                 timeout=3,
             )
             response.raise_for_status()
@@ -283,6 +285,7 @@ def _verify_run(
         session_id=session_id,
         expected_spans=expected_spans,
         timeout=timeout,
+        auth=("admin", "admin"),
     )
 
     trace_ids = {trace["traceID"] for trace in tempo_search["traces"]}
