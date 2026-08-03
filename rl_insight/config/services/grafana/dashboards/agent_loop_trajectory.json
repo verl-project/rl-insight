@@ -818,7 +818,7 @@
                                                   "label": "traj",
                                                   "hide": "hideVariable",
                                                   "refresh": "onDashboardLoad",
-                                                  "skipUrlSync": false,
+                                                  "skipUrlSync": true,
                                                   "description": "Section-scoped Repeat variable (needs dashboardSectionVariables).",
                                                   "query": {
                                                     "kind": "DataQuery",
@@ -864,7 +864,7 @@
                                         "label": "session",
                                         "hide": "hideVariable",
                                         "refresh": "onDashboardLoad",
-                                        "skipUrlSync": false,
+                                        "skipUrlSync": true,
                                         "description": "Section-scoped Repeat variable (needs dashboardSectionVariables).",
                                         "query": {
                                           "kind": "DataQuery",
@@ -910,7 +910,7 @@
                               "label": "sample",
                               "hide": "hideVariable",
                               "refresh": "onDashboardLoad",
-                              "skipUrlSync": false,
+                              "skipUrlSync": true,
                               "description": "Section-scoped Repeat variable (needs dashboardSectionVariables).",
                               "query": {
                                 "kind": "DataQuery",
@@ -1006,8 +1006,8 @@
           "name": "run_id",
           "label": "run_id",
           "hide": "hideVariable",
-          "refresh": "onDashboardLoad",
-          "skipUrlSync": false,
+          "refresh": "onTimeRangeChanged",
+          "skipUrlSync": true,
           "description": "Section-scoped Repeat variable (needs dashboardSectionVariables).",
           "query": {
             "kind": "DataQuery",
@@ -1017,14 +1017,14 @@
               "name": "${datasource}"
             },
             "spec": {
-              "query": "query_result(rl_insight_monitor_agent_loop_run_info)",
+              "query": "query_result(rl_insight_monitor_agent_loop_run_info and on(run_id) ((rl_insight_monitor_agent_loop_first_turn_unixtime <= $__to / 1000) and (rl_insight_monitor_agent_loop_last_turn_unixtime >= $__from / 1000)))",
               "refId": "StandardVariableQuery"
             }
           },
           "regex": "/run_id=\"(?<value>[^\"]+)\".*title=\"(?<text>[^\"]+)\"/",
           "regexApplyTo": "value",
           "sort": "alphabeticalDesc",
-          "definition": "query_result(rl_insight_monitor_agent_loop_run_info)",
+          "definition": "query_result(rl_insight_monitor_agent_loop_run_info and on(run_id) ((rl_insight_monitor_agent_loop_first_turn_unixtime <= $__to / 1000) and (rl_insight_monitor_agent_loop_last_turn_unixtime >= $__from / 1000)))",
           "options": [],
           "allowCustomValue": false,
           "current": {
@@ -1041,7 +1041,7 @@
           "name": "has_agent_loop_data",
           "label": "has Agent Loop data",
           "hide": "hideVariable",
-          "refresh": "onDashboardLoad",
+          "refresh": "onTimeRangeChanged",
           "skipUrlSync": false,
           "description": "Section-scoped Repeat variable (needs dashboardSectionVariables).",
           "query": {
@@ -1052,14 +1052,14 @@
               "name": "${datasource}"
             },
             "spec": {
-              "query": "query_result(clamp_max(count(rl_insight_monitor_agent_loop_run_info), 1) or vector(0))",
+              "query": "query_result(clamp_max(count(rl_insight_monitor_agent_loop_run_info and on(run_id) ((rl_insight_monitor_agent_loop_first_turn_unixtime <= $__to / 1000) and (rl_insight_monitor_agent_loop_last_turn_unixtime >= $__from / 1000))), 1) or vector(0))",
               "refId": "StandardVariableQuery"
             }
           },
           "regex": "/\\s(?<value>[01])(?:\\s|$)/",
           "regexApplyTo": "value",
           "sort": "alphabeticalAsc",
-          "definition": "query_result(clamp_max(count(rl_insight_monitor_agent_loop_run_info), 1) or vector(0))",
+          "definition": "query_result(clamp_max(count(rl_insight_monitor_agent_loop_run_info and on(run_id) ((rl_insight_monitor_agent_loop_first_turn_unixtime <= $__to / 1000) and (rl_insight_monitor_agent_loop_last_turn_unixtime >= $__from / 1000))), 1) or vector(0))",
           "options": [],
           "allowCustomValue": false,
           "current": {

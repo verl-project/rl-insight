@@ -316,14 +316,19 @@ def _emit_agent_loop_tempo_turns(
     samples: list[_AgentLoopSample],
     step_duration_s: float,
     step_gap_s: float,
-) -> tuple[list[str], dict[str, int], int]:
-    """Tempo turns with fabricated duration + gap (visible on state-timeline)."""
+) -> tuple[list[str], dict[str, int], int, float, float]:
+    """Tempo turns with fabricated duration + gap (visible on state-timeline).
+
+    Returns ``(lanes, lane_turns, span_count, first_turn_unix, last_turn_unix)``.
+    """
     duration_ns = max(int(step_duration_s * 1_000_000_000), 250_000_000)
     gap_ns = max(int(step_gap_s * 1_000_000_000), 0)
     anchor_end_ns = int((time.time() - 60.0) * 1_000_000_000)
     lanes: list[str] = []
     lane_turns: dict[str, int] = {}
     span_count = 0
+    min_start_ns: int | None = None
+    max_end_ns: int | None = None
     for sample in samples:
         for session in sample.sessions:
             for traj in session.trajectories:
@@ -337,6 +342,14 @@ def _emit_agent_loop_tempo_turns(
                 for turn in traj.turns:
                     start_ns, end_ns = clock, clock + duration_ns
                     clock = end_ns + gap_ns
+                    min_start_ns = (
+                        start_ns
+                        if min_start_ns is None
+                        else min(min_start_ns, start_ns)
+                    )
+                    max_end_ns = (
+                        end_ns if max_end_ns is None else max(max_end_ns, end_ns)
+                    )
                     insight.trace_span(
                         name=turn.finish_reason,
                         start_time_ns=start_ns,
@@ -357,7 +370,32 @@ def _emit_agent_loop_tempo_turns(
                         },
                     )
                     span_count += 1
-    return lanes, lane_turns, span_count
+    if min_start_ns is None or max_end_ns is None:
+        now = time.time()
+        return lanes, lane_turns, span_count, now, now
+    return (
+        lanes,
+        lane_turns,
+        span_count,
+        min_start_ns / 1_000_000_000,
+        max_end_ns / 1_000_000_000,
+    )
+
+
+def _publish_agent_loop_activity_window(
+    run_id: str, *, first_turn_unix: float, last_turn_unix: float
+) -> None:
+    """Prom gauges used to hide Repeat rows when the dashboard range misses turns."""
+    insight.metric_gauge(
+        "agent_loop_first_turn_unixtime",
+        float(first_turn_unix),
+        run_id=run_id,
+    )
+    insight.metric_gauge(
+        "agent_loop_last_turn_unixtime",
+        float(last_turn_unix),
+        run_id=run_id,
+    )
 
 
 def _service_url(server_url: str, port: int) -> str:
@@ -676,11 +714,14 @@ def _generate_agent_loop_dashboard_tree(
         samples_per_run = len(tree)
         session_series += sum(len(sample.sessions) for sample in tree)
         _publish_agent_loop_prom(run_id, tree)
-        lanes, turns_map, n_spans = _emit_agent_loop_tempo_turns(
+        lanes, turns_map, n_spans, first_unix, last_unix = _emit_agent_loop_tempo_turns(
             run_id=run_id,
             samples=tree,
             step_duration_s=step_duration_s,
             step_gap_s=step_gap_s,
+        )
+        _publish_agent_loop_activity_window(
+            run_id, first_turn_unix=first_unix, last_turn_unix=last_unix
         )
         all_lanes.extend(lanes)
         lane_turns.update(turns_map)
@@ -751,6 +792,14 @@ def _verify_agent_loop_dashboard(
         (
             "rl_insight_monitor_agent_loop_traj_info",
             len(fixture["lanes"]),
+        ),
+        (
+            "rl_insight_monitor_agent_loop_first_turn_unixtime",
+            len(fixture["runs"]),
+        ),
+        (
+            "rl_insight_monitor_agent_loop_last_turn_unixtime",
+            len(fixture["runs"]),
         ),
     ):
         series = _wait_for_prom_series(
@@ -979,7 +1028,8 @@ def main() -> None:
         if args.exit_after_verify:
             return
         # *_info gauges live on the Ray MonitorHub scrape target. Exiting would
-        # drop them and hide the Repeat tree (has_agent_loop_data -> 0).
+        # drop them. Dashboard filters runs by first/last turn unixtime vs the
+        # selected time range (no Tempo rewrite — that would duplicate turns).
         print(
             "\nKeeping MonitorHub alive for Prometheus scrape "
             "(required for dashboard *_info). Ctrl+C to stop."
