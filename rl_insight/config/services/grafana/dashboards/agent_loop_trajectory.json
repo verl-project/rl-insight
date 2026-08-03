@@ -37,7 +37,7 @@
                       "spec": {
                         "limit": 1000,
                         "metricsQueryType": "range",
-                        "query": "{span.state_lane_id =~ \"run=${run_id}/sample=${sample}/session=${session}/.*\" && span.run_id = \"${run_id}\" && resource.service.name=\"agent-loop-poc\"} | select(span.turn, span.finish_reason)",
+                        "query": "{span.state_lane_id =~ \"run=${run_id}/${session}/traj=.*\" && span.run_id = \"${run_id}\" && resource.service.name=\"rl_insight_monitor\"} | select(span.turn, span.finish_reason)",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 100,
@@ -249,7 +249,7 @@
                       "viz": false
                     },
                     "insertNulls": false,
-                    "lineWidth": 0,
+                    "lineWidth": 2,
                     "spanNulls": false
                   }
                 },
@@ -283,7 +283,7 @@
                       "spec": {
                         "limit": 500,
                         "metricsQueryType": "range",
-                        "query": "{span.state_lane_id = \"run=${run_id}/sample=${sample}/session=${session}/traj=${traj}\" && span.run_id = \"${run_id}\" && resource.service.name=\"agent-loop-poc\"} | select(span.turn, span.finish_reason)",
+                        "query": "{span.state_lane_id = \"run=${run_id}/${traj}\" && span.run_id = \"${run_id}\" && resource.service.name=\"rl_insight_monitor\"} | select(span.turn, span.finish_reason)",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 100,
@@ -484,7 +484,7 @@
                       "viz": false
                     },
                     "insertNulls": false,
-                    "lineWidth": 0,
+                    "lineWidth": 2,
                     "spanNulls": false
                   }
                 },
@@ -518,7 +518,7 @@
                       "spec": {
                         "limit": 500,
                         "metricsQueryType": "range",
-                        "query": "{span.state_lane_id = \"run=${run_id}/sample=${sample}/session=${session}/traj=${traj}\" && span.run_id = \"${run_id}\" && resource.service.name=\"agent-loop-poc\"} | select(span.turn, span.type, span.tools, span.finish_reason, span.content)",
+                        "query": "{span.state_lane_id = \"run=${run_id}/${traj}\" && span.run_id = \"${run_id}\" && resource.service.name=\"rl_insight_monitor\"} | select(span.turn, span.type, span.tools, span.finish_reason, span.content)",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 100,
@@ -592,6 +592,10 @@
                         {
                           "field": "turn",
                           "desc": false
+                        },
+                        {
+                          "field": "Start",
+                          "desc": false
                         }
                       ]
                     }
@@ -663,34 +667,6 @@
             }
           }
         }
-      },
-      "agent-loop-empty-state": {
-        "kind": "Panel",
-        "spec": {
-          "id": 329,
-          "title": "",
-          "description": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "text",
-            "version": "13.0.2",
-            "spec": {
-              "options": {
-                "mode": "markdown",
-                "content": ""
-              }
-            }
-          }
-        }
       }
     },
     "layout": {
@@ -701,7 +677,7 @@
             "kind": "RowsLayoutRow",
             "spec": {
               "title": "Agent Loop Trajectory",
-              "collapse": false,
+              "collapse": true,
               "hideHeader": false,
               "layout": {
                 "kind": "RowsLayout",
@@ -711,7 +687,24 @@
                       "kind": "RowsLayoutRow",
                       "spec": {
                         "title": "${run_id:text}",
-                        "collapse": false,
+                        "collapse": true,
+                        "conditionalRendering": {
+                          "kind": "ConditionalRenderingGroup",
+                          "spec": {
+                            "visibility": "show",
+                            "condition": "and",
+                            "items": [
+                              {
+                                "kind": "ConditionalRenderingVariable",
+                                "spec": {
+                                  "variable": "has_agent_loop_data",
+                                  "operator": "equals",
+                                  "value": "1"
+                                }
+                              }
+                            ]
+                          }
+                        },
                         "hideHeader": false,
                         "layout": {
                           "kind": "RowsLayout",
@@ -835,14 +828,14 @@
                                                       "name": "${datasource}"
                                                     },
                                                     "spec": {
-                                                      "query": "query_result(agent_loop_traj_info{run_id=~\"$run_id\",sample=~\"$sample\",session=~\"$session\"})",
+                                                      "query": "query_result(rl_insight_monitor_agent_loop_traj_info{run_id=~\"$run_id\",leaf=~\"$session/traj=.*\"})",
                                                       "refId": "StandardVariableQuery"
                                                     }
                                                   },
-                                                  "regex": "/title=\"(?<text>[^\"]+)\".*traj=\"(?<value>[^\"]+)\"/",
+                                                  "regex": "/leaf=\"(?<value>[^\"]+)\".*title=\"(?<text>[^\"]+)\"/",
                                                   "regexApplyTo": "value",
-                                                  "sort": "numericalAsc",
-                                                  "definition": "query_result(agent_loop_traj_info{run_id=~\"$run_id\",sample=~\"$sample\",session=~\"$session\"})",
+                                                  "sort": "alphabeticalAsc",
+                                                  "definition": "query_result(rl_insight_monitor_agent_loop_traj_info{run_id=~\"$run_id\",leaf=~\"$session/traj=.*\"})",
                                                   "options": [],
                                                   "allowCustomValue": false,
                                                   "current": {
@@ -881,14 +874,14 @@
                                             "name": "${datasource}"
                                           },
                                           "spec": {
-                                            "query": "query_result(agent_loop_session_info{run_id=~\"$run_id\",sample=~\"$sample\"})",
+                                            "query": "query_result(rl_insight_monitor_agent_loop_session_info{run_id=~\"$run_id\",sample=~\"$sample\"})",
                                             "refId": "StandardVariableQuery"
                                           }
                                         },
-                                        "regex": "/session=\"(?<value>[^\"]+)\".*title=\"(?<text>[^\"]+)\"/",
+                                        "regex": "/sess_key=\"(?<value>[^\"]+)\".*title=\"(?<text>[^\"]+)\"/",
                                         "regexApplyTo": "value",
-                                        "sort": "numericalAsc",
-                                        "definition": "query_result(agent_loop_session_info{run_id=~\"$run_id\",sample=~\"$sample\"})",
+                                        "sort": "alphabeticalAsc",
+                                        "definition": "query_result(rl_insight_monitor_agent_loop_session_info{run_id=~\"$run_id\",sample=~\"$sample\"})",
                                         "options": [],
                                         "allowCustomValue": false,
                                         "current": {
@@ -927,14 +920,14 @@
                                   "name": "${datasource}"
                                 },
                                 "spec": {
-                                  "query": "query_result(agent_loop_sample_info{run_id=~\"$run_id\"})",
+                                  "query": "query_result(rl_insight_monitor_agent_loop_sample_info{run_id=~\"$run_id\"})",
                                   "refId": "StandardVariableQuery"
                                 }
                               },
                               "regex": "/sample=\"(?<value>[^\"]+)\".*title=\"(?<text>[^\"]+)\"/",
                               "regexApplyTo": "value",
                               "sort": "numericalAsc",
-                              "definition": "query_result(agent_loop_sample_info{run_id=~\"$run_id\"})",
+                              "definition": "query_result(rl_insight_monitor_agent_loop_sample_info{run_id=~\"$run_id\"})",
                               "options": [],
                               "allowCustomValue": false,
                               "current": {
@@ -945,24 +938,7 @@
                               "includeAll": true
                             }
                           }
-                        ],
-                        "conditionalRendering": {
-                          "kind": "ConditionalRenderingGroup",
-                          "spec": {
-                            "visibility": "show",
-                            "condition": "and",
-                            "items": [
-                              {
-                                "kind": "ConditionalRenderingVariable",
-                                "spec": {
-                                  "variable": "has_agent_loop_data",
-                                  "operator": "equals",
-                                  "value": "1"
-                                }
-                              }
-                            ]
-                          }
-                        }
+                        ]
                       }
                     }
                   ]
@@ -1041,19 +1017,19 @@
               "name": "${datasource}"
             },
             "spec": {
-              "query": "query_result(agent_loop_run_info)",
+              "query": "query_result(rl_insight_monitor_agent_loop_run_info)",
               "refId": "StandardVariableQuery"
             }
           },
           "regex": "/run_id=\"(?<value>[^\"]+)\".*title=\"(?<text>[^\"]+)\"/",
           "regexApplyTo": "value",
           "sort": "alphabeticalDesc",
-          "definition": "query_result(agent_loop_run_info)",
+          "definition": "query_result(rl_insight_monitor_agent_loop_run_info)",
           "options": [],
           "allowCustomValue": false,
           "current": {
-            "text": "",
-            "value": ""
+            "text": "All",
+            "value": "$__all"
           },
           "multi": true,
           "includeAll": true
@@ -1076,14 +1052,14 @@
               "name": "${datasource}"
             },
             "spec": {
-              "query": "query_result(clamp_max(count(agent_loop_run_info), 1) or vector(0))",
+              "query": "query_result(clamp_max(count(rl_insight_monitor_agent_loop_run_info), 1) or vector(0))",
               "refId": "StandardVariableQuery"
             }
           },
           "regex": "/\\s(?<value>[01])(?:\\s|$)/",
           "regexApplyTo": "value",
           "sort": "alphabeticalAsc",
-          "definition": "query_result(clamp_max(count(agent_loop_run_info), 1) or vector(0))",
+          "definition": "query_result(clamp_max(count(rl_insight_monitor_agent_loop_run_info), 1) or vector(0))",
           "options": [],
           "allowCustomValue": false,
           "current": {
