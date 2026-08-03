@@ -283,7 +283,7 @@
                       "spec": {
                         "limit": 500,
                         "metricsQueryType": "range",
-                        "query": "{span.state_lane_id = \"run=${run_id}/${traj}\" && span.run_id = \"${run_id}\" && resource.service.name=\"rl_insight_monitor\"} | select(span.turn, span.finish_reason)",
+                        "query": "{span.state_lane_id =~ \"run=${run_id}/${session}/traj=${traj}\" && span.run_id = \"${run_id}\" && resource.service.name=\"rl_insight_monitor\"} | select(span.turn, span.finish_reason)",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 100,
@@ -518,7 +518,7 @@
                       "spec": {
                         "limit": 500,
                         "metricsQueryType": "range",
-                        "query": "{span.state_lane_id = \"run=${run_id}/${traj}\" && span.run_id = \"${run_id}\" && resource.service.name=\"rl_insight_monitor\"} | select(span.turn, span.type, span.tools, span.finish_reason, span.content)",
+                        "query": "{span.state_lane_id =~ \"run=${run_id}/${session}/traj=${traj}\" && span.run_id = \"${run_id}\" && resource.service.name=\"rl_insight_monitor\"} | select(span.turn, span.type, span.tools, span.finish_reason, span.content)",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 100,
@@ -832,7 +832,7 @@
                                                       "refId": "StandardVariableQuery"
                                                     }
                                                   },
-                                                  "regex": "/leaf=\"(?<value>[^\"]+)\".*title=\"(?<text>[^\"]+)\"/",
+                                                  "regex": "/title=\"(?<text>[^\"]+)\".*traj=\"(?<value>[^\"]+)\"/",
                                                   "regexApplyTo": "value",
                                                   "sort": "alphabeticalAsc",
                                                   "definition": "query_result(rl_insight_monitor_agent_loop_traj_info{run_id=~\"$run_id\",leaf=~\"$session/traj=.*\"})",
