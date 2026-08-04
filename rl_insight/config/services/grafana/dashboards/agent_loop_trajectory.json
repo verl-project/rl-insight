@@ -1,0 +1,1075 @@
+{
+  "apiVersion": "dashboard.grafana.app/v2",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "generation": 1,
+    "creationTimestamp": "2026-07-21T00:00:00Z",
+    "labels": {},
+    "annotations": {}
+  },
+  "spec": {
+    "annotations": [],
+    "cursorSync": "Crosshair",
+    "editable": true,
+    "elements": {
+      "agent-loop-repeat-overview": {
+        "kind": "Panel",
+        "spec": {
+          "id": 325,
+          "title": "Trajectory Overview",
+          "description": "All trajectories in the current repeated Session.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "tempo"
+                      },
+                      "spec": {
+                        "limit": 1000,
+                        "metricsQueryType": "range",
+                        "query": "{span.state_lane_id =~ \"run=${run_id}/${session}/traj=.*\" && span.run_id = \"${run_id}\" && resource.service.name=\"rl_insight_monitor\"} | select(span.turn, span.finish_reason)",
+                        "queryType": "traceql",
+                        "serviceMapUseNativeHistograms": false,
+                        "spss": 100,
+                        "tableType": "spans"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [
+                {
+                  "kind": "Transformation",
+                  "group": "organize",
+                  "spec": {
+                    "options": {
+                      "excludeByName": {},
+                      "includeByName": {},
+                      "indexByName": {},
+                      "renameByName": {
+                        "time": "Start time",
+                        "duration": "Duration"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "calculateField",
+                  "spec": {
+                    "options": {
+                      "binary": {
+                        "left": {
+                          "matcher": {
+                            "id": "byName",
+                            "options": "Duration"
+                          }
+                        },
+                        "operator": "/",
+                        "right": {
+                          "fixed": "1000000"
+                        }
+                      },
+                      "mode": "binary",
+                      "reduce": {
+                        "reducer": "sum"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "calculateField",
+                  "spec": {
+                    "options": {
+                      "alias": "End time",
+                      "mode": "reduceRow",
+                      "reduce": {
+                        "include": [
+                          "Start time",
+                          "Duration / 1000000"
+                        ],
+                        "reducer": "sum"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "convertFieldType",
+                  "spec": {
+                    "options": {
+                      "conversions": [
+                        {
+                          "destinationType": "time",
+                          "targetField": "Start time"
+                        },
+                        {
+                          "destinationType": "time",
+                          "targetField": "End time"
+                        }
+                      ],
+                      "fields": {}
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "organize",
+                  "spec": {
+                    "options": {
+                      "excludeByName": {
+                        "Duration": true,
+                        "Duration / 1000000": true,
+                        "Name": true,
+                        "name": true,
+                        "Span ID": true,
+                        "spanID": true,
+                        "Trace Service": true,
+                        "traceService": true,
+                        "traceIdHidden": true,
+                        "traceName": true,
+                        "service.name": true,
+                        "sample": true,
+                        "session": true,
+                        "session_id": true,
+                        "turn": true,
+                        "traj": true,
+                        "type": true,
+                        "tools": true,
+                        "content": true,
+                        "run_id": true,
+                        "sample_success_count": true,
+                        "sample_total_trajs": true
+                      },
+                      "includeByName": {},
+                      "indexByName": {},
+                      "renameByName": {
+                        "finish_reason": "State"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "partitionByValues",
+                  "spec": {
+                    "options": {
+                      "fields": [
+                        "state_lane_id"
+                      ],
+                      "keepFields": false
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "state-timeline",
+            "version": "13.0.2",
+            "spec": {
+              "options": {
+                "alignValue": "left",
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "mergeValues": false,
+                "rowHeight": 0.9,
+                "showValue": "auto",
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "mappings": [
+                    {
+                      "type": "value",
+                      "options": {
+                        "length": {
+                          "color": "red",
+                          "index": 0
+                        },
+                        "stop": {
+                          "color": "blue",
+                          "index": 1
+                        },
+                        "tool_calls": {
+                          "color": "yellow",
+                          "index": 2
+                        },
+                        "unknown": {
+                          "color": "text",
+                          "index": 3
+                        }
+                      }
+                    }
+                  ],
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "axisPlacement": "auto",
+                    "fillOpacity": 70,
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineWidth": 2,
+                    "spanNulls": false
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "agent-loop-repeat-sequence": {
+        "kind": "Panel",
+        "spec": {
+          "id": 326,
+          "title": "Turn sequence",
+          "description": "Turn sequence for this trajectory. Hover for finish_reason and time.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "tempo"
+                      },
+                      "spec": {
+                        "limit": 500,
+                        "metricsQueryType": "range",
+                        "query": "{span.state_lane_id =~ \"run=${run_id}/${session}/traj=${traj}\" && span.run_id = \"${run_id}\" && resource.service.name=\"rl_insight_monitor\"} | select(span.turn, span.finish_reason)",
+                        "queryType": "traceql",
+                        "serviceMapUseNativeHistograms": false,
+                        "spss": 100,
+                        "tableType": "spans"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [
+                {
+                  "kind": "Transformation",
+                  "group": "organize",
+                  "spec": {
+                    "options": {
+                      "excludeByName": {},
+                      "includeByName": {},
+                      "indexByName": {},
+                      "renameByName": {
+                        "time": "Start time",
+                        "duration": "Duration"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "calculateField",
+                  "spec": {
+                    "options": {
+                      "binary": {
+                        "left": {
+                          "matcher": {
+                            "id": "byName",
+                            "options": "Duration"
+                          }
+                        },
+                        "operator": "/",
+                        "right": {
+                          "fixed": "1000000"
+                        }
+                      },
+                      "mode": "binary",
+                      "reduce": {
+                        "reducer": "sum"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "calculateField",
+                  "spec": {
+                    "options": {
+                      "alias": "End time",
+                      "mode": "reduceRow",
+                      "reduce": {
+                        "include": [
+                          "Start time",
+                          "Duration / 1000000"
+                        ],
+                        "reducer": "sum"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "convertFieldType",
+                  "spec": {
+                    "options": {
+                      "conversions": [
+                        {
+                          "destinationType": "time",
+                          "targetField": "Start time"
+                        },
+                        {
+                          "destinationType": "time",
+                          "targetField": "End time"
+                        }
+                      ],
+                      "fields": {}
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "organize",
+                  "spec": {
+                    "options": {
+                      "excludeByName": {
+                        "Duration": true,
+                        "Duration / 1000000": true,
+                        "Name": true,
+                        "name": true,
+                        "Span ID": true,
+                        "spanID": true,
+                        "Trace Service": true,
+                        "traceService": true,
+                        "traceIdHidden": true,
+                        "traceName": true,
+                        "service.name": true,
+                        "sample": true,
+                        "session": true,
+                        "session_id": true,
+                        "turn": true,
+                        "traj": true,
+                        "type": true,
+                        "tools": true,
+                        "content": true,
+                        "run_id": true,
+                        "sample_success_count": true,
+                        "sample_total_trajs": true,
+                        "state_lane_id": true
+                      },
+                      "includeByName": {},
+                      "indexByName": {},
+                      "renameByName": {
+                        "finish_reason": "State"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "state-timeline",
+            "version": "13.0.2",
+            "spec": {
+              "options": {
+                "alignValue": "left",
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "mergeValues": false,
+                "rowHeight": 0.9,
+                "showValue": "auto",
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "mappings": [
+                    {
+                      "type": "value",
+                      "options": {
+                        "length": {
+                          "color": "red",
+                          "index": 0
+                        },
+                        "stop": {
+                          "color": "blue",
+                          "index": 1
+                        },
+                        "tool_calls": {
+                          "color": "yellow",
+                          "index": 2
+                        },
+                        "unknown": {
+                          "color": "text",
+                          "index": 3
+                        }
+                      }
+                    }
+                  ],
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "axisPlacement": "auto",
+                    "fillOpacity": 70,
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineWidth": 2,
+                    "spanNulls": false
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "agent-loop-repeat-details": {
+        "kind": "Panel",
+        "spec": {
+          "id": 327,
+          "title": "Turn details",
+          "description": "Each row is one turn: type, tools, finish reason, and content (thought, or response if thought is empty).",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "tempo"
+                      },
+                      "spec": {
+                        "limit": 500,
+                        "metricsQueryType": "range",
+                        "query": "{span.state_lane_id =~ \"run=${run_id}/${session}/traj=${traj}\" && span.run_id = \"${run_id}\" && resource.service.name=\"rl_insight_monitor\"} | select(span.turn, span.type, span.tools, span.finish_reason, span.content)",
+                        "queryType": "traceql",
+                        "serviceMapUseNativeHistograms": false,
+                        "spss": 100,
+                        "tableType": "spans"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [
+                {
+                  "kind": "Transformation",
+                  "group": "organize",
+                  "spec": {
+                    "options": {
+                      "excludeByName": {
+                        "traceIdHidden": true,
+                        "spanID": true,
+                        "traceService": true,
+                        "traceName": true,
+                        "service.name": true,
+                        "run_id": true,
+                        "state_lane_id": true,
+                        "name": true,
+                        "duration": true
+                      },
+                      "includeByName": {},
+                      "indexByName": {
+                        "time": 0,
+                        "turn": 1,
+                        "type": 2,
+                        "tools": 3,
+                        "finish_reason": 4,
+                        "content": 5
+                      },
+                      "renameByName": {
+                        "time": "Start",
+                        "turn": "Turn",
+                        "type": "Type",
+                        "tools": "Tools",
+                        "finish_reason": "Finish reason",
+                        "content": "Content"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "convertFieldType",
+                  "spec": {
+                    "options": {
+                      "conversions": [
+                        {
+                          "destinationType": "number",
+                          "targetField": "turn"
+                        }
+                      ],
+                      "fields": {}
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "sortBy",
+                  "spec": {
+                    "options": {
+                      "fields": {},
+                      "sort": [
+                        {
+                          "field": "turn",
+                          "desc": false
+                        },
+                        {
+                          "field": "Start",
+                          "desc": false
+                        }
+                      ]
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "version": "13.0.2",
+            "spec": {
+              "options": {
+                "cellHeight": "sm",
+                "footer": {
+                  "countRows": false,
+                  "enablePagination": false,
+                  "fields": "",
+                  "reducer": [
+                    "sum"
+                  ],
+                  "show": false
+                },
+                "showHeader": true
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "inspect": false
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "thresholds"
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Content"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 480
+                      },
+                      {
+                        "id": "custom.inspect",
+                        "value": true
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "layout": {
+      "kind": "RowsLayout",
+      "spec": {
+        "rows": [
+          {
+            "kind": "RowsLayoutRow",
+            "spec": {
+              "title": "Agent Loop Trajectory",
+              "collapse": true,
+              "hideHeader": false,
+              "layout": {
+                "kind": "RowsLayout",
+                "spec": {
+                  "rows": [
+                    {
+                      "kind": "RowsLayoutRow",
+                      "spec": {
+                        "title": "${run_id:text}",
+                        "collapse": true,
+                        "conditionalRendering": {
+                          "kind": "ConditionalRenderingGroup",
+                          "spec": {
+                            "visibility": "show",
+                            "condition": "and",
+                            "items": [
+                              {
+                                "kind": "ConditionalRenderingVariable",
+                                "spec": {
+                                  "variable": "has_agent_loop_data",
+                                  "operator": "equals",
+                                  "value": "1"
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "hideHeader": false,
+                        "layout": {
+                          "kind": "RowsLayout",
+                          "spec": {
+                            "rows": [
+                              {
+                                "kind": "RowsLayoutRow",
+                                "spec": {
+                                  "title": "${sample:text}",
+                                  "collapse": true,
+                                  "hideHeader": false,
+                                  "layout": {
+                                    "kind": "RowsLayout",
+                                    "spec": {
+                                      "rows": [
+                                        {
+                                          "kind": "RowsLayoutRow",
+                                          "spec": {
+                                            "title": "${session:text}",
+                                            "collapse": true,
+                                            "hideHeader": false,
+                                            "layout": {
+                                              "kind": "RowsLayout",
+                                              "spec": {
+                                                "rows": [
+                                                  {
+                                                    "kind": "RowsLayoutRow",
+                                                    "spec": {
+                                                      "title": "",
+                                                      "collapse": false,
+                                                      "hideHeader": true,
+                                                      "layout": {
+                                                        "kind": "GridLayout",
+                                                        "spec": {
+                                                          "items": [
+                                                            {
+                                                              "kind": "GridLayoutItem",
+                                                              "spec": {
+                                                                "x": 0,
+                                                                "y": 0,
+                                                                "width": 24,
+                                                                "height": 8,
+                                                                "element": {
+                                                                  "kind": "ElementReference",
+                                                                  "name": "agent-loop-repeat-overview"
+                                                                }
+                                                              }
+                                                            }
+                                                          ]
+                                                        }
+                                                      }
+                                                    }
+                                                  },
+                                                  {
+                                                    "kind": "RowsLayoutRow",
+                                                    "spec": {
+                                                      "title": "${traj:text}",
+                                                      "collapse": true,
+                                                      "hideHeader": false,
+                                                      "layout": {
+                                                        "kind": "GridLayout",
+                                                        "spec": {
+                                                          "items": [
+                                                            {
+                                                              "kind": "GridLayoutItem",
+                                                              "spec": {
+                                                                "x": 0,
+                                                                "y": 0,
+                                                                "width": 24,
+                                                                "height": 6,
+                                                                "element": {
+                                                                  "kind": "ElementReference",
+                                                                  "name": "agent-loop-repeat-sequence"
+                                                                }
+                                                              }
+                                                            },
+                                                            {
+                                                              "kind": "GridLayoutItem",
+                                                              "spec": {
+                                                                "x": 0,
+                                                                "y": 6,
+                                                                "width": 24,
+                                                                "height": 8,
+                                                                "element": {
+                                                                  "kind": "ElementReference",
+                                                                  "name": "agent-loop-repeat-details"
+                                                                }
+                                                              }
+                                                            }
+                                                          ]
+                                                        }
+                                                      },
+                                                      "repeat": {
+                                                        "mode": "variable",
+                                                        "value": "traj"
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            },
+                                            "repeat": {
+                                              "mode": "variable",
+                                              "value": "session"
+                                            },
+                                            "variables": [
+                                              {
+                                                "kind": "QueryVariable",
+                                                "spec": {
+                                                  "name": "traj",
+                                                  "label": "traj",
+                                                  "hide": "hideVariable",
+                                                  "refresh": "onDashboardLoad",
+                                                  "skipUrlSync": true,
+                                                  "description": "Section-scoped Repeat variable (needs dashboardSectionVariables).",
+                                                  "query": {
+                                                    "kind": "DataQuery",
+                                                    "group": "prometheus",
+                                                    "version": "v0",
+                                                    "datasource": {
+                                                      "name": "${datasource}"
+                                                    },
+                                                    "spec": {
+                                                      "query": "query_result(rl_insight_monitor_agent_loop_traj_info{run_id=~\"$run_id\",leaf=~\"$session/traj=.*\"})",
+                                                      "refId": "StandardVariableQuery"
+                                                    }
+                                                  },
+                                                  "regex": "/title=\"(?<text>[^\"]+)\".*traj=\"(?<value>[^\"]+)\"/",
+                                                  "regexApplyTo": "value",
+                                                  "sort": "alphabeticalAsc",
+                                                  "definition": "query_result(rl_insight_monitor_agent_loop_traj_info{run_id=~\"$run_id\",leaf=~\"$session/traj=.*\"})",
+                                                  "options": [],
+                                                  "allowCustomValue": false,
+                                                  "current": {
+                                                    "text": "All",
+                                                    "value": "$__all"
+                                                  },
+                                                  "multi": true,
+                                                  "includeAll": true
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "repeat": {
+                                    "mode": "variable",
+                                    "value": "sample"
+                                  },
+                                  "variables": [
+                                    {
+                                      "kind": "QueryVariable",
+                                      "spec": {
+                                        "name": "session",
+                                        "label": "session",
+                                        "hide": "hideVariable",
+                                        "refresh": "onDashboardLoad",
+                                        "skipUrlSync": true,
+                                        "description": "Section-scoped Repeat variable (needs dashboardSectionVariables).",
+                                        "query": {
+                                          "kind": "DataQuery",
+                                          "group": "prometheus",
+                                          "version": "v0",
+                                          "datasource": {
+                                            "name": "${datasource}"
+                                          },
+                                          "spec": {
+                                            "query": "query_result(rl_insight_monitor_agent_loop_session_info{run_id=~\"$run_id\",sample=~\"$sample\"})",
+                                            "refId": "StandardVariableQuery"
+                                          }
+                                        },
+                                        "regex": "/sess_key=\"(?<value>[^\"]+)\".*title=\"(?<text>[^\"]+)\"/",
+                                        "regexApplyTo": "value",
+                                        "sort": "alphabeticalAsc",
+                                        "definition": "query_result(rl_insight_monitor_agent_loop_session_info{run_id=~\"$run_id\",sample=~\"$sample\"})",
+                                        "options": [],
+                                        "allowCustomValue": false,
+                                        "current": {
+                                          "text": "All",
+                                          "value": "$__all"
+                                        },
+                                        "multi": true,
+                                        "includeAll": true
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "repeat": {
+                          "mode": "variable",
+                          "value": "run_id"
+                        },
+                        "variables": [
+                          {
+                            "kind": "QueryVariable",
+                            "spec": {
+                              "name": "sample",
+                              "label": "sample",
+                              "hide": "hideVariable",
+                              "refresh": "onDashboardLoad",
+                              "skipUrlSync": true,
+                              "description": "Section-scoped Repeat variable (needs dashboardSectionVariables).",
+                              "query": {
+                                "kind": "DataQuery",
+                                "group": "prometheus",
+                                "version": "v0",
+                                "datasource": {
+                                  "name": "${datasource}"
+                                },
+                                "spec": {
+                                  "query": "query_result(rl_insight_monitor_agent_loop_sample_info{run_id=~\"$run_id\"})",
+                                  "refId": "StandardVariableQuery"
+                                }
+                              },
+                              "regex": "/sample=\"(?<value>[^\"]+)\".*title=\"(?<text>[^\"]+)\"/",
+                              "regexApplyTo": "value",
+                              "sort": "numericalAsc",
+                              "definition": "query_result(rl_insight_monitor_agent_loop_sample_info{run_id=~\"$run_id\"})",
+                              "options": [],
+                              "allowCustomValue": false,
+                              "current": {
+                                "text": "All",
+                                "value": "$__all"
+                              },
+                              "multi": true,
+                              "includeAll": true
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "links": [],
+    "liveNow": false,
+    "preload": false,
+    "tags": [
+      "rl-insight",
+      "agent-loop",
+      "experimental",
+      "repeat-poc",
+      "titles-from-info"
+    ],
+    "timeSettings": {
+      "timezone": "browser",
+      "from": "now-15m",
+      "to": "now",
+      "autoRefresh": "5s",
+      "autoRefreshIntervals": [
+        "5s",
+        "10s",
+        "30s",
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "1d"
+      ],
+      "hideTimepicker": false,
+      "fiscalYearStartMonth": 0
+    },
+    "title": "agent_loop_trajectory",
+    "variables": [
+      {
+        "kind": "DatasourceVariable",
+        "spec": {
+          "name": "datasource",
+          "pluginId": "prometheus",
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "current": {
+            "text": "Prometheus",
+            "value": "Prometheus"
+          },
+          "options": [],
+          "multi": false,
+          "includeAll": false,
+          "hide": "hideVariable",
+          "skipUrlSync": false,
+          "allowCustomValue": true
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "run_id",
+          "label": "run_id",
+          "hide": "hideVariable",
+          "refresh": "onTimeRangeChanged",
+          "skipUrlSync": true,
+          "description": "Section-scoped Repeat variable (needs dashboardSectionVariables).",
+          "query": {
+            "kind": "DataQuery",
+            "group": "prometheus",
+            "version": "v0",
+            "datasource": {
+              "name": "${datasource}"
+            },
+            "spec": {
+              "query": "query_result(rl_insight_monitor_agent_loop_run_info and on(run_id) ((rl_insight_monitor_agent_loop_first_turn_unixtime <= $__to / 1000) and (rl_insight_monitor_agent_loop_last_turn_unixtime >= $__from / 1000)))",
+              "refId": "StandardVariableQuery"
+            }
+          },
+          "regex": "/run_id=\"(?<value>[^\"]+)\".*title=\"(?<text>[^\"]+)\"/",
+          "regexApplyTo": "value",
+          "sort": "alphabeticalDesc",
+          "definition": "query_result(rl_insight_monitor_agent_loop_run_info and on(run_id) ((rl_insight_monitor_agent_loop_first_turn_unixtime <= $__to / 1000) and (rl_insight_monitor_agent_loop_last_turn_unixtime >= $__from / 1000)))",
+          "options": [],
+          "allowCustomValue": false,
+          "current": {
+            "text": "All",
+            "value": "$__all"
+          },
+          "multi": true,
+          "includeAll": true
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "has_agent_loop_data",
+          "label": "has Agent Loop data",
+          "hide": "hideVariable",
+          "refresh": "onTimeRangeChanged",
+          "skipUrlSync": false,
+          "description": "Section-scoped Repeat variable (needs dashboardSectionVariables).",
+          "query": {
+            "kind": "DataQuery",
+            "group": "prometheus",
+            "version": "v0",
+            "datasource": {
+              "name": "${datasource}"
+            },
+            "spec": {
+              "query": "query_result(clamp_max(count(rl_insight_monitor_agent_loop_run_info and on(run_id) ((rl_insight_monitor_agent_loop_first_turn_unixtime <= $__to / 1000) and (rl_insight_monitor_agent_loop_last_turn_unixtime >= $__from / 1000))), 1) or vector(0))",
+              "refId": "StandardVariableQuery"
+            }
+          },
+          "regex": "/\\s(?<value>[01])(?:\\s|$)/",
+          "regexApplyTo": "value",
+          "sort": "alphabeticalAsc",
+          "definition": "query_result(clamp_max(count(rl_insight_monitor_agent_loop_run_info and on(run_id) ((rl_insight_monitor_agent_loop_first_turn_unixtime <= $__to / 1000) and (rl_insight_monitor_agent_loop_last_turn_unixtime >= $__from / 1000))), 1) or vector(0))",
+          "options": [],
+          "allowCustomValue": false,
+          "current": {
+            "text": "0",
+            "value": "0"
+          },
+          "multi": false,
+          "includeAll": false
+        }
+      }
+    ]
+  }
+}
