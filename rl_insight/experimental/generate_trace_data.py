@@ -105,6 +105,7 @@ _STEP_IDENTITY_KEYS = (
     "step_index",
 )
 
+
 @dataclass(frozen=True)
 class _StepCall:
     attributes: dict[str, Any]
@@ -217,7 +218,9 @@ def _build_trajectory(
                     turn=step_i,
                     finish_reason="tool_calls",
                     tools=[rng.choice(_AGENT_LOOP_TOOLS)],
-                    content=_AGENT_LOOP_THOUGHTS[(step_i - 1) % len(_AGENT_LOOP_THOUGHTS)],
+                    content=_AGENT_LOOP_THOUGHTS[
+                        (step_i - 1) % len(_AGENT_LOOP_THOUGHTS)
+                    ],
                 )
             )
     return _AgentLoopTraj(traj=str(traj_index), reward=reward, turns=turns)
@@ -336,8 +339,7 @@ def _emit_agent_loop_tempo_turns(
                 lanes.append(lane)
                 lane_turns[lane] = len(traj.turns)
                 clock = anchor_end_ns - (
-                    len(traj.turns) * duration_ns
-                    + max(0, len(traj.turns) - 1) * gap_ns
+                    len(traj.turns) * duration_ns + max(0, len(traj.turns) - 1) * gap_ns
                 )
                 for turn in traj.turns:
                     start_ns, end_ns = clock, clock + duration_ns
@@ -966,9 +968,7 @@ def main() -> None:
     if metrics_port is None:
         env_port = os.environ.get("RL_INSIGHT_METRICS_REPORT_PORT")
         metrics_port = (
-            _tcp_port(env_port)
-            if env_port
-            else MonitorDefaults.METRICS_REPORT_PORT
+            _tcp_port(env_port) if env_port else MonitorDefaults.METRICS_REPORT_PORT
         )
 
     os.environ["RL_INSIGHT_SERVER_URL"] = args.server_url
