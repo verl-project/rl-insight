@@ -211,5 +211,5 @@ Tempo       turn spans keyed by `state_lane_id` (and `run_id`, …)
 
 **Effect** (example after `generate_trace_data.py` verify; Grafana UID `a1b2c3d4-e5f6-7890-abcd-ef1234567890`):
 
-![Agent Loop nested Repeat dashboard](agent_loop_trajectory_dashboard.png)
+![Agent Loop nested Repeat dashboard](../../assets/monitor/agent_loop_trajectory_dashboard.png)
 
