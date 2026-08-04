@@ -190,6 +190,26 @@ python rl_insight/experimental/generate_trace_data.py \
   --server-url http://127.0.0.1:18080
 ```
 
-The script validates direct `trace_span`, synchronous `trace_op`, and asynchronous `trace_op` reporting through both Tempo and Grafana's Tempo datasource. Decorator-generated Agent Steps are interface tests only; production Agents should follow the selection table above.
+The script validates direct `trace_span`, synchronous `trace_op`, and asynchronous `trace_op` reporting through both Tempo and Grafana's Tempo datasource. Decorator-generated Agent Steps are interface tests only; production Agents should follow the selection table above. The same process also publishes an Agent Loop fixture for the dashboard in the next section (`rl_insight_monitor_agent_loop_*_info` / turn unixtime gauges via the metrics HTTP port, plus Tempo turn spans). Leave the process running after verify so Prometheus can keep scraping those gauges.
 
 Useful options are `--tempo-url`, `--grafana-url`, `--step-duration`, and `--timeout`. The script checks Span count, names, required attributes, and uniqueness of `session_id/step_index`, then prints the generated `session_id` values and Grafana Explore URL.
+
+## Agent Loop trajectory visualization
+
+Dashboard JSON: `rl_insight/config/services/grafana/dashboards/agent_loop_trajectory.json` (title `agent_loop_trajectory`). It uses Grafana nested Repeat with section-scoped Query variables (`dashboardSectionVariables` in `grafana.ini`).
+
+```text
+Prometheus  rl_insight_monitor_agent_loop_{run,sample,session,traj}_info
+            rl_insight_monitor_agent_loop_{first,last}_turn_unixtime
+        →   nested Repeat rows (titles from each `*_info` `title` label)
+
+Tempo       turn spans keyed by `state_lane_id` (and `run_id`, …)
+        →   Trajectory Overview / Turn sequence / Turn details
+```
+
+`$run_id` / `$has_agent_loop_data` select runs whose turn activity overlaps the dashboard time range (`first_turn_unixtime` / `last_turn_unixtime` vs `$__from` / `$__to`). Nested `$sample` / `$session` / `$traj` enumerate children under the selected parent.
+
+**Effect** (example after `generate_trace_data.py` verify; Grafana UID `a1b2c3d4-e5f6-7890-abcd-ef1234567890`):
+
+![Agent Loop nested Repeat dashboard](agent_loop_trajectory_dashboard.png)
+
