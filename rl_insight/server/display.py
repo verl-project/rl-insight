@@ -49,6 +49,8 @@ def format_table(headers: Sequence[str], rows: Sequence[Sequence[Any]]) -> str:
 
 def format_logo() -> str:
     """Render the RL-Insight startup logo."""
+    from rl_insight import __version__
+
     return "\n".join(
         [
             "      ____  __     ____           _       __    __",
@@ -57,7 +59,7 @@ def format_logo() -> str:
             "   / _, _/ /_____/ // / / (__  ) / /_/ / / / / /_",
             "  /_/ |_/_____/___/_/ /_/____/_/\\__, /_/ /_/\\__/",
             "                               /____/",
-            "  RL-Insight Server",
+            f"  RL-Insight Server v{__version__}",
         ]
     )
 

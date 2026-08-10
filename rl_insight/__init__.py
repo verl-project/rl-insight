@@ -21,8 +21,34 @@ importing trainer-side optional dependencies such as Ray or OpenTelemetry.
 from __future__ import annotations
 
 from importlib import import_module
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
+from pathlib import Path
 from typing import Any
 
+
+def _get_version() -> str:
+    """Resolve the package version.
+
+    Tries installed metadata first, then falls back to reading ``pyproject.toml``
+    so that running from a source checkout works without an editable install.
+    """
+    try:
+        return _pkg_version("rl-insight")
+    except PackageNotFoundError:
+        pass
+
+    pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
+    if pyproject.is_file():
+        try:
+            for line in pyproject.read_text().splitlines():
+                if line.startswith("version"):
+                    return line.split("=")[-1].strip().strip('"')
+        except OSError:
+            pass
+    return "unknown"
+
+
+__version__ = _get_version()
 
 _EXPORTS = {
     "finish": ".api",
@@ -35,7 +61,7 @@ _EXPORTS = {
     "update_prometheus_config": ".utils",
 }
 
-__all__ = list(_EXPORTS)
+__all__ = list(_EXPORTS) + ["__version__"]
 
 
 def __getattr__(name: str) -> Any:

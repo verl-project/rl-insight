@@ -21,6 +21,7 @@ import logging
 from pathlib import Path
 from typing import Sequence
 
+from . import __version__
 from .server.commands import ServerCommands
 
 
@@ -29,6 +30,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     logging.basicConfig(level=getattr(logging, str(args.log_level).upper()))
+    logger = logging.getLogger(__name__)
+    logger.info("rl-insight v%s", __version__)
     try:
         return int(args.func(args))
     except KeyboardInterrupt:
@@ -43,6 +46,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="Python logging level.",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"rl-insight v{__version__}",
     )
 
     subparsers = parser.add_subparsers(dest="command", required=True)
