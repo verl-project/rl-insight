@@ -785,423 +785,6 @@
           }
         }
       },
-      "panel-14": {
-        "kind": "Panel",
-        "spec": {
-          "id": 14,
-          "title": "Tokens Last 24 Hours",
-          "description": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "spec": {
-                        "editorMode": "code",
-                        "exemplar": true,
-                        "expr": "(sum by (model_name,replica) (delta(vllm:prompt_tokens_total{engine=~\"$workerid\", replica=~\"$replica\"}[1d])))",
-                        "interval": "",
-                        "legendFormat": "Input: {{model_name}} - replica {{replica}}",
-                        "queryType": "randomWalk",
-                        "range": true
-                      },
-                      "labels": {
-                        "grafana.app/export-label": "prometheus-1"
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "spec": {
-                        "editorMode": "code",
-                        "exemplar": true,
-                        "expr": "(sum by (model_name,replica) (delta(vllm:generation_tokens_total{engine=~\"$workerid\", replica=~\"$replica\"}[1d])))",
-                        "interval": "",
-                        "legendFormat": "Generated: {{model_name}} - replica {{replica}}",
-                        "queryType": "randomWalk",
-                        "range": true
-                      },
-                      "labels": {
-                        "grafana.app/export-label": "prometheus-1"
-                      }
-                    },
-                    "refId": "B",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "stat",
-            "version": "13.0.2",
-            "spec": {
-              "options": {
-                "colorMode": "value",
-                "graphMode": "area",
-                "justifyMode": "auto",
-                "orientation": "auto",
-                "percentChangeColorMode": "standard",
-                "reduceOptions": {
-                  "calcs": [
-                    "lastNotNull"
-                  ],
-                  "fields": "",
-                  "values": false
-                },
-                "showPercentChange": false,
-                "text": {},
-                "textMode": "auto",
-                "wideLayout": true
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "short",
-                  "min": 0,
-                  "thresholds": {
-                    "mode": "percentage",
-                    "steps": [
-                      {
-                        "value": 0,
-                        "color": "super-light-yellow"
-                      },
-                      {
-                        "value": 50,
-                        "color": "super-light-green"
-                      },
-                      {
-                        "value": 100,
-                        "color": "green"
-                      }
-                    ]
-                  },
-                  "color": {
-                    "mode": "thresholds"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-15": {
-        "kind": "Panel",
-        "spec": {
-          "id": 15,
-          "title": "Tokens Last Hour",
-          "description": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "spec": {
-                        "exemplar": true,
-                        "expr": "delta(vllm:prompt_tokens_total{engine=~\"$workerid\", }[1h])",
-                        "interval": "",
-                        "legendFormat": "Input: {{model_name}}",
-                        "queryType": "randomWalk"
-                      },
-                      "labels": {
-                        "grafana.app/export-label": "prometheus-1"
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "spec": {
-                        "exemplar": true,
-                        "expr": "delta(vllm:generation_tokens_total{engine=~\"$workerid\", }[1h])",
-                        "interval": "",
-                        "legendFormat": "Generated: {{model_name}}",
-                        "queryType": "randomWalk"
-                      },
-                      "labels": {
-                        "grafana.app/export-label": "prometheus-1"
-                      }
-                    },
-                    "refId": "B",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "stat",
-            "version": "13.0.2",
-            "spec": {
-              "options": {
-                "colorMode": "value",
-                "graphMode": "area",
-                "justifyMode": "auto",
-                "orientation": "auto",
-                "percentChangeColorMode": "standard",
-                "reduceOptions": {
-                  "calcs": [
-                    "lastNotNull"
-                  ],
-                  "fields": "",
-                  "values": false
-                },
-                "showPercentChange": false,
-                "text": {},
-                "textMode": "auto",
-                "wideLayout": true
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "short",
-                  "min": 0,
-                  "thresholds": {
-                    "mode": "percentage",
-                    "steps": [
-                      {
-                        "value": 0,
-                        "color": "super-light-yellow"
-                      },
-                      {
-                        "value": 50,
-                        "color": "super-light-green"
-                      },
-                      {
-                        "value": 100,
-                        "color": "green"
-                      }
-                    ]
-                  },
-                  "color": {
-                    "mode": "thresholds"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-16": {
-        "kind": "Panel",
-        "spec": {
-          "id": 16,
-          "title": "Distribution of Requests Per Model Last 24 Hours",
-          "description": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "spec": {
-                        "editorMode": "code",
-                        "exemplar": true,
-                        "expr": "sum by (model_name, replica) (delta(vllm:request_success_total{engine=~\"$workerid\", replica=~\"$replica\"}[1d]))",
-                        "interval": "",
-                        "legendFormat": "{{model_name}} - replica {{replica}}",
-                        "queryType": "randomWalk",
-                        "range": true
-                      },
-                      "labels": {
-                        "grafana.app/export-label": "prometheus-1"
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "piechart",
-            "version": "13.0.2",
-            "spec": {
-              "options": {
-                "displayLabels": [],
-                "legend": {
-                  "displayMode": "table",
-                  "placement": "right",
-                  "showLegend": true,
-                  "values": [
-                    "percent",
-                    "value"
-                  ]
-                },
-                "pieType": "pie",
-                "reduceOptions": {
-                  "calcs": [
-                    "lastNotNull"
-                  ],
-                  "fields": "",
-                  "values": false
-                },
-                "sort": "desc",
-                "text": {},
-                "tooltip": {
-                  "hideZeros": false,
-                  "mode": "single",
-                  "sort": "none"
-                }
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "color": {
-                    "mode": "palette-classic"
-                  },
-                  "custom": {
-                    "hideFrom": {
-                      "legend": false,
-                      "tooltip": false,
-                      "viz": false
-                    }
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-18": {
-        "kind": "Panel",
-        "spec": {
-          "id": 18,
-          "title": "Ratio Input:Generated Tokens Last 24 Hours",
-          "description": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "spec": {
-                        "editorMode": "code",
-                        "exemplar": true,
-                        "expr": "sum by (model_name, replica) (delta(vllm:prompt_tokens_total{engine=~\"$workerid\", replica=~\"$replica\"}[1d])) / sum by (model_name, replica) (delta(vllm:generation_tokens_total{engine=~\"$workerid\", replica=~\"$replica\"}[1d]))",
-                        "interval": "",
-                        "legendFormat": "{{model_name}} - replica {{replica}}",
-                        "queryType": "randomWalk",
-                        "range": true
-                      },
-                      "labels": {
-                        "grafana.app/export-label": "prometheus-1"
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "stat",
-            "version": "13.0.2",
-            "spec": {
-              "options": {
-                "colorMode": "value",
-                "graphMode": "area",
-                "justifyMode": "auto",
-                "orientation": "auto",
-                "percentChangeColorMode": "standard",
-                "reduceOptions": {
-                  "calcs": [
-                    "lastNotNull"
-                  ],
-                  "fields": "",
-                  "values": false
-                },
-                "showPercentChange": false,
-                "text": {},
-                "textMode": "auto",
-                "wideLayout": true
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "short",
-                  "min": 0,
-                  "thresholds": {
-                    "mode": "percentage",
-                    "steps": [
-                      {
-                        "value": 0,
-                        "color": "super-light-yellow"
-                      },
-                      {
-                        "value": 50,
-                        "color": "super-light-green"
-                      },
-                      {
-                        "value": 100,
-                        "color": "green"
-                      }
-                    ]
-                  },
-                  "color": {
-                    "mode": "thresholds"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
       "panel-184": {
         "kind": "Panel",
         "spec": {
@@ -1222,7 +805,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_actor_entropy",
+                        "expr": "rl_insight_monitor_actor_entropy{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "instant": false,
                         "legendFormat": "{{__name__}}",
                         "range": true
@@ -1338,7 +921,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_actor_entropy_loss",
+                        "expr": "rl_insight_monitor_actor_entropy_loss{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -1453,7 +1036,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_actor_grad_norm",
+                        "expr": "rl_insight_monitor_actor_grad_norm{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -1568,7 +1151,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_actor_kl_coef",
+                        "expr": "rl_insight_monitor_actor_kl_coef{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -1683,7 +1266,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_actor_kl_loss",
+                        "expr": "rl_insight_monitor_actor_kl_loss{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -1798,7 +1381,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_actor_loss",
+                        "expr": "rl_insight_monitor_actor_loss{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -1893,100 +1476,6 @@
           }
         }
       },
-      "panel-19": {
-        "kind": "Panel",
-        "spec": {
-          "id": 19,
-          "title": "Tokens Per Model Last 24 Hours",
-          "description": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "spec": {
-                        "editorMode": "code",
-                        "exemplar": true,
-                        "expr": "sum by (model_name, replica) (delta(vllm:prompt_tokens_total{engine=~\"$workerid\", replica=~\"$replica\"}[1d])) + sum by (model_name, replica) (delta(vllm:generation_tokens_total{engine=~\"$workerid\", replica=~\"$replica\"}[1d]))",
-                        "interval": "",
-                        "legendFormat": "{{model_name}} - replica {{replica}}",
-                        "queryType": "randomWalk",
-                        "range": true
-                      },
-                      "labels": {
-                        "grafana.app/export-label": "prometheus-1"
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "stat",
-            "version": "13.0.2",
-            "spec": {
-              "options": {
-                "colorMode": "value",
-                "graphMode": "area",
-                "justifyMode": "auto",
-                "orientation": "auto",
-                "percentChangeColorMode": "standard",
-                "reduceOptions": {
-                  "calcs": [
-                    "lastNotNull"
-                  ],
-                  "fields": "",
-                  "values": false
-                },
-                "showPercentChange": false,
-                "text": {},
-                "textMode": "auto",
-                "wideLayout": true
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "short",
-                  "min": 0,
-                  "thresholds": {
-                    "mode": "percentage",
-                    "steps": [
-                      {
-                        "value": 0,
-                        "color": "super-light-yellow"
-                      },
-                      {
-                        "value": 50,
-                        "color": "super-light-green"
-                      },
-                      {
-                        "value": 100,
-                        "color": "green"
-                      }
-                    ]
-                  },
-                  "color": {
-                    "mode": "thresholds"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
       "panel-190": {
         "kind": "Panel",
         "spec": {
@@ -2007,7 +1496,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_actor_lr",
+                        "expr": "rl_insight_monitor_actor_lr{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -2122,7 +1611,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_actor_perf_cpu_memory_used_gb",
+                        "expr": "rl_insight_monitor_actor_perf_cpu_memory_used_gb{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -2237,7 +1726,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_actor_perf_max_memory_allocated_gb",
+                        "expr": "rl_insight_monitor_actor_perf_max_memory_allocated_gb{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -2352,7 +1841,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_actor_perf_max_memory_reserved_gb",
+                        "expr": "rl_insight_monitor_actor_perf_max_memory_reserved_gb{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -2467,7 +1956,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_actor_pg_clipfrac",
+                        "expr": "rl_insight_monitor_actor_pg_clipfrac{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -2582,7 +2071,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_actor_pg_clipfrac_lower",
+                        "expr": "rl_insight_monitor_actor_pg_clipfrac_lower{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -2697,7 +2186,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_actor_pg_loss",
+                        "expr": "rl_insight_monitor_actor_pg_loss{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -2812,7 +2301,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_actor_ppo_kl",
+                        "expr": "rl_insight_monitor_actor_ppo_kl{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -2927,7 +2416,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_critic_advantages_max",
+                        "expr": "rl_insight_monitor_critic_advantages_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -3042,7 +2531,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_critic_advantages_mean",
+                        "expr": "rl_insight_monitor_critic_advantages_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -3474,7 +2963,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_critic_advantages_min",
+                        "expr": "rl_insight_monitor_critic_advantages_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -3589,7 +3078,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_critic_returns_max",
+                        "expr": "rl_insight_monitor_critic_returns_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -3704,7 +3193,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_critic_returns_mean",
+                        "expr": "rl_insight_monitor_critic_returns_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -3819,7 +3308,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_critic_returns_min",
+                        "expr": "rl_insight_monitor_critic_returns_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -3934,7 +3423,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_critic_rewards_max",
+                        "expr": "rl_insight_monitor_critic_rewards_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -4049,7 +3538,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_critic_rewards_mean",
+                        "expr": "rl_insight_monitor_critic_rewards_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -4164,7 +3653,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_critic_rewards_min",
+                        "expr": "rl_insight_monitor_critic_rewards_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -4279,7 +3768,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_critic_score_max",
+                        "expr": "rl_insight_monitor_critic_score_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -4394,7 +3883,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_critic_score_mean",
+                        "expr": "rl_insight_monitor_critic_score_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -4509,7 +3998,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_critic_score_min",
+                        "expr": "rl_insight_monitor_critic_score_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -4604,100 +4093,6 @@
           }
         }
       },
-      "panel-21": {
-        "kind": "Panel",
-        "spec": {
-          "id": 21,
-          "title": "Peak Tokens Per Second Per Model Last 24 Hours",
-          "description": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "spec": {
-                        "editorMode": "code",
-                        "exemplar": true,
-                        "expr": "max_over_time(sum by (model_name, replica) (rate(vllm:generation_tokens_total{engine=~\"$workerid\", replica=~\"$replica\"}[2m]))[24h:])",
-                        "interval": "",
-                        "legendFormat": "{{model_name}} - replica {{replica}}",
-                        "queryType": "randomWalk",
-                        "range": true
-                      },
-                      "labels": {
-                        "grafana.app/export-label": "prometheus-1"
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "stat",
-            "version": "13.0.2",
-            "spec": {
-              "options": {
-                "colorMode": "value",
-                "graphMode": "area",
-                "justifyMode": "auto",
-                "orientation": "auto",
-                "percentChangeColorMode": "standard",
-                "reduceOptions": {
-                  "calcs": [
-                    "lastNotNull"
-                  ],
-                  "fields": "",
-                  "values": false
-                },
-                "showPercentChange": false,
-                "text": {},
-                "textMode": "auto",
-                "wideLayout": true
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "short",
-                  "min": 0,
-                  "thresholds": {
-                    "mode": "percentage",
-                    "steps": [
-                      {
-                        "value": 0,
-                        "color": "super-light-yellow"
-                      },
-                      {
-                        "value": 50,
-                        "color": "super-light-green"
-                      },
-                      {
-                        "value": 100,
-                        "color": "green"
-                      }
-                    ]
-                  },
-                  "color": {
-                    "mode": "thresholds"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
       "panel-210": {
         "kind": "Panel",
         "spec": {
@@ -4718,7 +4113,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_global_seqlen_balanced_max",
+                        "expr": "rl_insight_monitor_global_seqlen_balanced_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -4833,7 +4228,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_global_seqlen_balanced_min",
+                        "expr": "rl_insight_monitor_global_seqlen_balanced_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -4948,7 +4343,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_global_seqlen_max",
+                        "expr": "rl_insight_monitor_global_seqlen_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -5063,7 +4458,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_global_seqlen_mean",
+                        "expr": "rl_insight_monitor_global_seqlen_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -5178,7 +4573,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_global_seqlen_min",
+                        "expr": "rl_insight_monitor_global_seqlen_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -5293,7 +4688,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_global_seqlen_minmax_diff",
+                        "expr": "rl_insight_monitor_global_seqlen_minmax_diff{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -5408,7 +4803,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_perf_mfu_actor",
+                        "expr": "rl_insight_monitor_perf_mfu_actor{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -5523,7 +4918,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_perf_throughput",
+                        "expr": "rl_insight_monitor_perf_throughput{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -5638,7 +5033,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_perf_time_per_step",
+                        "expr": "rl_insight_monitor_perf_time_per_step{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -5753,7 +5148,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_perf_total_num_tokens",
+                        "expr": "rl_insight_monitor_perf_total_num_tokens{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -5868,7 +5263,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_prompt_length_clip_ratio",
+                        "expr": "rl_insight_monitor_prompt_length_clip_ratio{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -5983,7 +5378,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_prompt_length_max",
+                        "expr": "rl_insight_monitor_prompt_length_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -6098,7 +5493,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_prompt_length_mean",
+                        "expr": "rl_insight_monitor_prompt_length_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -6213,7 +5608,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_prompt_length_min",
+                        "expr": "rl_insight_monitor_prompt_length_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -6328,7 +5723,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_response_aborted_ratio",
+                        "expr": "rl_insight_monitor_response_aborted_ratio{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -6443,7 +5838,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_response_length_clip_ratio",
+                        "expr": "rl_insight_monitor_response_length_clip_ratio{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -6538,104 +5933,6 @@
           }
         }
       },
-      "panel-23": {
-        "kind": "Panel",
-        "spec": {
-          "id": 23,
-          "title": "Requests Per Model Last Week",
-          "description": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "spec": {
-                        "editorMode": "code",
-                        "exemplar": true,
-                        "expr": "sum by (model_name, replica) (delta(vllm:request_success_total{engine=~\"$workerid\", replica=~\"$replica\"}[1w]))",
-                        "interval": "",
-                        "legendFormat": "{{ model_name}} - replica {{replica}}",
-                        "queryType": "randomWalk",
-                        "range": true
-                      },
-                      "labels": {
-                        "grafana.app/export-label": "prometheus-1"
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "gauge",
-            "version": "13.0.2",
-            "spec": {
-              "options": {
-                "barShape": "flat",
-                "barWidthFactor": 0.5,
-                "effects": {
-                  "barGlow": false,
-                  "centerGlow": false,
-                  "gradient": false
-                },
-                "endpointMarker": "point",
-                "minVizHeight": 75,
-                "minVizWidth": 75,
-                "orientation": "auto",
-                "reduceOptions": {
-                  "calcs": [
-                    "lastNotNull"
-                  ],
-                  "fields": "",
-                  "values": false
-                },
-                "segmentCount": 1,
-                "segmentSpacing": 0.3,
-                "shape": "gauge",
-                "showThresholdLabels": false,
-                "showThresholdMarkers": false,
-                "sizing": "auto",
-                "sparkline": false,
-                "text": {
-                  "titleSize": 12
-                },
-                "textMode": "auto"
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "short",
-                  "thresholds": {
-                    "mode": "percentage",
-                    "steps": [
-                      {
-                        "value": 0,
-                        "color": "rgb(230, 230, 230)"
-                      }
-                    ]
-                  },
-                  "color": {
-                    "mode": "continuous-YlBl"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
       "panel-230": {
         "kind": "Panel",
         "spec": {
@@ -6656,7 +5953,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_response_length_max",
+                        "expr": "rl_insight_monitor_response_length_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -6771,7 +6068,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_response_length_mean",
+                        "expr": "rl_insight_monitor_response_length_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -6886,7 +6183,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_response_length_min",
+                        "expr": "rl_insight_monitor_response_length_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -7001,7 +6298,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_response_length_non_aborted_clip_ratio",
+                        "expr": "rl_insight_monitor_response_length_non_aborted_clip_ratio{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -7116,7 +6413,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_response_length_non_aborted_max",
+                        "expr": "rl_insight_monitor_response_length_non_aborted_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -7231,7 +6528,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_response_length_non_aborted_mean",
+                        "expr": "rl_insight_monitor_response_length_non_aborted_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -7346,7 +6643,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_response_length_non_aborted_min",
+                        "expr": "rl_insight_monitor_response_length_non_aborted_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -7461,7 +6758,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_rollout_corr_chi2_seq",
+                        "expr": "rl_insight_monitor_rollout_corr_chi2_seq{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -7576,7 +6873,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_rollout_corr_chi2_token",
+                        "expr": "rl_insight_monitor_rollout_corr_chi2_token{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -7691,7 +6988,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_rollout_corr_k3_kl",
+                        "expr": "rl_insight_monitor_rollout_corr_k3_kl{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -7786,104 +7083,6 @@
           }
         }
       },
-      "panel-24": {
-        "kind": "Panel",
-        "spec": {
-          "id": 24,
-          "title": "Avg Total Tokens Per Request Last 7 Days",
-          "description": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "spec": {
-                        "editorMode": "code",
-                        "exemplar": true,
-                        "expr": "(sum by (model_name, replica) (delta(vllm:prompt_tokens_total{engine=~\"$workerid\", replica=~\"$replica\"}[1w])) +\nsum by (model_name, replica) (delta(vllm:generation_tokens_total{engine=~\"$workerid\", replica=~\"$replica\"}[1w]))) / sum by (model_name, replica) (delta(vllm:request_success_total{engine=~\"$workerid\", replica=~\"$replica\"}[1w]))",
-                        "interval": "",
-                        "legendFormat": "{{ model_name}} - replica {{replica}}",
-                        "queryType": "randomWalk",
-                        "range": true
-                      },
-                      "labels": {
-                        "grafana.app/export-label": "prometheus-1"
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "gauge",
-            "version": "13.0.2",
-            "spec": {
-              "options": {
-                "barShape": "flat",
-                "barWidthFactor": 0.5,
-                "effects": {
-                  "barGlow": false,
-                  "centerGlow": false,
-                  "gradient": false
-                },
-                "endpointMarker": "point",
-                "minVizHeight": 75,
-                "minVizWidth": 75,
-                "orientation": "auto",
-                "reduceOptions": {
-                  "calcs": [
-                    "lastNotNull"
-                  ],
-                  "fields": "",
-                  "values": false
-                },
-                "segmentCount": 1,
-                "segmentSpacing": 0.3,
-                "shape": "gauge",
-                "showThresholdLabels": false,
-                "showThresholdMarkers": false,
-                "sizing": "auto",
-                "sparkline": false,
-                "text": {
-                  "titleSize": 12
-                },
-                "textMode": "auto"
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "short",
-                  "thresholds": {
-                    "mode": "percentage",
-                    "steps": [
-                      {
-                        "value": 0,
-                        "color": "rgb(230, 230, 230)"
-                      }
-                    ]
-                  },
-                  "color": {
-                    "mode": "continuous-YlBl"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
       "panel-240": {
         "kind": "Panel",
         "spec": {
@@ -7904,7 +7103,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_rollout_corr_kl",
+                        "expr": "rl_insight_monitor_rollout_corr_kl{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -8019,7 +7218,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_rollout_corr_log_ppl_abs_diff",
+                        "expr": "rl_insight_monitor_rollout_corr_log_ppl_abs_diff{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -8134,7 +7333,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_rollout_corr_log_ppl_diff",
+                        "expr": "rl_insight_monitor_rollout_corr_log_ppl_diff{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -8249,7 +7448,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_rollout_corr_log_ppl_diff_max",
+                        "expr": "rl_insight_monitor_rollout_corr_log_ppl_diff_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -8364,7 +7563,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_rollout_corr_log_ppl_diff_min",
+                        "expr": "rl_insight_monitor_rollout_corr_log_ppl_diff_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -8479,7 +7678,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_rollout_corr_ppl_ratio",
+                        "expr": "rl_insight_monitor_rollout_corr_ppl_ratio{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -8594,7 +7793,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_rollout_corr_rollout_log_ppl",
+                        "expr": "rl_insight_monitor_rollout_corr_rollout_log_ppl{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -8709,7 +7908,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_rollout_corr_rollout_ppl",
+                        "expr": "rl_insight_monitor_rollout_corr_rollout_ppl{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -8824,7 +8023,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_rollout_corr_training_log_ppl",
+                        "expr": "rl_insight_monitor_rollout_corr_training_log_ppl{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -8939,7 +8138,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_rollout_corr_training_ppl",
+                        "expr": "rl_insight_monitor_rollout_corr_training_ppl{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -9034,104 +8233,6 @@
           }
         }
       },
-      "panel-25": {
-        "kind": "Panel",
-        "spec": {
-          "id": 25,
-          "title": "Avg Total Tokens Per Request Per Model Last 7 Days",
-          "description": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "spec": {
-                        "editorMode": "code",
-                        "exemplar": true,
-                        "expr": "(sum by (model_name, replica) (delta(vllm:prompt_tokens_total{engine=~\"$workerid\", replica=~\"$replica\"}[1w])) + sum by (model_name, replica) (delta(vllm:generation_tokens_total{engine=~\"$workerid\", replica=~\"$replica\"}[1w])))/ sum by (model_name, replica) (delta(vllm:request_success_total{engine=~\"$workerid\", replica=~\"$replica\"}[1w]))",
-                        "interval": "",
-                        "legendFormat": "{{ model_name}} - replica {{replica}}",
-                        "queryType": "randomWalk",
-                        "range": true
-                      },
-                      "labels": {
-                        "grafana.app/export-label": "prometheus-1"
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "gauge",
-            "version": "13.0.2",
-            "spec": {
-              "options": {
-                "barShape": "flat",
-                "barWidthFactor": 0.5,
-                "effects": {
-                  "barGlow": false,
-                  "centerGlow": false,
-                  "gradient": false
-                },
-                "endpointMarker": "point",
-                "minVizHeight": 75,
-                "minVizWidth": 75,
-                "orientation": "auto",
-                "reduceOptions": {
-                  "calcs": [
-                    "lastNotNull"
-                  ],
-                  "fields": "",
-                  "values": false
-                },
-                "segmentCount": 1,
-                "segmentSpacing": 0.3,
-                "shape": "gauge",
-                "showThresholdLabels": false,
-                "showThresholdMarkers": false,
-                "sizing": "auto",
-                "sparkline": false,
-                "text": {
-                  "titleSize": 12
-                },
-                "textMode": "auto"
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "short",
-                  "thresholds": {
-                    "mode": "percentage",
-                    "steps": [
-                      {
-                        "value": 0,
-                        "color": "rgb(230, 230, 230)"
-                      }
-                    ]
-                  },
-                  "color": {
-                    "mode": "continuous-YlBl"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
       "panel-250": {
         "kind": "Panel",
         "spec": {
@@ -9152,7 +8253,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_timing_per_token_ms_adv",
+                        "expr": "rl_insight_monitor_timing_per_token_ms_adv{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -9267,7 +8368,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_timing_per_token_ms_gen",
+                        "expr": "rl_insight_monitor_timing_per_token_ms_gen{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -9382,7 +8483,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_timing_per_token_ms_ref",
+                        "expr": "rl_insight_monitor_timing_per_token_ms_ref{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -9497,7 +8598,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_timing_per_token_ms_update_actor",
+                        "expr": "rl_insight_monitor_timing_per_token_ms_update_actor{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -9612,7 +8713,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_timing_s_adv",
+                        "expr": "rl_insight_monitor_timing_s_adv{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -9707,250 +8808,6 @@
           }
         }
       },
-      "panel-26": {
-        "kind": "Panel",
-        "spec": {
-          "id": 26,
-          "title": "Tokens Per Model Last 7 Days",
-          "description": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "spec": {
-                        "editorMode": "code",
-                        "exemplar": true,
-                        "expr": "sum by (model_name, replica) (delta(vllm:prompt_tokens_total{engine=~\"$workerid\", replica=~\"$replica\"}[1w]))",
-                        "interval": "",
-                        "legendFormat": "In: {{ model_name}} - replica {{replica}}",
-                        "queryType": "randomWalk",
-                        "range": true
-                      },
-                      "labels": {
-                        "grafana.app/export-label": "prometheus-1"
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "spec": {
-                        "editorMode": "code",
-                        "exemplar": true,
-                        "expr": "sum by (model_name, replica) (delta(vllm:generation_tokens_total{engine=~\"$workerid\", replica=~\"$replica\"}[1w]))",
-                        "interval": "",
-                        "legendFormat": "Out: {{ model_name }} - replica {{replica}}",
-                        "queryType": "randomWalk",
-                        "range": true
-                      },
-                      "labels": {
-                        "grafana.app/export-label": "prometheus-1"
-                      }
-                    },
-                    "refId": "B",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "gauge",
-            "version": "13.0.2",
-            "spec": {
-              "options": {
-                "barShape": "flat",
-                "barWidthFactor": 0.5,
-                "effects": {
-                  "barGlow": false,
-                  "centerGlow": false,
-                  "gradient": false
-                },
-                "endpointMarker": "point",
-                "minVizHeight": 75,
-                "minVizWidth": 75,
-                "orientation": "auto",
-                "reduceOptions": {
-                  "calcs": [
-                    "lastNotNull"
-                  ],
-                  "fields": "",
-                  "values": false
-                },
-                "segmentCount": 1,
-                "segmentSpacing": 0.3,
-                "shape": "gauge",
-                "showThresholdLabels": false,
-                "showThresholdMarkers": false,
-                "sizing": "auto",
-                "sparkline": false,
-                "text": {
-                  "titleSize": 12
-                },
-                "textMode": "auto"
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "short",
-                  "thresholds": {
-                    "mode": "percentage",
-                    "steps": [
-                      {
-                        "value": 0,
-                        "color": "rgb(230, 230, 230)"
-                      }
-                    ]
-                  },
-                  "color": {
-                    "mode": "continuous-YlBl"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-27": {
-        "kind": "Panel",
-        "spec": {
-          "id": 27,
-          "title": "Tokens Per Request Per Model Last 7 Days",
-          "description": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "spec": {
-                        "editorMode": "code",
-                        "exemplar": true,
-                        "expr": "sum by (model_name, replica) (delta(vllm:prompt_tokens_total{engine=~\"$workerid\", replica=~\"$replica\"}[1w])) / sum by (model_name, replica) (delta(vllm:request_success_total{engine=~\"$workerid\", replica=~\"$replica\"}[1w]))",
-                        "interval": "",
-                        "legendFormat": "In: {{ model_name}} - replica {{replica}}",
-                        "queryType": "randomWalk",
-                        "range": true
-                      },
-                      "labels": {
-                        "grafana.app/export-label": "prometheus-1"
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "spec": {
-                        "editorMode": "code",
-                        "exemplar": true,
-                        "expr": "sum by (model_name,replica) (delta(vllm:generation_tokens_total{engine=~\"$workerid\", replica=~\"$replica\"}[1w])) / sum by (model_name,replica) (delta(vllm:request_success_total{engine=~\"$workerid\", replica=~\"$replica\"}[1w]))",
-                        "interval": "",
-                        "legendFormat": "Out: {{ model_name}} - replica {{replica}}",
-                        "queryType": "randomWalk",
-                        "range": true
-                      },
-                      "labels": {
-                        "grafana.app/export-label": "prometheus-1"
-                      }
-                    },
-                    "refId": "B",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "gauge",
-            "version": "13.0.2",
-            "spec": {
-              "options": {
-                "barShape": "flat",
-                "barWidthFactor": 0.5,
-                "effects": {
-                  "barGlow": false,
-                  "centerGlow": false,
-                  "gradient": false
-                },
-                "endpointMarker": "point",
-                "minVizHeight": 75,
-                "minVizWidth": 75,
-                "orientation": "auto",
-                "reduceOptions": {
-                  "calcs": [
-                    "lastNotNull"
-                  ],
-                  "fields": "",
-                  "values": false
-                },
-                "segmentCount": 1,
-                "segmentSpacing": 0.3,
-                "shape": "gauge",
-                "showThresholdLabels": false,
-                "showThresholdMarkers": false,
-                "sizing": "auto",
-                "sparkline": false,
-                "text": {
-                  "titleSize": 12
-                },
-                "textMode": "auto"
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "short",
-                  "thresholds": {
-                    "mode": "percentage",
-                    "steps": [
-                      {
-                        "value": 0,
-                        "color": "rgb(230, 230, 230)"
-                      }
-                    ]
-                  },
-                  "color": {
-                    "mode": "continuous-YlBl"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
       "panel-273": {
         "kind": "Panel",
         "spec": {
@@ -9971,7 +8828,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_timing_s_gen",
+                        "expr": "rl_insight_monitor_timing_s_gen{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -10086,7 +8943,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_timing_s_old_log_prob",
+                        "expr": "rl_insight_monitor_timing_s_old_log_prob{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -10201,7 +9058,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_timing_s_ref",
+                        "expr": "rl_insight_monitor_timing_s_ref{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -10316,7 +9173,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_timing_s_step",
+                        "expr": "rl_insight_monitor_timing_s_step{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -10553,7 +9410,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_timing_s_testing",
+                        "expr": "rl_insight_monitor_timing_s_testing{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -10668,7 +9525,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_timing_s_update_actor",
+                        "expr": "rl_insight_monitor_timing_s_update_actor{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -10783,7 +9640,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_timing_s_update_weights",
+                        "expr": "rl_insight_monitor_timing_s_update_weights{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -10898,7 +9755,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_training_epoch",
+                        "expr": "rl_insight_monitor_training_epoch{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -10990,7 +9847,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_training_global_step",
+                        "expr": "rl_insight_monitor_training_global_step{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -11082,7 +9939,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_training_rollout_actor_probs_pearson_corr",
+                        "expr": "rl_insight_monitor_training_rollout_actor_probs_pearson_corr{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -11197,7 +10054,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_training_rollout_probs_diff_max",
+                        "expr": "rl_insight_monitor_training_rollout_probs_diff_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -11312,7 +10169,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_training_rollout_probs_diff_mean",
+                        "expr": "rl_insight_monitor_training_rollout_probs_diff_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -11427,7 +10284,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_training_rollout_probs_diff_std",
+                        "expr": "rl_insight_monitor_training_rollout_probs_diff_std{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -11542,7 +10399,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_training_rollout_probs_diff_valid",
+                        "expr": "rl_insight_monitor_training_rollout_probs_diff_valid{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -11657,7 +10514,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_val_aux_num_turns_max",
+                        "expr": "rl_insight_monitor_val_aux_num_turns_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -11772,7 +10629,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_val_aux_num_turns_mean",
+                        "expr": "rl_insight_monitor_val_aux_num_turns_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -11887,7 +10744,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_val_aux_num_turns_min",
+                        "expr": "rl_insight_monitor_val_aux_num_turns_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -12002,7 +10859,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_val_aux_openai_gsm8k_reward_mean_1",
+                        "expr": "rl_insight_monitor_val_aux_openai_gsm8k_reward_mean_1{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -12117,7 +10974,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_val_core_openai_gsm8k_acc_mean_1",
+                        "expr": "rl_insight_monitor_val_core_openai_gsm8k_acc_mean_1{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -14724,7 +13581,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_training_num_turns_max",
+                        "expr": "rl_insight_monitor_training_num_turns_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -14839,7 +13696,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_training_off_policy_trajectory_spans_mean",
+                        "expr": "rl_insight_monitor_training_off_policy_trajectory_spans_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -14954,7 +13811,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_training_num_turns_mean",
+                        "expr": "rl_insight_monitor_training_num_turns_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -15069,7 +13926,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_training_off_policy_trajectory_spans_min",
+                        "expr": "rl_insight_monitor_training_off_policy_trajectory_spans_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -15184,7 +14041,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_training_off_policy_trajectory_staleness_max",
+                        "expr": "rl_insight_monitor_training_off_policy_trajectory_staleness_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -15299,7 +14156,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_training_off_policy_trajectory_staleness_worst_max",
+                        "expr": "rl_insight_monitor_training_off_policy_trajectory_staleness_worst_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -15560,7 +14417,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_training_num_turns_min",
+                        "expr": "rl_insight_monitor_training_num_turns_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -15675,7 +14532,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_training_off_policy_trajectory_staleness_mean",
+                        "expr": "rl_insight_monitor_training_off_policy_trajectory_staleness_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -15790,7 +14647,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_training_off_policy_trajectory_spans_max",
+                        "expr": "rl_insight_monitor_training_off_policy_trajectory_spans_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -15905,7 +14762,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_training_off_policy_trajectory_staleness_worst_min",
+                        "expr": "rl_insight_monitor_training_off_policy_trajectory_staleness_worst_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -16020,7 +14877,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_training_off_policy_trajectory_staleness_worst_mean",
+                        "expr": "rl_insight_monitor_training_off_policy_trajectory_staleness_worst_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{__name__}}",
                         "range": true
                       }
@@ -17704,7 +16561,7 @@
                   "color": "rgba(255,0,255,0.7)"
                 },
                 "filterValues": {
-                  "le": 1e-9
+                  "le": 1e-09
                 },
                 "legend": {
                   "show": true,
@@ -17815,7 +16672,7 @@
                   "color": "rgba(255,0,255,0.7)"
                 },
                 "filterValues": {
-                  "le": 1e-9
+                  "le": 1e-09
                 },
                 "legend": {
                   "show": true,
@@ -20912,149 +19769,6 @@
                           "name": "panel-36"
                         }
                       }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 12,
-                        "y": 72,
-                        "width": 12,
-                        "height": 8,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-27"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 0,
-                        "y": 80,
-                        "width": 12,
-                        "height": 8,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-14"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 12,
-                        "y": 80,
-                        "width": 12,
-                        "height": 8,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-15"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 0,
-                        "y": 88,
-                        "width": 12,
-                        "height": 8,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-16"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 12,
-                        "y": 88,
-                        "width": 12,
-                        "height": 8,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-18"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 0,
-                        "y": 96,
-                        "width": 12,
-                        "height": 8,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-19"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 12,
-                        "y": 96,
-                        "width": 12,
-                        "height": 8,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-21"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 0,
-                        "y": 104,
-                        "width": 12,
-                        "height": 8,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-23"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 12,
-                        "y": 104,
-                        "width": 12,
-                        "height": 8,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-24"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 0,
-                        "y": 112,
-                        "width": 12,
-                        "height": 8,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-25"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 12,
-                        "y": 112,
-                        "width": 12,
-                        "height": 8,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-26"
-                        }
-                      }
                     }
                   ]
                 }
@@ -21740,6 +20454,76 @@
           "hide": "hideVariable",
           "skipUrlSync": false,
           "description": "Filter queries of a specific Prometheus type.",
+          "allowCustomValue": true
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "project",
+          "current": {
+            "text": "All",
+            "value": "$__all"
+          },
+          "label": "training: Project",
+          "hide": "dontHide",
+          "refresh": "onDashboardLoad",
+          "skipUrlSync": false,
+          "query": {
+            "kind": "DataQuery",
+            "group": "prometheus",
+            "version": "v0",
+            "datasource": {
+              "name": "${datasource}"
+            },
+            "spec": {
+              "query": "label_values({__name__=~\"rl_insight_monitor_.*\"}, project)",
+              "refId": "StandardVariableQuery"
+            }
+          },
+          "regex": "",
+          "regexApplyTo": "value",
+          "sort": "alphabeticalAsc",
+          "definition": "label_values({__name__=~\"rl_insight_monitor_.*\"}, project)",
+          "options": [],
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*",
+          "allowCustomValue": true
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "experiment_name",
+          "current": {
+            "text": "All",
+            "value": "$__all"
+          },
+          "label": "training: Experiment Name",
+          "hide": "dontHide",
+          "refresh": "onDashboardLoad",
+          "skipUrlSync": false,
+          "query": {
+            "kind": "DataQuery",
+            "group": "prometheus",
+            "version": "v0",
+            "datasource": {
+              "name": "${datasource}"
+            },
+            "spec": {
+              "query": "label_values({__name__=~\"rl_insight_monitor_.*\"}, experiment_name)",
+              "refId": "StandardVariableQuery"
+            }
+          },
+          "regex": "",
+          "regexApplyTo": "value",
+          "sort": "alphabeticalAsc",
+          "definition": "label_values({__name__=~\"rl_insight_monitor_.*\"}, experiment_name)",
+          "options": [],
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*",
           "allowCustomValue": true
         }
       },

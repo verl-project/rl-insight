@@ -1,14 +1,14 @@
-name: Check Documentation Urls
+name: Check Documentation
 
-# 触发时机：每次 PR 创建/更新、每次推送到主分支
 on:
   push:
     branches:
       - main
+      - v0.*
   pull_request:
     types: [opened, edited, synchronize]
+  workflow_dispatch:
 
-# 任务
 jobs:
   check_doc_urls:
     runs-on: ubuntu-latest
@@ -30,3 +30,14 @@ jobs:
 
       - name: Run doc URL validation test
         run: pytest tests/doc/test_docs_urls.py -v
+
+  check_relative_links:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for relative image/link references
+        run: python3 tests/special_sanity/check_relative_links.py

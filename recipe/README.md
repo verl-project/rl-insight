@@ -11,7 +11,7 @@
 RL-Insight Recipe provides offline performance insight capabilities for RL training frameworks. It defines a general pipeline for parsing profiling data and rendering timeline, heatmap, and memory-analysis views.
 
 <div align="center">
- <img src="../assets/recipe/rl_insight_framework.svg" width="600" alt="rl-insight-arch">
+ <img src="https://raw.githubusercontent.com/verl-project/rl-insight/main/assets/recipe/rl_insight_framework.svg" width="600" alt="rl-insight-arch">
 </div>
 
 ## Key Features

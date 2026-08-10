@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/monitor/rl-insight-logo.png" width="180" alt="RL-Insight logo">
+  <img src="https://raw.githubusercontent.com/verl-project/rl-insight/main/assets/monitor/rl-insight-logo.png" width="180" alt="RL-Insight logo">
 </p>
 
 <h1 align="center">RL-Insight</h1>
@@ -29,7 +29,7 @@ RL-Insight focuses on the online observability path that RL training needs most:
 ## Architecture
 
 <p align="center">
-  <img src="./assets/monitor/rl-insight-monitor-architecture.svg" width="960" alt="RL-Insight monitor architecture">
+  <img src="https://raw.githubusercontent.com/verl-project/rl-insight/main/assets/monitor/rl-insight-monitor-architecture.svg" width="960" alt="RL-Insight monitor architecture">
 </p>
 
 RL-Insight has two metric sources. Training code reports framework-internal signals through the Python API, and RL subsystems such as rollout engines and transfer queues register their own `/metrics` endpoints through the metric aggregation interface. The RL-Insight server coordinates the training side and manages Prometheus, Tempo, and Grafana so metrics, traces, and subsystem signals converge into unified RL dashboards.

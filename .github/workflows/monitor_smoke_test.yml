@@ -15,6 +15,7 @@ on:
       - "rl_insight/server/**"
       - "rl_insight/config/services/**"
       - "tests/monitor/special_e2e/**"
+      - "tests/monitor/test_monitor_stress.py"
       - "docs/monitor/**"
 
 concurrency:
@@ -106,6 +107,9 @@ jobs:
 
       - name: Run monitor smoke test
         run: pytest -s -v tests/monitor/special_e2e/test_monitor_smoke.py
+
+      - name: Run monitor stress test
+        run: python tests/monitor/test_monitor_stress.py
 
       - name: Stop server stack
         if: always()
