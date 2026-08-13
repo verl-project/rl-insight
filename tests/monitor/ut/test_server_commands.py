@@ -208,3 +208,47 @@ def test_start_should_keep_success_when_diagnostics_raise(
     console.print_startup_diagnostics.assert_not_called()
     assert "Startup diagnostics unavailable: diagnostic failure" in captured.err
     assert "running in background mode" in captured.out
+
+
+def test_start_should_attach_training_monitor_in_foreground(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conf = OmegaConf.create({"server": {"enable": True}})
+    stack = MagicMock()
+    stack.services = []
+    manager = MagicMock()
+    manager.active_state.return_value = None
+    manager.check_dependencies.return_value = []
+    manager.missing_dependencies.return_value = []
+    manager.start.return_value = stack
+    manager.wait.return_value = 0
+    monkeypatch.setattr(
+        commands_module.ServerCommands,
+        "_load_config",
+        staticmethod(lambda _args: conf),
+    )
+    monkeypatch.setattr(
+        commands_module.ServerCommands,
+        "_stack_management_enabled",
+        staticmethod(lambda _conf, action: True),
+    )
+    monkeypatch.setattr(
+        commands_module, "ServerServiceManager", MagicMock(return_value=manager)
+    )
+    monitor = MagicMock()
+    monitor_factory = MagicMock(return_value=monitor)
+
+    result = commands_module.ServerCommands(
+        validator=MagicMock(),
+        console=MagicMock(),
+        diagnostics_runner=MagicMock(),
+        training_monitor_factory=monitor_factory,
+    ).start(argparse.Namespace(detach=False, attach_logs=False, config=None))
+
+    assert result == 0
+    monitor_factory.assert_called_once_with(conf)
+    manager.wait.assert_called_once_with(
+        stack,
+        attach_logs=False,
+        on_tick=monitor.poll,
+    )

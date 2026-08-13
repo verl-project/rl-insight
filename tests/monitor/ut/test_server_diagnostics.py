@@ -17,7 +17,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import requests
 from omegaconf import OmegaConf
@@ -286,3 +286,134 @@ def test_run_startup_diagnostics_should_retry_until_services_are_ready(
     ]
     assert sleep.call_count == 3
     sleep.assert_called_with(diagnostics.STARTUP_READINESS_RETRY_DELAY_SECONDS)
+
+
+def test_query_training_data_status_should_wait_when_no_trainer_target(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        diagnostics,
+        "local_addresses",
+        lambda: {"loopback": "127.0.0.1", "host": ""},
+    )
+    http_get = MagicMock(return_value=_response(payload={"status": "success", "data": {"activeTargets": []}}))
+
+    status = diagnostics.query_training_data_status(_config(), http_get=http_get)
+
+    assert status.target_state == diagnostics.TRAINING_TARGET_WAITING
+    assert status.target_up == 0
+    assert status.event_counts == ()
+
+
+def test_query_training_data_status_should_report_down_trainer_target(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        diagnostics,
+        "local_addresses",
+        lambda: {"loopback": "127.0.0.1", "host": ""},
+    )
+    http_get = MagicMock(
+        return_value=_response(
+            payload={
+                "status": "success",
+                "data": {
+                    "activeTargets": [
+                        {
+                            "labels": {"job": "trainer_metrics"},
+                            "scrapeUrl": "http://10.0.0.8:9092/metrics",
+                            "health": "down",
+                            "lastError": "connection refused",
+                        }
+                    ]
+                },
+            }
+        )
+    )
+
+    status = diagnostics.query_training_data_status(_config(), http_get=http_get)
+
+    assert status.target_state == diagnostics.TRAINING_TARGET_DOWN
+    assert status.target_down == 1
+    assert status.target_failures == ("http://10.0.0.8:9092/metrics (connection refused)",)
+
+
+def test_query_training_data_status_should_report_active_event_pipeline(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        diagnostics,
+        "local_addresses",
+        lambda: {"loopback": "127.0.0.1", "host": ""},
+    )
+
+    def get(url, *, params=None, **_kwargs):
+        if url.endswith("/api/v1/targets"):
+            return _response(
+                payload={
+                    "status": "success",
+                    "data": {
+                        "activeTargets": [
+                            {
+                                "labels": {"job": "trainer_metrics"},
+                                "scrapeUrl": "http://10.0.0.8:9092/metrics",
+                                "health": "up",
+                            }
+                        ]
+                    },
+                }
+            )
+        query = params["query"]
+        if "events_applied_total" in query:
+            result = [
+                {"metric": {"kind": "counter"}, "value": [0, "4"]},
+                {"metric": {"kind": "trace"}, "value": [0, "2"]},
+            ]
+        elif "event_errors_total" in query:
+            result = []
+        else:
+            result = [{"metric": {}, "value": [0, "100.0"]}]
+        return _response(payload={"status": "success", "data": {"result": result}})
+
+    status = diagnostics.query_training_data_status(_config(), http_get=get)
+
+    assert status.target_state == diagnostics.TRAINING_TARGET_READY
+    assert status.target_up == 1
+    assert status.metric_events == 4
+    assert status.trace_events == 2
+    assert status.last_event_timestamp == 100.0
+
+
+def test_training_data_monitor_should_only_print_state_changes(monkeypatch) -> None:
+    statuses = [
+        diagnostics.TrainingDataStatus(diagnostics.TRAINING_TARGET_WAITING),
+        diagnostics.TrainingDataStatus(diagnostics.TRAINING_TARGET_WAITING),
+        diagnostics.TrainingDataStatus(
+            diagnostics.TRAINING_TARGET_READY,
+            target_up=1,
+            event_counts=(("counter", 1),),
+            last_event_timestamp=99.0,
+        ),
+    ]
+    monkeypatch.setattr(
+        diagnostics,
+        "query_training_data_status",
+        MagicMock(side_effect=statuses),
+    )
+    output = MagicMock()
+    monitor = diagnostics.TrainingDataMonitor(
+        _config(),
+        output=output,
+        now=lambda: 100.0,
+    )
+
+    monitor.poll()
+    monitor.poll()
+    monitor.poll()
+
+    assert output.call_args_list == [
+        call("[rl-insight] Waiting for training monitor target registration."),
+        call("[rl-insight] Training data pipeline is active"),
+        call("  Counter: 1"),
+        call("  Last event: 1.0s ago"),
+    ]

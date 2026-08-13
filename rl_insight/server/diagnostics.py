@@ -26,12 +26,17 @@ from typing import Any
 import requests
 from omegaconf import DictConfig, OmegaConf
 
+from ..utils.constants import MonitorEventKind, PrometheusScrape
 from .network import format_host_port, local_addresses
 from .runtime import StartedService
 
 REQUEST_TIMEOUT = (1.0, 2.0)
 STARTUP_READINESS_ATTEMPTS = 12
 STARTUP_READINESS_RETRY_DELAY_SECONDS = 1.0
+TRAINING_TARGET_WAITING = "waiting_target"
+TRAINING_TARGET_DOWN = "target_down"
+TRAINING_TARGET_READY = "target_ready"
+TRAINING_STATUS_UNAVAILABLE = "unavailable"
 
 
 @dataclass(frozen=True)
@@ -54,9 +59,245 @@ class StartupDiagnostics:
     notes: list[str] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class TrainingDataStatus:
+    target_state: str
+    target_up: int = 0
+    target_down: int = 0
+    targets: tuple[str, ...] = ()
+    event_counts: tuple[tuple[str, int], ...] = ()
+    event_errors: tuple[tuple[str, int], ...] = ()
+    last_event_timestamp: float | None = None
+    target_failures: tuple[str, ...] = ()
+    detail: str = ""
+
+    @property
+    def metric_events(self) -> int:
+        metric_kinds = {
+            MonitorEventKind.COUNTER,
+            MonitorEventKind.GAUGE,
+            MonitorEventKind.HISTOGRAM,
+        }
+        return sum(value for kind, value in self.event_counts if kind in metric_kinds)
+
+    @property
+    def trace_events(self) -> int:
+        return dict(self.event_counts).get(MonitorEventKind.TRACE, 0)
+
+    @property
+    def signature(self) -> tuple[Any, ...]:
+        return (
+            self.target_state,
+            self.metric_events > 0,
+            self.trace_events > 0,
+            self.event_errors,
+            self.target_failures,
+            self.detail,
+        )
+
+
 HttpGet = Callable[..., Any]
 SocketConnect = Callable[..., Any]
 Sleep = Callable[[float], None]
+Output = Callable[[str], None]
+
+
+class TrainingDataMonitor:
+    """Poll Prometheus and print training-link state changes."""
+
+    def __init__(
+        self,
+        conf: DictConfig,
+        *,
+        http_get: HttpGet = requests.get,
+        output: Output = print,
+        now: Callable[[], float] = time.time,
+    ) -> None:
+        self.conf = conf
+        self.http_get = http_get
+        self.output = output
+        self.now = now
+        self._last_signature: tuple[Any, ...] | None = None
+
+    def poll(self) -> None:
+        status = query_training_data_status(self.conf, http_get=self.http_get)
+        if status.signature == self._last_signature:
+            return
+        self._last_signature = status.signature
+        for line in _training_status_lines(status, now=self.now()):
+            self.output(line)
+
+
+def query_training_data_status(
+    conf: DictConfig,
+    *,
+    http_get: HttpGet = requests.get,
+) -> TrainingDataStatus:
+    """Query Prometheus for trainer targets and Hub diagnostic metrics."""
+    if not bool(OmegaConf.select(conf, "prometheus.enable", default=True)):
+        return TrainingDataStatus(
+            TRAINING_STATUS_UNAVAILABLE,
+            detail="Prometheus is disabled.",
+        )
+
+    host = local_addresses()["loopback"]
+    port = int(OmegaConf.select(conf, "prometheus.prometheus_port", default=9090))
+    targets_url = f"http://{format_host_port(host, port)}/api/v1/targets"
+    try:
+        response = http_get(targets_url, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+        payload = response.json()
+        if payload.get("status") != "success":
+            raise ValueError("Prometheus target response status is not success")
+        active_targets = payload.get("data", {}).get("activeTargets", [])
+        if not isinstance(active_targets, list):
+            raise ValueError("Prometheus activeTargets must be a list")
+    except (requests.RequestException, TypeError, ValueError) as exc:
+        return TrainingDataStatus(
+            TRAINING_STATUS_UNAVAILABLE,
+            detail=f"Prometheus targets unavailable: {exc}",
+        )
+
+    trainer_targets = []
+    for target in active_targets:
+        labels = target.get("labels") or target.get("discoveredLabels") or {}
+        if str(labels.get("job") or "") == PrometheusScrape.TRAINER_METRICS_JOB:
+            trainer_targets.append(target)
+
+    if not trainer_targets:
+        return TrainingDataStatus(TRAINING_TARGET_WAITING)
+
+    targets: list[str] = []
+    failures: list[str] = []
+    target_up = 0
+    target_down = 0
+    for target in trainer_targets:
+        labels = target.get("labels") or target.get("discoveredLabels") or {}
+        address = str(target.get("scrapeUrl") or labels.get("instance") or target.get("globalUrl") or "unknown")
+        targets.append(address)
+        if str(target.get("health") or "down") == "up":
+            target_up += 1
+        else:
+            target_down += 1
+            failures.append(f"{address} ({str(target.get('lastError') or 'unknown error')})")
+
+    if target_up == 0:
+        return TrainingDataStatus(
+            TRAINING_TARGET_DOWN,
+            target_down=target_down,
+            targets=tuple(sorted(targets)),
+            target_failures=tuple(sorted(failures)),
+        )
+
+    query_url = f"http://{format_host_port(host, port)}/api/v1/query"
+    try:
+        event_counts = _query_prometheus_values_by_kind(
+            query_url,
+            ('sum by (kind) ({job="trainer_metrics",__name__=~".*_diagnostics_events_applied_total"})'),
+            http_get,
+        )
+        event_errors = _query_prometheus_values_by_kind(
+            query_url,
+            ('sum by (kind) ({job="trainer_metrics",__name__=~".*_diagnostics_event_errors_total"})'),
+            http_get,
+        )
+        last_event_timestamp = _query_prometheus_scalar(
+            query_url,
+            ('max({job="trainer_metrics",__name__=~".*_diagnostics_last_event_timestamp_seconds"})'),
+            http_get,
+        )
+        detail = ""
+    except (requests.RequestException, TypeError, ValueError) as exc:
+        event_counts = ()
+        event_errors = ()
+        last_event_timestamp = None
+        detail = f"Hub diagnostic metrics unavailable: {exc}"
+
+    return TrainingDataStatus(
+        TRAINING_TARGET_READY,
+        target_up=target_up,
+        target_down=target_down,
+        targets=tuple(sorted(targets)),
+        event_counts=event_counts,
+        event_errors=event_errors,
+        last_event_timestamp=last_event_timestamp,
+        target_failures=tuple(sorted(failures)),
+        detail=detail,
+    )
+
+
+def _query_prometheus_values_by_kind(
+    url: str,
+    query: str,
+    http_get: HttpGet,
+) -> tuple[tuple[str, int], ...]:
+    results = _query_prometheus(url, query, http_get)
+    values: dict[str, int] = {}
+    for result in results:
+        kind = str((result.get("metric") or {}).get("kind") or "unknown")
+        values[kind] = int(float(result["value"][1]))
+    return tuple(sorted(values.items()))
+
+
+def _query_prometheus_scalar(
+    url: str,
+    query: str,
+    http_get: HttpGet,
+) -> float | None:
+    results = _query_prometheus(url, query, http_get)
+    if not results:
+        return None
+    return float(results[0]["value"][1])
+
+
+def _query_prometheus(url: str, query: str, http_get: HttpGet) -> list[dict[str, Any]]:
+    response = http_get(
+        url,
+        params={"query": query},
+        timeout=REQUEST_TIMEOUT,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if payload.get("status") != "success":
+        raise ValueError("Prometheus query response status is not success")
+    results = payload.get("data", {}).get("result", [])
+    if not isinstance(results, list):
+        raise ValueError("Prometheus query result must be a list")
+    return results
+
+
+def _training_status_lines(status: TrainingDataStatus, *, now: float) -> list[str]:
+    if status.target_state == TRAINING_STATUS_UNAVAILABLE:
+        return [f"[rl-insight] Training diagnostics unavailable: {status.detail}"]
+    if status.target_state == TRAINING_TARGET_WAITING:
+        return ["[rl-insight] Waiting for training monitor target registration."]
+    if status.target_state == TRAINING_TARGET_DOWN:
+        lines = ["[rl-insight] WARNING: Training metrics target is not reachable"]
+        lines.extend(f"  Target: {failure}" for failure in status.target_failures)
+        lines.append("  Check: training-node IP, metrics port, firewall and routing")
+        return lines
+
+    lines: list[str] = []
+    if status.target_failures:
+        lines.append("[rl-insight] WARNING: Some training metrics targets are DOWN")
+        lines.extend(f"  Target: {failure}" for failure in status.target_failures)
+    if status.metric_events == 0 and status.trace_events == 0:
+        lines.append("[rl-insight] Training monitor target is reachable; waiting for training events.")
+    else:
+        lines.append("[rl-insight] Training data pipeline is active")
+        for kind, value in status.event_counts:
+            lines.append(f"  {kind.capitalize()}: {value}")
+        if status.last_event_timestamp is not None:
+            age = max(0.0, now - status.last_event_timestamp)
+            lines.append(f"  Last event: {age:.1f}s ago")
+        if status.trace_events > 0:
+            lines.append("  Trace status: accepted by Monitor Hub")
+    if status.event_errors:
+        lines.append("[rl-insight] WARNING: Monitor Hub event processing errors")
+        lines.extend(f"  {kind}: {value}" for kind, value in status.event_errors)
+    if status.detail:
+        lines.append(f"[rl-insight] Training diagnostics note: {status.detail}")
+    return lines
 
 
 def run_startup_diagnostics(

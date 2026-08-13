@@ -28,7 +28,11 @@ from ..utils.constants import MonitorEnv
 from ..utils.monitor_config_loader import load_server_config_file
 from ..utils.prometheus_utils import PrometheusTarget, PrometheusTargetStore
 from .dependencies import MissingDependencyError, ServiceStatus
-from .diagnostics import StartupDiagnostics, run_startup_diagnostics
+from .diagnostics import (
+    StartupDiagnostics,
+    TrainingDataMonitor,
+    run_startup_diagnostics,
+)
 from .display import (
     active_state_rows,
     dependency_rows,
@@ -50,10 +54,12 @@ class ServerCommands:
         validator: ServerConfigValidator | None = None,
         console: ServerConsole | None = None,
         diagnostics_runner=run_startup_diagnostics,
+        training_monitor_factory=TrainingDataMonitor,
     ):
         self.validator = validator or ServerConfigValidator()
         self.console = console or ServerConsole()
         self.diagnostics_runner = diagnostics_runner
+        self.training_monitor_factory = training_monitor_factory
 
     def install(self, args: argparse.Namespace) -> int:
         """Install missing local service binaries."""
@@ -150,7 +156,12 @@ class ServerCommands:
             return 0
 
         print("RL-Insight server services are running. Press Ctrl+C to stop.")
-        return manager.wait(stack, attach_logs=args.attach_logs)
+        training_monitor = self.training_monitor_factory(conf)
+        return manager.wait(
+            stack,
+            attach_logs=args.attach_logs,
+            on_tick=training_monitor.poll,
+        )
 
     def stop(self, args: argparse.Namespace) -> int:
         """Stop local RL-Insight server, Prometheus, Tempo, and Grafana processes."""

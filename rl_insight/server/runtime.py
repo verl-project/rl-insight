@@ -25,6 +25,7 @@ import signal
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
@@ -33,11 +34,11 @@ import yaml
 from omegaconf import DictConfig, OmegaConf
 
 from .catalog import DEFAULT_STATE_ROOT, STATE_FILE
-from .network import format_host_port, local_addresses
 from .dependencies import (
-    MissingDependencyError,
     DependencyManager,
+    MissingDependencyError,
 )
+from .network import format_host_port, local_addresses
 
 
 @dataclass(frozen=True)
@@ -204,9 +205,16 @@ class LocalServiceRuntime:
         return load_active_state(self.state_file)
 
     @staticmethod
-    def wait(stack: StartedStack, *, attach_logs: bool) -> int:
+    def wait(
+        stack: StartedStack,
+        *,
+        attach_logs: bool,
+        on_tick: Callable[[], None] | None = None,
+        tick_interval_seconds: float = 5.0,
+    ) -> int:
         """Wait for a foreground stack, stopping every service on Ctrl+C."""
         tailer = LogTailer([service.log_file for service in stack.services])
+        next_tick = time.monotonic()
         try:
             while True:
                 if attach_logs:
@@ -221,6 +229,15 @@ class LocalServiceRuntime:
                         stop_started_services(stack.services)
                         _remove_state(stack.state_file)
                         return int(return_code) if return_code else 1
+                if on_tick is not None and time.monotonic() >= next_tick:
+                    try:
+                        on_tick()
+                    except Exception as exc:
+                        print(
+                            f"Training diagnostics unavailable: {exc}",
+                            file=sys.stderr,
+                        )
+                    next_tick = time.monotonic() + tick_interval_seconds
                 time.sleep(0.5)
         except KeyboardInterrupt:
             print("\nStopping RL-Insight server services...")
