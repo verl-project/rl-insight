@@ -8,4 +8,3 @@ prometheus_client
 opentelemetry-sdk
 opentelemetry-exporter-otlp-proto-http
 pyyaml
-pydantic>=2.0
