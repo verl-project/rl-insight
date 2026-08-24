@@ -1,3 +1,17 @@
+# Copyright (c) 2026 verl-project authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Agent-loop dashboard protocol and session helpers.
 
 This module owns the metric names, lane IDs, session identity, and hierarchy
@@ -26,7 +40,9 @@ def _agent_loop_leaf(sample: Any, session: Any, traj: Any) -> str:
     return f"sample={sample}/session={session}/traj={traj}"
 
 
-def agent_loop_lane_id(experiment_name: Any, sample: Any, session: Any, traj: Any) -> str:
+def agent_loop_lane_id(
+    experiment_name: Any, sample: Any, session: Any, traj: Any
+) -> str:
     """Return the canonical lane ID for one agent-loop trajectory."""
     return f"experiment={experiment_name}/{_agent_loop_sess_key(sample, session)}/traj={traj}"
 
