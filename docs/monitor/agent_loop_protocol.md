@@ -10,7 +10,7 @@ does not depend on or sense any upper-layer agent framework such as Uni-Agent.
 |---|---|---|
 | Lane ID, identity fields, span names, dashboard metrics | RL-Insight | Do not redefine these in an agent framework. |
 | Trainer configuration and lazy initialization | Trainer integration (for example, verl) | Forward calls to RL-Insight; do not encode agent semantics. |
-| Task, generation, sandbox, and session lifecycle events | Agent runtime | Call the protocol at the correct business boundary. |
+| Task, generation, and session lifecycle events | Agent runtime | Call the protocol at the correct business boundary. |
 
 ## Initialization
 
@@ -120,7 +120,6 @@ Use `trace_span()` for completed spans. The required names and attributes are:
 | `agent_session` | `session.finish()` | `monitor.trace_source="session"`, identity, `runner_name`, `status`, `num_trajectories`, `reward_source`, `finished` |
 | `agent_task` | Task runner | `monitor.trace_source="task"`, identity, `task_name`, `image_ref`, `prompt_hash`, `status`, `reward`, `accuracy`, `finished`, `reward_posted`, `error` |
 | `gateway_generation` | Model gateway | `monitor.trace_source="gateway"`, identity, `state_lane_id`, `traj`, `chain_id`, `turn`, `type`, `tools`, `content`, `prompt_tokens`, `completion_tokens`, `finish_reason`, `status`, `error` |
-| `agent_sandbox` | Sandbox lifecycle | `monitor.trace_source="sandbox"`, identity, `provider`, `image`, `runtime_id`, `lifecycle`, `status`, `error` |
 
 Use these status values: `success`, `failure`, `empty`, `capacity_exhausted`,
 or `error`. Keep timestamps monotonic within a span and include failures even
@@ -139,7 +138,7 @@ A minimal valid run therefore needs:
 2. At least one `gateway_generation` span with a valid lane ID.
 3. One `session.finish()` call.
 
-Task and sandbox spans are optional but enable their summary panels.
+Task spans are optional but enable their summary panel.
 
 ## Smoke test
 

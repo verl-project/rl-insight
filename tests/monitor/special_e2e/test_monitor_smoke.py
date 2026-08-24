@@ -270,22 +270,6 @@ def test_agent_loop_dashboard_should_query_generated_protocol_data(
         },
     )
 
-    trace_span(
-        name="agent_sandbox",
-        start_time_ns=time.time_ns(),
-        end_time_ns=time.time_ns(),
-        attributes={
-            **identity,
-            "monitor.trace_source": "sandbox",
-            "provider": "docker",
-            "image": "python:3.12",
-            "runtime_id": session_id,
-            "lifecycle": "start",
-            "status": "success",
-            "error": "",
-        },
-    )
-
     session.finish(
         trajectories=[
             _SmokeTrajectory(
