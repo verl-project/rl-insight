@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -78,8 +79,18 @@ class ServerServiceManager:
     def start(self, *, detach: bool, attach_logs: bool) -> StartedStack | None:
         return self.runtime.start(detach=detach, attach_logs=attach_logs)
 
-    def wait(self, stack: StartedStack, *, attach_logs: bool) -> int:
-        return self.runtime.wait(stack, attach_logs=attach_logs)
+    def wait(
+        self,
+        stack: StartedStack,
+        *,
+        attach_logs: bool,
+        on_tick: Callable[[], None] | None = None,
+    ) -> int:
+        return self.runtime.wait(
+            stack,
+            attach_logs=attach_logs,
+            on_tick=on_tick,
+        )
 
     def stop(self) -> tuple[int, list[dict[str, Any]]]:
         return self.runtime.stop()

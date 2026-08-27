@@ -21,7 +21,7 @@ from unittest.mock import MagicMock, call
 
 import pytest
 import requests
-
+from omegaconf import OmegaConf
 from rl_insight import cli
 from rl_insight.server import commands as commands_module
 from rl_insight.utils.prometheus_utils import PrometheusTarget
@@ -122,3 +122,133 @@ def test_add_targets_should_fail_when_reload_raises(
 
     assert result == 1
     assert "Failed to add Prometheus targets" in capsys.readouterr().err
+
+
+def test_start_should_append_diagnostics_without_changing_success_behavior(
+    monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    conf = OmegaConf.create({"server": {"enable": True}})
+    stack = MagicMock()
+    stack.services = []
+    manager = MagicMock()
+    manager.active_state.return_value = None
+    manager.check_dependencies.return_value = []
+    manager.missing_dependencies.return_value = []
+    manager.start.return_value = stack
+    monkeypatch.setattr(
+        commands_module.ServerCommands,
+        "_load_config",
+        staticmethod(lambda _args: conf),
+    )
+    monkeypatch.setattr(
+        commands_module.ServerCommands,
+        "_stack_management_enabled",
+        staticmethod(lambda _conf, action: True),
+    )
+    monkeypatch.setattr(
+        commands_module, "ServerServiceManager", MagicMock(return_value=manager)
+    )
+    console = MagicMock()
+    validator = MagicMock()
+    diagnostics_report = MagicMock()
+    diagnostics_runner = MagicMock(return_value=diagnostics_report)
+
+    result = commands_module.ServerCommands(
+        validator=validator,
+        console=console,
+        diagnostics_runner=diagnostics_runner,
+    ).start(argparse.Namespace(detach=True, attach_logs=False, config=None))
+
+    assert result == 0
+    validator.validate_start.assert_called_once_with(conf)
+    console.print_running_summary.assert_called_once_with(conf, stack.services)
+    diagnostics_runner.assert_called_once_with(conf, stack.services)
+    console.print_startup_diagnostics.assert_called_once_with(diagnostics_report)
+    assert "running in background mode" in capsys.readouterr().out
+
+
+def test_start_should_keep_success_when_diagnostics_raise(
+    monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    conf = OmegaConf.create({"server": {"enable": True}})
+    stack = MagicMock()
+    stack.services = []
+    manager = MagicMock()
+    manager.active_state.return_value = None
+    manager.check_dependencies.return_value = []
+    manager.missing_dependencies.return_value = []
+    manager.start.return_value = stack
+    monkeypatch.setattr(
+        commands_module.ServerCommands,
+        "_load_config",
+        staticmethod(lambda _args: conf),
+    )
+    monkeypatch.setattr(
+        commands_module.ServerCommands,
+        "_stack_management_enabled",
+        staticmethod(lambda _conf, action: True),
+    )
+    monkeypatch.setattr(
+        commands_module, "ServerServiceManager", MagicMock(return_value=manager)
+    )
+    console = MagicMock()
+    validator = MagicMock()
+    diagnostics_runner = MagicMock(side_effect=RuntimeError("diagnostic failure"))
+
+    result = commands_module.ServerCommands(
+        validator=validator,
+        console=console,
+        diagnostics_runner=diagnostics_runner,
+    ).start(argparse.Namespace(detach=True, attach_logs=False, config=None))
+
+    captured = capsys.readouterr()
+    assert result == 0
+    validator.validate_start.assert_called_once_with(conf)
+    console.print_running_summary.assert_called_once_with(conf, stack.services)
+    console.print_startup_diagnostics.assert_not_called()
+    assert "Startup diagnostics unavailable: diagnostic failure" in captured.err
+    assert "running in background mode" in captured.out
+
+
+def test_start_should_attach_training_monitor_in_foreground(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conf = OmegaConf.create({"server": {"enable": True}})
+    stack = MagicMock()
+    stack.services = []
+    manager = MagicMock()
+    manager.active_state.return_value = None
+    manager.check_dependencies.return_value = []
+    manager.missing_dependencies.return_value = []
+    manager.start.return_value = stack
+    manager.wait.return_value = 0
+    monkeypatch.setattr(
+        commands_module.ServerCommands,
+        "_load_config",
+        staticmethod(lambda _args: conf),
+    )
+    monkeypatch.setattr(
+        commands_module.ServerCommands,
+        "_stack_management_enabled",
+        staticmethod(lambda _conf, action: True),
+    )
+    monkeypatch.setattr(
+        commands_module, "ServerServiceManager", MagicMock(return_value=manager)
+    )
+    monitor = MagicMock()
+    monitor_factory = MagicMock(return_value=monitor)
+
+    result = commands_module.ServerCommands(
+        validator=MagicMock(),
+        console=MagicMock(),
+        diagnostics_runner=MagicMock(),
+        training_monitor_factory=monitor_factory,
+    ).start(argparse.Namespace(detach=False, attach_logs=False, config=None))
+
+    assert result == 0
+    monitor_factory.assert_called_once_with(conf)
+    manager.wait.assert_called_once_with(
+        stack,
+        attach_logs=False,
+        on_tick=monitor.poll,
+    )

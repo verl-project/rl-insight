@@ -24,10 +24,15 @@ from typing import Sequence
 import requests
 from omegaconf import DictConfig, OmegaConf
 
-from ..utils.monitor_config_loader import load_server_config_file
 from ..utils.constants import MonitorEnv
+from ..utils.monitor_config_loader import load_server_config_file
 from ..utils.prometheus_utils import PrometheusTarget, PrometheusTargetStore
 from .dependencies import MissingDependencyError, ServiceStatus
+from .diagnostics import (
+    StartupDiagnostics,
+    TrainingDataMonitor,
+    run_startup_diagnostics,
+)
 from .display import (
     active_state_rows,
     dependency_rows,
@@ -48,9 +53,13 @@ class ServerCommands:
         *,
         validator: ServerConfigValidator | None = None,
         console: ServerConsole | None = None,
+        diagnostics_runner=run_startup_diagnostics,
+        training_monitor_factory=TrainingDataMonitor,
     ):
         self.validator = validator or ServerConfigValidator()
         self.console = console or ServerConsole()
+        self.diagnostics_runner = diagnostics_runner
+        self.training_monitor_factory = training_monitor_factory
 
     def install(self, args: argparse.Namespace) -> int:
         """Install missing local service binaries."""
@@ -135,13 +144,24 @@ class ServerCommands:
             return 0
 
         self.console.print_running_summary(conf, stack.services)
+        try:
+            diagnostics = self.diagnostics_runner(conf, stack.services)
+        except Exception as exc:
+            print(f"Startup diagnostics unavailable: {exc}", file=sys.stderr)
+        else:
+            self.console.print_startup_diagnostics(diagnostics)
 
         if args.detach:
             print("RL-Insight server services are running in background mode.")
             return 0
 
         print("RL-Insight server services are running. Press Ctrl+C to stop.")
-        return manager.wait(stack, attach_logs=args.attach_logs)
+        training_monitor = self.training_monitor_factory(conf)
+        return manager.wait(
+            stack,
+            attach_logs=args.attach_logs,
+            on_tick=training_monitor.poll,
+        )
 
     def stop(self, args: argparse.Namespace) -> int:
         """Stop local RL-Insight server, Prometheus, Tempo, and Grafana processes."""
@@ -393,6 +413,47 @@ class ServerConsole:
         if grafana_url:
             print(f"View monitoring dashboard ({family_label}):")
             print(f"  {grafana_url}")
+
+    @staticmethod
+    def print_startup_diagnostics(report: StartupDiagnostics) -> None:
+        print("\nRL-Insight server startup diagnostics")
+        print(
+            format_table(
+                ["Service", "PID", "Port", "Process", "Readiness", "Status"],
+                [
+                    [
+                        result.service,
+                        result.pid,
+                        result.port,
+                        result.process,
+                        result.readiness,
+                        result.status,
+                    ]
+                    for result in report.services
+                ],
+            )
+        )
+
+        details = [result for result in report.services if result.detail]
+        if details:
+            print("\nDiagnostic details:")
+            for result in details:
+                print(f"  {result.service}: {result.detail}")
+                if result.log_file != "-":
+                    print(f"    Log: {result.log_file}")
+
+        if report.target_summaries:
+            print("\nPrometheus targets:")
+            for summary in report.target_summaries:
+                print(f"  {summary}")
+        if report.target_failures:
+            print("Prometheus target warnings:")
+            for failure in report.target_failures:
+                print(f"  {failure}")
+        if report.notes:
+            print("\nNetwork notes:")
+            for note in report.notes:
+                print(f"  {note}")
 
 
 def _service_url(host: str, port: object, path: str = "") -> str:

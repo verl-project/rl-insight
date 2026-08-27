@@ -17,13 +17,12 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 import ray
 from omegaconf import DictConfig
 
-from ..utils.constants import MonitorRayActor
-from .base import MonitorCollector
 from ..server.http_api import get_server_services
 from ..server.network import format_host_port, service_url_from_server_url
 from ..utils import (
@@ -33,6 +32,8 @@ from ..utils import (
     start_metrics_http_server,
     update_prometheus_config,
 )
+from ..utils.constants import MonitorRayActor
+from .base import MonitorCollector
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
@@ -64,6 +65,10 @@ class MonitorHubActor(MonitorCollector):
             "/v1/traces",
         )
         self._registry = MetricRegistry(namespace=namespace)
+        self._diagnostic_registry = MetricRegistry(
+            namespace=namespace,
+            subsystem="diagnostics",
+        )
         self._trace_collector = OpenTelemetryTraceCollector(
             namespace=namespace,
             endpoint=trace_endpoint,
@@ -94,18 +99,39 @@ class MonitorHubActor(MonitorCollector):
         """Dispatch one event by ``kind``: counter/gauge/histogram update Prometheus registry, trace exports OTLP.
 
         Args:
-            event: Must include ``kind``; metric kinds need ``name``/``value``; trace needs ``start_time_ns``/``end_time_ns``.
+            event: Must include ``kind``; metric kinds need ``name``/``value``;
+                trace needs ``start_time_ns``/``end_time_ns``.
         """
-        self._events_applied += 1
         try:
             kind = event["kind"]
         except KeyError as e:
+            self._record_event_error("missing")
             raise ValueError(f"Event missing required field: {e!r}") from e
 
         handler = self._event_handlers.get(kind)
         if handler is None:
+            self._record_event_error(str(kind))
             raise ValueError(f"Unknown event kind: {kind!r}")
-        handler(event)
+        try:
+            handler(event)
+        except Exception:
+            self._record_event_error(str(kind))
+            raise
+        self._events_applied += 1
+        self._diagnostic_registry.count(
+            "events_applied",
+            "Monitor events successfully processed by the RL-Insight Hub.",
+            1.0,
+            {},
+            {"kind": str(kind)},
+        )
+        self._diagnostic_registry.value(
+            "last_event_timestamp_seconds",
+            "Unix timestamp of the most recent monitor event processed by the Hub.",
+            time.time(),
+            {},
+            {"kind": str(kind)},
+        )
 
     def get_status(self) -> dict[str, Any]:
         """Return a small status dict for debugging (endpoints, counters).
@@ -168,6 +194,15 @@ class MonitorHubActor(MonitorCollector):
             int(event["start_time_ns"]),
             int(event["end_time_ns"]),
             attrs,
+        )
+
+    def _record_event_error(self, kind: str) -> None:
+        self._diagnostic_registry.count(
+            "event_errors",
+            "Monitor events that failed processing in the RL-Insight Hub.",
+            1.0,
+            {},
+            {"kind": kind},
         )
 
     def _export_trace_span(
