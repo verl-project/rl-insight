@@ -30,14 +30,16 @@ from typing import Any, Callable, Generator, Mapping
 from omegaconf import DictConfig
 
 from .client import create_monitor_client
-from .utils.monitor_config_loader import load_monitor_config
+from .client.base import MonitorClient
 from .utils import MonitorEventKind
+from .utils.monitor_config_loader import load_monitor_config
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
 __all__ = [
     "finish",
+    "get_status",
     "init",
     "metric_count",
     "metric_gauge",
@@ -45,6 +47,7 @@ __all__ = [
     "trace_span",
     "trace_state",
     "trace_op",
+    "trace_state",
 ]
 
 
@@ -54,15 +57,15 @@ class _MonitorState:
 
     Attributes:
         enabled: True after ``init`` produced a non-null client.
-        client: Backend object with ``apply_event`` (e.g. ``MonitorRayClient``).
+        client: Backend client (e.g. ``MonitorRayClient``).
         conf: Merged trainer monitor config.
         namespace: Config ``namespace`` used for metric/OTEL resource naming (not Ray actor namespace).
         process_id: String PID added to trace attributes on emit.
-        labels: Process-wide labels attached to every metric and trace event.
+        labels: Process-wide labels for traces; metrics inherit them from the scrape target.
     """
 
     enabled: bool = False
-    client: Any | None = None
+    client: MonitorClient | None = None
     conf: DictConfig | None = None
     namespace: str = ""
     process_id: str = field(default_factory=lambda: str(os.getpid()))
@@ -105,7 +108,6 @@ def init(
             "or server.url in init config."
         )
         return
-    client = create_monitor_client(monitor_conf)
     labels = {
         key: value
         for key, value in {
@@ -114,6 +116,9 @@ def init(
         }.items()
         if value is not None
     }
+    monitor_conf.project = project
+    monitor_conf.experiment_name = experiment_name
+    client = create_monitor_client(monitor_conf)
     _STATE = _MonitorState(
         enabled=client is not None,
         client=client,
@@ -131,6 +136,17 @@ def finish() -> None:
     global _STATE
     _STATE = _MonitorState()
     _LANES.clear()
+
+
+def get_status() -> dict[str, Any]:
+    """Return a status snapshot from the collector.
+
+    Returns:
+        Collector status dict. Empty when monitoring is not enabled.
+    """
+    if not _STATE.enabled or _STATE.client is None:
+        return {}
+    return dict(_STATE.client.get_status())
 
 
 def metric_count(
@@ -463,7 +479,7 @@ def _emit(
         "name": name,
         "documentation": documentation,
         "value": value,
-        "labels": {**_STATE.labels, **labels},
+        "labels": labels,
     }
     _STATE.client.apply_event(event)
 

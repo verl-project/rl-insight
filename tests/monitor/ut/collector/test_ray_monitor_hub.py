@@ -37,6 +37,7 @@ def hub() -> Any:
     instance._registry = MagicMock()
     instance._trace_collector = MagicMock(enabled=True)
     instance._events_applied = 0
+    instance._experiment_labels = {}
     instance._event_handlers = {
         MonitorEventKind.COUNTER: instance._handle_counter,
         MonitorEventKind.GAUGE: instance._handle_gauge,
@@ -65,6 +66,8 @@ def test_init_should_configure_collectors_and_register_scrape_target_when_create
         {
             "server": {"namespace": "trainer", "url": "http://host:18080"},
             "prometheus": {"metrics_report_port": 9092},
+            "project": "verl",
+            "experiment_name": "ppo-test",
         }
     )
 
@@ -76,8 +79,15 @@ def test_init_should_configure_collectors_and_register_scrape_target_when_create
         namespace="trainer", endpoint="http://host:4318/v1/traces"
     )
     start_server.assert_called_once_with(9092, addr="10.0.0.8")
-    update_config.assert_called_once_with(["10.0.0.8:9092"])
+    update_config.assert_called_once_with(
+        ["10.0.0.8:9092"],
+        experiment_labels={"project": "verl", "experiment_name": "ppo-test"},
+    )
     assert instance._registry is registry
+    assert instance._experiment_labels == {
+        "project": "verl",
+        "experiment_name": "ppo-test",
+    }
 
 
 @pytest.mark.parametrize(
@@ -150,6 +160,7 @@ def test_get_status_should_describe_endpoint_when_hub_is_initialized(hub: Any) -
     hub._node_ip = "10.0.0.8"
     hub._metrics_port = 9092
     hub._events_applied = 4
+    hub._experiment_labels = {"project": "verl", "experiment_name": "ppo-test"}
 
     status = hub.get_status()
 
@@ -157,7 +168,10 @@ def test_get_status_should_describe_endpoint_when_hub_is_initialized(hub: Any) -
         "actor_name": MonitorRayActor.NAME,
         "namespace": MonitorRayActor.NAMESPACE,
         "node_ip": "10.0.0.8",
+        "metrics_port": 9092,
         "metrics_endpoint": "http://10.0.0.8:9092/metrics",
+        "project": "verl",
+        "experiment_name": "ppo-test",
         "prometheus_metrics_enabled": True,
         "otel_traces_enabled": True,
         "events_applied": 4,

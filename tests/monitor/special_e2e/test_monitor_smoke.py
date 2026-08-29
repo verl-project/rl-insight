@@ -126,6 +126,11 @@ def test_monitor_services_should_be_reachable_when_stack_is_running(
     assert otlp.status_code < 500
     assert requests.get(hub_status["metrics_endpoint"], timeout=3).ok
     assert hub_status["otel_traces_enabled"] is True
+    assert hub_status["labels"] == {
+        "project": "rl-insight-e2e",
+        "experiment_name": "monitor-smoke",
+    }
+    assert "metrics_port" in hub_status
 
 
 def test_monitor_metrics_should_match_reported_values_when_events_are_emitted(

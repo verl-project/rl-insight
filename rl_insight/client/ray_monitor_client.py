@@ -29,7 +29,11 @@ from .base import MonitorClient
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
-__all__ = ["MonitorRayClient", "create_ray_monitor_client", "get_or_create_monitor_hub"]
+__all__ = [
+    "MonitorRayClient",
+    "create_ray_monitor_client",
+    "get_or_create_monitor_hub",
+]
 
 
 def _current_job_actor_name() -> str:
@@ -129,3 +133,15 @@ class MonitorRayClient(MonitorClient):
             Errors on the hub side are not surfaced here. Ordering follows Ray actor scheduling.
         """
         self._actor.apply_event.remote(event)
+
+    def get_status(self) -> dict[str, Any]:
+        """Return a status snapshot from the collector."""
+        try:
+            status = ray.get(
+                self._actor.get_status.remote(),
+                timeout=MonitorRayActor.STATUS_TIMEOUT_SECONDS,
+            )
+        except (ValueError, ray.exceptions.RayError) as exc:
+            logger.warning("[rl-insight] Failed to fetch monitor hub status: %s", exc)
+            return {}
+        return dict(status) if isinstance(status, dict) else {}

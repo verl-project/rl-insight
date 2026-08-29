@@ -51,7 +51,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by (model_name, engine, replica) (rate(vllm:request_prompt_tokens_sum{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
+                        "expr": "sum by (model_name, engine, replica) (rate(vllm:request_prompt_tokens_sum{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
                         "interval": "",
                         "legendFormat": "Prompt Tokens/Sec - {{model_name}} - {{engine}} - replica {{replica}}",
                         "queryType": "randomWalk",
@@ -75,7 +75,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by (model_name, engine, replica) (rate(vllm:generation_tokens_total{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
+                        "expr": "sum by (model_name, engine, replica) (rate(vllm:generation_tokens_total{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
                         "interval": "",
                         "legendFormat": "Generation Tokens/Sec - {{model_name}} - {{engine}} - replica {{replica}}",
                         "queryType": "randomWalk",
@@ -294,7 +294,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by(finished_reason, model_name, engine) (increase(vllm:request_success_total{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
+                        "expr": "sum by(finished_reason, model_name, engine) (increase(vllm:request_success_total{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
                         "interval": "",
                         "legendFormat": "{{finished_reason}} - {{model_name}} - {{engine}} - replica $replica",
                         "queryType": "randomWalk",
@@ -416,7 +416,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by(model_name, engine, replica) (rate(vllm:request_queue_time_seconds_sum{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
+                        "expr": "sum by(model_name, engine, replica) (rate(vllm:request_queue_time_seconds_sum{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
                         "interval": "",
                         "legendFormat": "{{model_name}} - {{engine}} - replica {{replica}}",
                         "queryType": "randomWalk",
@@ -538,7 +538,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by(model_name, engine, replica) (rate(vllm:request_decode_time_seconds_sum{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
+                        "expr": "sum by(model_name, engine, replica) (rate(vllm:request_decode_time_seconds_sum{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
                         "interval": "",
                         "legendFormat": "Decode - {{model_name}} - {{engine}} - replica {{replica}}",
                         "queryType": "randomWalk",
@@ -562,7 +562,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by(model_name, engine, replica) (rate(vllm:request_prefill_time_seconds_sum{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
+                        "expr": "sum by(model_name, engine, replica) (rate(vllm:request_prefill_time_seconds_sum{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
                         "interval": "",
                         "legendFormat": "Prefill - {{model_name}} - {{engine}} - replica {{replica}}",
                         "queryType": "randomWalk",
@@ -684,7 +684,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by(model_name, engine, replica) (rate(vllm:request_max_num_generation_tokens_sum{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
+                        "expr": "sum by(model_name, engine, replica) (rate(vllm:request_max_num_generation_tokens_sum{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
                         "interval": "",
                         "legendFormat": "{{model_name}} - {{engine}} - replica {{replica}}",
                         "queryType": "randomWalk",
@@ -2647,7 +2647,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.99, sum by(le, model_name, engine) (rate(vllm:request_time_per_output_token_seconds_bucket{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
+                        "expr": "histogram_quantile(0.99, sum by(le, model_name, engine) (rate(vllm:request_time_per_output_token_seconds_bucket{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
                         "interval": "",
                         "legendFormat": "P99 - {{model_name}} - {{engine}} - replica $replica",
                         "queryType": "randomWalk",
@@ -2671,7 +2671,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.95, sum by(le, model_name, engine) (rate(vllm:request_time_per_output_token_seconds_bucket{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
+                        "expr": "histogram_quantile(0.95, sum by(le, model_name, engine) (rate(vllm:request_time_per_output_token_seconds_bucket{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
                         "interval": "",
                         "legendFormat": "P95 - {{model_name}} - {{engine}} - replica $replica",
                         "queryType": "randomWalk",
@@ -2695,7 +2695,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.9, sum by(le, model_name, engine) (rate(vllm:request_time_per_output_token_seconds_bucket{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
+                        "expr": "histogram_quantile(0.9, sum by(le, model_name, engine) (rate(vllm:request_time_per_output_token_seconds_bucket{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
                         "interval": "",
                         "legendFormat": "P90 - {{model_name}} - {{engine}} - replica $replica",
                         "queryType": "randomWalk",
@@ -2719,7 +2719,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.5, sum by(le, model_name, engine) (rate(vllm:request_time_per_output_token_seconds_bucket{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
+                        "expr": "histogram_quantile(0.5, sum by(le, model_name, engine) (rate(vllm:request_time_per_output_token_seconds_bucket{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
                         "interval": "",
                         "legendFormat": "P50 - {{model_name}} - {{engine}} - replica $replica",
                         "queryType": "randomWalk",
@@ -2743,7 +2743,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "(sum by(model_name, engine) (rate(vllm:request_time_per_output_token_seconds_sum{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))\n/\nsum by(model_name, engine) (rate(vllm:request_time_per_output_token_seconds_count{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
+                        "expr": "(sum by(model_name, engine) (rate(vllm:request_time_per_output_token_seconds_sum{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))\n/\nsum by(model_name, engine) (rate(vllm:request_time_per_output_token_seconds_count{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
                         "interval": "",
                         "legendFormat": "Mean - {{model_name}} - {{engine}} - replica $replica",
                         "queryType": "randomWalk",
@@ -9289,7 +9289,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "increase(vllm:prefix_cache_hits_total{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]) / increase(vllm:prefix_cache_queries_total{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])",
+                        "expr": "increase(vllm:prefix_cache_hits_total{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]) / increase(vllm:prefix_cache_queries_total{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])",
                         "interval": "",
                         "legendFormat": "Prefix Cache Hit Rate - {{model_name}} - {{engine}} - replica {{replica}}",
                         "queryType": "randomWalk",
@@ -11089,7 +11089,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_controller_uptime_seconds",
+                        "expr": "tq_controller_uptime_seconds{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "",
                         "range": true
                       },
@@ -11171,7 +11171,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_controller_memory_rss_bytes",
+                        "expr": "tq_controller_memory_rss_bytes{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "",
                         "range": true
                       },
@@ -11261,7 +11261,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_partitions_total",
+                        "expr": "tq_partitions_total{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "",
                         "range": true
                       },
@@ -11342,7 +11342,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_global_index_allocated_total",
+                        "expr": "tq_global_index_allocated_total{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "",
                         "range": true
                       },
@@ -11423,7 +11423,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_global_index_reusable_total",
+                        "expr": "tq_global_index_reusable_total{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "",
                         "range": true
                       },
@@ -11505,7 +11505,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "vllm:kv_cache_usage_perc{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}",
+                        "expr": "vllm:kv_cache_usage_perc{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}",
                         "interval": "",
                         "legendFormat": "KV Cache Usage - {{model_name}} - {{engine}} - replica {{replica}}",
                         "queryType": "randomWalk",
@@ -11724,7 +11724,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "rate(vllm:spec_decode_num_accepted_tokens_total{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])",
+                        "expr": "rate(vllm:spec_decode_num_accepted_tokens_total{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])",
                         "interval": "",
                         "legendFormat": "Accepted Throughput - {{model_name}} - replica {{replica}}",
                         "queryType": "randomWalk",
@@ -11748,7 +11748,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "rate(vllm:spec_decode_num_draft_tokens_total{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])",
+                        "expr": "rate(vllm:spec_decode_num_draft_tokens_total{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])",
                         "interval": "",
                         "legendFormat": "Drafted Throughput - {{model_name}} - replica {{replica}}",
                         "queryType": "randomWalk",
@@ -11869,7 +11869,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (op_type) (rate(tq_controller_request_total{op_type=~\"$op_type\"}[$__rate_interval]))",
+                        "expr": "sum by (op_type) (rate(tq_controller_request_total{project=~\"$project\", experiment_name=~\"$experiment_name\", op_type=~\"$op_type\"}[$__rate_interval]))",
                         "legendFormat": "{{ op_type }}",
                         "range": true
                       },
@@ -11987,7 +11987,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "histogram_quantile(0.50, sum by (op_type, le) (rate(tq_controller_request_duration_seconds_bucket{op_type=~\"$op_type\"}[$__rate_interval])))",
+                        "expr": "histogram_quantile(0.50, sum by (op_type, le) (rate(tq_controller_request_duration_seconds_bucket{project=~\"$project\", experiment_name=~\"$experiment_name\", op_type=~\"$op_type\"}[$__rate_interval])))",
                         "legendFormat": "p50 {{ op_type }}",
                         "range": true
                       },
@@ -12008,7 +12008,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "histogram_quantile(0.99, sum by (op_type, le) (rate(tq_controller_request_duration_seconds_bucket{op_type=~\"$op_type\"}[$__rate_interval])))",
+                        "expr": "histogram_quantile(0.99, sum by (op_type, le) (rate(tq_controller_request_duration_seconds_bucket{project=~\"$project\", experiment_name=~\"$experiment_name\", op_type=~\"$op_type\"}[$__rate_interval])))",
                         "legendFormat": "p99 {{ op_type }}",
                         "range": true
                       },
@@ -12138,7 +12138,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_partition_samples_total",
+                        "expr": "tq_partition_samples_total{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{ partition_id }}",
                         "range": true
                       },
@@ -12254,7 +12254,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_partition_production_progress{task_name=~\"$task_name\"}",
+                        "expr": "tq_partition_production_progress{project=~\"$project\", experiment_name=~\"$experiment_name\", task_name=~\"$task_name\"}",
                         "legendFormat": "{{ partition_id }} / {{ task_name }}",
                         "range": true
                       },
@@ -12373,7 +12373,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_partition_consumption_progress{task_name=~\"$task_name\"}",
+                        "expr": "tq_partition_consumption_progress{project=~\"$project\", experiment_name=~\"$experiment_name\", task_name=~\"$task_name\"}",
                         "legendFormat": "{{ partition_id }} / {{ task_name }}",
                         "range": true
                       },
@@ -12492,7 +12492,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_storage_utilization_ratio",
+                        "expr": "tq_storage_utilization_ratio{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{ storage_unit_id }}",
                         "range": true
                       },
@@ -12590,7 +12590,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_storage_active_keys_total",
+                        "expr": "tq_storage_active_keys_total{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{ storage_unit_id }}",
                         "range": true
                       },
@@ -12706,7 +12706,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_storage_capacity_total",
+                        "expr": "tq_storage_capacity_total{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "capacity {{ storage_unit_id }}",
                         "range": true
                       },
@@ -12727,7 +12727,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_storage_active_keys_total",
+                        "expr": "tq_storage_active_keys_total{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "active {{ storage_unit_id }}",
                         "range": true
                       },
@@ -12843,7 +12843,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_storage_memory_rss_bytes",
+                        "expr": "tq_storage_memory_rss_bytes{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{ storage_unit_id }}",
                         "range": true
                       },
@@ -12960,7 +12960,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (op_type) (rate(tq_storage_request_ops{op_type=~\"$op_type\"}[$__rate_interval]))",
+                        "expr": "sum by (op_type) (rate(tq_storage_request_ops{project=~\"$project\", experiment_name=~\"$experiment_name\", op_type=~\"$op_type\"}[$__rate_interval]))",
                         "legendFormat": "{{ op_type }}",
                         "range": true
                       },
@@ -13079,7 +13079,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by (model_name, replica) (rate(vllm:spec_decode_num_accepted_tokens_total{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])) / sum by (model_name, replica) (rate(vllm:spec_decode_num_draft_tokens_total{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])) * 100",
+                        "expr": "sum by (model_name, replica) (rate(vllm:spec_decode_num_accepted_tokens_total{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])) / sum by (model_name, replica) (rate(vllm:spec_decode_num_draft_tokens_total{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])) * 100",
                         "interval": "",
                         "legendFormat": "{{model_name}} - replica {{replica}}",
                         "queryType": "randomWalk",
@@ -13173,7 +13173,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_storage_request_latency_p50{op_type=~\"$op_type\"}",
+                        "expr": "tq_storage_request_latency_p50{project=~\"$project\", experiment_name=~\"$experiment_name\", op_type=~\"$op_type\"}",
                         "legendFormat": "p50 {{ op_type }} ({{ storage_unit_id }})",
                         "range": true
                       },
@@ -13194,7 +13194,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_storage_request_latency_p99{op_type=~\"$op_type\"}",
+                        "expr": "tq_storage_request_latency_p99{project=~\"$project\", experiment_name=~\"$experiment_name\", op_type=~\"$op_type\"}",
                         "legendFormat": "p99 {{ op_type }} ({{ storage_unit_id }})",
                         "range": true
                       },
@@ -13324,7 +13324,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum(rate(tq_controller_request_samples_total{op_type=\"NOTIFY_DATA_UPDATE\"}[$__rate_interval]))",
+                        "expr": "sum(rate(tq_controller_request_samples_total{project=~\"$project\", experiment_name=~\"$experiment_name\", op_type=\"NOTIFY_DATA_UPDATE\"}[$__rate_interval]))",
                         "legendFormat": "Produced samples/s",
                         "range": true
                       },
@@ -13345,7 +13345,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum(rate(tq_controller_request_samples_total{op_type=\"CLEAR_META\"}[$__rate_interval]))",
+                        "expr": "sum(rate(tq_controller_request_samples_total{project=~\"$project\", experiment_name=~\"$experiment_name\", op_type=\"CLEAR_META\"}[$__rate_interval]))",
                         "legendFormat": "Cleared samples/s",
                         "range": true
                       },
@@ -13463,7 +13463,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum(tq_storage_active_keys_total)",
+                        "expr": "sum(tq_storage_active_keys_total{project=~\"$project\", experiment_name=~\"$experiment_name\"})",
                         "legendFormat": "Total Active Keys (all storage units)",
                         "range": true
                       },
@@ -14272,7 +14272,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "increase(vllm:spec_decode_num_accepted_tokens_total{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])",
+                        "expr": "increase(vllm:spec_decode_num_accepted_tokens_total{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])",
                         "interval": "",
                         "legendFormat": "Accepted - {{model_name}} - replica {{replica}}",
                         "queryType": "randomWalk",
@@ -14296,7 +14296,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "increase(vllm:spec_decode_num_draft_tokens_total{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])",
+                        "expr": "increase(vllm:spec_decode_num_draft_tokens_total{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])",
                         "interval": "",
                         "legendFormat": "Drafted - {{model_name}} - replica {{replica}}",
                         "queryType": "randomWalk",
@@ -14993,7 +14993,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by (model_name, replica) (rate(vllm:spec_decode_num_accepted_tokens_total{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])) / sum by (model_name, replica) (rate(vllm:spec_decode_num_draft_tokens_total{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])) * 100",
+                        "expr": "sum by (model_name, replica) (rate(vllm:spec_decode_num_accepted_tokens_total{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])) / sum by (model_name, replica) (rate(vllm:spec_decode_num_draft_tokens_total{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])) * 100",
                         "interval": "",
                         "legendFormat": "{{model_name}} - replica {{replica}}",
                         "queryType": "randomWalk",
@@ -15124,7 +15124,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by (model_name, replica) (rate(vllm:spec_decode_num_draft_tokens_total{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])) / sum by (model_name, replica) (rate(vllm:spec_decode_num_drafts_total{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
+                        "expr": "sum by (model_name, replica) (rate(vllm:spec_decode_num_draft_tokens_total{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])) / sum by (model_name, replica) (rate(vllm:spec_decode_num_drafts_total{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
                         "interval": "",
                         "legendFormat": "{{model_name}} - replica {{replica}}",
                         "queryType": "randomWalk",
@@ -15254,7 +15254,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by (model_name, replica) (rate(vllm:spec_decode_num_draft_tokens_total{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])) / sum by (model_name, replica) (rate(vllm:spec_decode_num_drafts_total{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
+                        "expr": "sum by (model_name, replica) (rate(vllm:spec_decode_num_draft_tokens_total{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])) / sum by (model_name, replica) (rate(vllm:spec_decode_num_drafts_total{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
                         "interval": "",
                         "legendFormat": "{{model_name}} - replica {{replica}}",
                         "queryType": "randomWalk",
@@ -15348,7 +15348,7 @@
                       "spec": {
                         "limit": 10000,
                         "metricsQueryType": "range",
-                        "query": "{span.state_lane_id!=\"\"}",
+                        "query": "{span.state_lane_id!=\"\" && span.project=~\"${project:regex}\" && span.experiment_name=~\"${experiment_name:regex}\"}",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 100,
@@ -15614,7 +15614,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "(sum by(model_name, engine) (rate(vllm:time_to_first_token_seconds_sum{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))\n/\nsum by(model_name, engine) (rate(vllm:time_to_first_token_seconds_count{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
+                        "expr": "(sum by(model_name, engine) (rate(vllm:time_to_first_token_seconds_sum{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))\n/\nsum by(model_name, engine) (rate(vllm:time_to_first_token_seconds_count{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
                         "interval": "",
                         "legendFormat": "Average - {{model_name}} - {{engine}} - replica $replica ",
                         "queryType": "randomWalk",
@@ -15638,7 +15638,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.5, sum by(le, model_name, engine)(rate(vllm:time_to_first_token_seconds_bucket{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
+                        "expr": "histogram_quantile(0.5, sum by(le, model_name, engine)(rate(vllm:time_to_first_token_seconds_bucket{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
                         "interval": "",
                         "legendFormat": "P50 - {{model_name}} - {{engine}} - replica $replica",
                         "queryType": "randomWalk",
@@ -15662,7 +15662,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.9, sum by(le, model_name, engine)(rate(vllm:time_to_first_token_seconds_bucket{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
+                        "expr": "histogram_quantile(0.9, sum by(le, model_name, engine)(rate(vllm:time_to_first_token_seconds_bucket{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
                         "interval": "",
                         "legendFormat": "P90 - {{model_name}} - {{engine}} - replica $replica",
                         "queryType": "randomWalk",
@@ -15686,7 +15686,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.95, sum by(le, model_name, engine) (rate(vllm:time_to_first_token_seconds_bucket{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
+                        "expr": "histogram_quantile(0.95, sum by(le, model_name, engine) (rate(vllm:time_to_first_token_seconds_bucket{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
                         "interval": "",
                         "legendFormat": "P95 - {{model_name}} - {{engine}} - replica $replica",
                         "queryType": "randomWalk",
@@ -15710,7 +15710,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.99, sum by(le, model_name, engine)(rate(vllm:time_to_first_token_seconds_bucket{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
+                        "expr": "histogram_quantile(0.99, sum by(le, model_name, engine)(rate(vllm:time_to_first_token_seconds_bucket{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
                         "interval": "",
                         "legendFormat": "P99 - {{model_name}} - {{engine}} - replica $replica",
                         "queryType": "randomWalk",
@@ -15929,7 +15929,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by(model_name, engine) (rate(vllm:e2e_request_latency_seconds_sum{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))\n/\nsum by(model_name, engine) (rate(vllm:e2e_request_latency_seconds_count{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
+                        "expr": "sum by(model_name, engine) (rate(vllm:e2e_request_latency_seconds_sum{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))\n/\nsum by(model_name, engine) (rate(vllm:e2e_request_latency_seconds_count{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
                         "interval": "",
                         "legendFormat": "Average - {{model_name}} - {{engine}} - replica $replica",
                         "queryType": "randomWalk",
@@ -15953,7 +15953,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.5, sum by(le, model_name, engine) (rate(vllm:e2e_request_latency_seconds_bucket{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
+                        "expr": "histogram_quantile(0.5, sum by(le, model_name, engine) (rate(vllm:e2e_request_latency_seconds_bucket{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
                         "interval": "",
                         "legendFormat": "P50 - {{model_name}} - {{engine}} - replica $replica",
                         "queryType": "randomWalk",
@@ -15977,7 +15977,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.9, sum by(le, model_name, engine) (rate(vllm:e2e_request_latency_seconds_bucket{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
+                        "expr": "histogram_quantile(0.9, sum by(le, model_name, engine) (rate(vllm:e2e_request_latency_seconds_bucket{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
                         "interval": "",
                         "legendFormat": "P90 - {{model_name}} - {{engine}} - replica $replica",
                         "queryType": "randomWalk",
@@ -16001,7 +16001,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.95, sum by(le, model_name, engine) (rate(vllm:e2e_request_latency_seconds_bucket{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
+                        "expr": "histogram_quantile(0.95, sum by(le, model_name, engine) (rate(vllm:e2e_request_latency_seconds_bucket{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
                         "interval": "",
                         "legendFormat": "P95 - {{model_name}} - {{engine}} - replica $replica",
                         "queryType": "randomWalk",
@@ -16025,7 +16025,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.99, sum by(le, model_name, engine) (rate(vllm:e2e_request_latency_seconds_bucket{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
+                        "expr": "histogram_quantile(0.99, sum by(le, model_name, engine) (rate(vllm:e2e_request_latency_seconds_bucket{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval])))",
                         "interval": "",
                         "legendFormat": "P99 - {{model_name}} - {{engine}} - replica $replica",
                         "queryType": "randomWalk",
@@ -16244,7 +16244,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "vllm:num_requests_running{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}",
+                        "expr": "vllm:num_requests_running{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}",
                         "interval": "",
                         "legendFormat": "Num Running - {{model_name}} - {{engine}} - replica {{replica}}",
                         "queryType": "randomWalk",
@@ -16268,7 +16268,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "vllm:num_requests_swapped{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}",
+                        "expr": "vllm:num_requests_swapped{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}",
                         "interval": "",
                         "legendFormat": "Num Swapped - {{model_name}} - {{engine}} -  replica {{replica}}",
                         "queryType": "randomWalk",
@@ -16292,7 +16292,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "vllm:num_requests_waiting{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}",
+                        "expr": "vllm:num_requests_waiting{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}",
                         "interval": "",
                         "legendFormat": "Num Waiting - {{model_name}} - {{engine}} - replica {{replica}}",
                         "queryType": "randomWalk",
@@ -16510,7 +16510,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by(le, model_name, engine, replica) (increase(vllm:request_prompt_tokens_bucket{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
+                        "expr": "sum by(le, model_name, engine, replica) (increase(vllm:request_prompt_tokens_bucket{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
                         "format": "heatmap",
                         "fullMetaSearch": false,
                         "includeNullMetadata": true,
@@ -16561,7 +16561,7 @@
                   "color": "rgba(255,0,255,0.7)"
                 },
                 "filterValues": {
-                  "le": 1e-09
+                  "le": 1e-9
                 },
                 "legend": {
                   "show": true,
@@ -16621,7 +16621,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by(le, model_name, engine, replica) (increase(vllm:request_generation_tokens_bucket{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
+                        "expr": "sum by(le, model_name, engine, replica) (increase(vllm:request_generation_tokens_bucket{project=~\"$project\", experiment_name=~\"$experiment_name\", model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\"}[$interval]))",
                         "format": "heatmap",
                         "fullMetaSearch": false,
                         "includeNullMetadata": true,
@@ -16672,7 +16672,7 @@
                   "color": "rgba(255,0,255,0.7)"
                 },
                 "filterValues": {
-                  "le": 1e-09
+                  "le": 1e-9
                 },
                 "legend": {
                   "show": true,
@@ -16732,7 +16732,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "100 - avg by (node, instance) (rate(node_cpu_seconds_total{job=\"node-exporter\", mode=\"idle\"}[$__rate_interval])) * 100",
+                        "expr": "100 - avg by (node, instance) (rate(node_cpu_seconds_total{project=~\"$project\", experiment_name=~\"$experiment_name\", job=\"node-exporter\", mode=\"idle\"}[$__rate_interval])) * 100",
                         "legendFormat": "{{node}} ({{instance}})",
                         "range": true
                       },
@@ -16852,7 +16852,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "node_memory_MemTotal_bytes{job=\"node-exporter\"} - node_memory_MemAvailable_bytes{job=\"node-exporter\"}",
+                        "expr": "node_memory_MemTotal_bytes{project=~\"$project\", experiment_name=~\"$experiment_name\", job=\"node-exporter\"} - node_memory_MemAvailable_bytes{project=~\"$project\", experiment_name=~\"$experiment_name\", job=\"node-exporter\"}",
                         "legendFormat": "{{node}} ({{instance}})",
                         "range": true
                       },
@@ -16971,7 +16971,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (node, instance) (rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo\"}[$__rate_interval]))",
+                        "expr": "sum by (node, instance) (rate(node_network_receive_bytes_total{project=~\"$project\", experiment_name=~\"$experiment_name\", job=\"node-exporter\", device!~\"lo\"}[$__rate_interval]))",
                         "legendFormat": "{{node}} RX",
                         "range": true
                       },
@@ -16992,7 +16992,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (node, instance) (rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo\"}[$__rate_interval]))",
+                        "expr": "sum by (node, instance) (rate(node_network_transmit_bytes_total{project=~\"$project\", experiment_name=~\"$experiment_name\", job=\"node-exporter\", device!~\"lo\"}[$__rate_interval]))",
                         "legendFormat": "{{node}} TX",
                         "range": true
                       },
@@ -17111,7 +17111,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_utilization{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "expr": "npu_chip_info_utilization{project=~\"$project\", experiment_name=~\"$experiment_name\", job=\"npu-exporter\", instance=~\"$npu_instance\"}",
                         "legendFormat": "NPU {{id}}",
                         "range": true
                       },
@@ -17231,7 +17231,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_hbm_utilization{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "expr": "npu_chip_info_hbm_utilization{project=~\"$project\", experiment_name=~\"$experiment_name\", job=\"npu-exporter\", instance=~\"$npu_instance\"}",
                         "legendFormat": "NPU {{id}}",
                         "range": true
                       },
@@ -17351,7 +17351,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_hbm_used_memory{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "expr": "npu_chip_info_hbm_used_memory{project=~\"$project\", experiment_name=~\"$experiment_name\", job=\"npu-exporter\", instance=~\"$npu_instance\"}",
                         "legendFormat": "NPU {{id}}",
                         "range": true
                       },
@@ -17470,7 +17470,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_power{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "expr": "npu_chip_info_power{project=~\"$project\", experiment_name=~\"$experiment_name\", job=\"npu-exporter\", instance=~\"$npu_instance\"}",
                         "legendFormat": "NPU {{id}}",
                         "range": true
                       },
@@ -17589,7 +17589,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_temperature{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "expr": "npu_chip_info_temperature{project=~\"$project\", experiment_name=~\"$experiment_name\", job=\"npu-exporter\", instance=~\"$npu_instance\"}",
                         "legendFormat": "NPU {{id}}",
                         "range": true
                       },
@@ -17708,7 +17708,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_health_status{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "expr": "npu_chip_info_health_status{project=~\"$project\", experiment_name=~\"$experiment_name\", job=\"npu-exporter\", instance=~\"$npu_instance\"}",
                         "legendFormat": "NPU {{id}}",
                         "range": true
                       },
@@ -17827,7 +17827,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_hbm_bandwidth_utilization{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "expr": "npu_chip_info_hbm_bandwidth_utilization{project=~\"$project\", experiment_name=~\"$experiment_name\", job=\"npu-exporter\", instance=~\"$npu_instance\"}",
                         "legendFormat": "NPU {{id}}",
                         "range": true
                       },
@@ -17947,7 +17947,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_bandwidth_rx{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "expr": "npu_chip_info_bandwidth_rx{project=~\"$project\", experiment_name=~\"$experiment_name\", job=\"npu-exporter\", instance=~\"$npu_instance\"}",
                         "legendFormat": "NPU {{id}} RX",
                         "range": true
                       },
@@ -17968,7 +17968,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_bandwidth_tx{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "expr": "npu_chip_info_bandwidth_tx{project=~\"$project\", experiment_name=~\"$experiment_name\", job=\"npu-exporter\", instance=~\"$npu_instance\"}",
                         "legendFormat": "NPU {{id}} TX",
                         "range": true
                       },
@@ -20512,14 +20512,14 @@
               "name": "${datasource}"
             },
             "spec": {
-              "query": "label_values({__name__=~\"rl_insight_monitor_.*\"}, experiment_name)",
+              "query": "label_values({__name__=~\"rl_insight_monitor_.*\", project=~\"$project\"}, experiment_name)",
               "refId": "StandardVariableQuery"
             }
           },
           "regex": "",
           "regexApplyTo": "value",
           "sort": "alphabeticalAsc",
-          "definition": "label_values({__name__=~\"rl_insight_monitor_.*\"}, experiment_name)",
+          "definition": "label_values({__name__=~\"rl_insight_monitor_.*\", project=~\"$project\"}, experiment_name)",
           "options": [],
           "multi": true,
           "includeAll": true,
@@ -20547,14 +20547,14 @@
               "name": "${datasource}"
             },
             "spec": {
-              "query": "label_values(vllm:request_prompt_tokens_sum{}, model_name)",
+              "query": "label_values(vllm:request_prompt_tokens_sum{project=~\"$project\", experiment_name=~\"$experiment_name\"}, model_name)",
               "refId": "StandardVariableQuery"
             }
           },
           "regex": "",
           "regexApplyTo": "value",
           "sort": "disabled",
-          "definition": "label_values(vllm:request_prompt_tokens_sum{}, model_name)",
+          "definition": "label_values(vllm:request_prompt_tokens_sum{project=~\"$project\", experiment_name=~\"$experiment_name\"}, model_name)",
           "options": [],
           "multi": false,
           "includeAll": true,
@@ -20582,14 +20582,14 @@
               "name": "${datasource}"
             },
             "spec": {
-              "query": "label_values(vllm:request_prompt_tokens_sum{}, engine)",
+              "query": "label_values(vllm:request_prompt_tokens_sum{project=~\"$project\", experiment_name=~\"$experiment_name\"}, engine)",
               "refId": "StandardVariableQuery"
             }
           },
           "regex": "",
           "regexApplyTo": "value",
           "sort": "disabled",
-          "definition": "label_values(vllm:request_prompt_tokens_sum{}, engine)",
+          "definition": "label_values(vllm:request_prompt_tokens_sum{project=~\"$project\", experiment_name=~\"$experiment_name\"}, engine)",
           "options": [],
           "multi": false,
           "includeAll": true,
@@ -20635,14 +20635,14 @@
             "version": "v0",
             "spec": {
               "qryType": 1,
-              "query": "label_values(vllm:request_prompt_tokens_sum,replica)",
+              "query": "label_values(vllm:request_prompt_tokens_sum{project=~\"$project\", experiment_name=~\"$experiment_name\"},replica)",
               "refId": "PrometheusVariableQueryEditor-VariableQuery"
             }
           },
           "regex": "",
           "regexApplyTo": "value",
           "sort": "disabled",
-          "definition": "label_values(vllm:request_prompt_tokens_sum,replica)",
+          "definition": "label_values(vllm:request_prompt_tokens_sum{project=~\"$project\", experiment_name=~\"$experiment_name\"},replica)",
           "options": [],
           "multi": false,
           "includeAll": true,
@@ -20670,14 +20670,14 @@
               "name": "${datasource}"
             },
             "spec": {
-              "query": "label_values(tq_partition_consumption_progress, task_name)",
+              "query": "label_values(tq_partition_consumption_progress{project=~\"$project\", experiment_name=~\"$experiment_name\"}, task_name)",
               "refId": "StandardVariableQuery"
             }
           },
           "regex": "",
           "regexApplyTo": "value",
           "sort": "disabled",
-          "definition": "label_values(tq_partition_consumption_progress, task_name)",
+          "definition": "label_values(tq_partition_consumption_progress{project=~\"$project\", experiment_name=~\"$experiment_name\"}, task_name)",
           "options": [],
           "multi": true,
           "includeAll": true,
@@ -20745,14 +20745,14 @@
               "name": "${datasource}"
             },
             "spec": {
-              "query": "label_values(npu_chip_info_name{job=\"npu-exporter\"}, instance)",
+              "query": "label_values(npu_chip_info_name{project=~\"$project\", experiment_name=~\"$experiment_name\", job=\"npu-exporter\"}, instance)",
               "refId": "StandardVariableQuery"
             }
           },
           "regex": "",
           "regexApplyTo": "value",
           "sort": "alphabeticalAsc",
-          "definition": "label_values(npu_chip_info_name{job=\"npu-exporter\"}, instance)",
+          "definition": "label_values(npu_chip_info_name{project=~\"$project\", experiment_name=~\"$experiment_name\", job=\"npu-exporter\"}, instance)",
           "options": [],
           "multi": true,
           "includeAll": true,

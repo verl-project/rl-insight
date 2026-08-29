@@ -34,4 +34,4 @@ class MonitorCollector(ABC):
 
     @abstractmethod
     def get_status(self) -> dict[str, Any]:
-        """Return a small status snapshot for debugging or health checks."""
+        """Return a status snapshot from the collector."""

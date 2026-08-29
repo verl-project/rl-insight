@@ -112,3 +112,22 @@ def test_apply_event_should_submit_without_waiting_when_client_has_actor() -> No
     client.apply_event(event)
 
     actor.apply_event.remote.assert_called_once_with(event)
+
+
+def test_get_status_should_query_actor_when_client_has_handle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    actor = MagicMock()
+    actor.get_status.remote.return_value = "status-ref"
+    client = client_module.MonitorRayClient(actor)
+    get = MagicMock(return_value={"project": "verl", "metrics_port": 9092})
+    monkeypatch.setattr(client_module.ray, "get", get)
+
+    assert client.get_status() == {
+        "project": "verl",
+        "metrics_port": 9092,
+    }
+    actor.get_status.remote.assert_called_once_with()
+    get.assert_called_once_with(
+        "status-ref", timeout=MonitorRayActor.STATUS_TIMEOUT_SECONDS
+    )

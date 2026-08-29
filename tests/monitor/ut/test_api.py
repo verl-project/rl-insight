@@ -24,17 +24,22 @@ from typing import Any
 import pytest
 
 from rl_insight import api
+from rl_insight.client.base import MonitorClient
 from rl_insight.utils.constants import MonitorEventKind
 
 
-class RecordingClient:
+class RecordingClient(MonitorClient):
     """Small client double that preserves every submitted event."""
 
     def __init__(self) -> None:
         self.events: list[dict[str, Any]] = []
+        self.status: dict[str, Any] = {}
 
     def apply_event(self, event: dict[str, Any]) -> None:
         self.events.append(event)
+
+    def get_status(self) -> dict[str, Any]:
+        return dict(self.status)
 
 
 @pytest.fixture(autouse=True)
@@ -47,7 +52,13 @@ def reset_monitor_state() -> Generator[None, None, None]:
 @pytest.fixture
 def recording_client(monkeypatch: pytest.MonkeyPatch) -> RecordingClient:
     client = RecordingClient()
-    monkeypatch.setattr(api, "create_monitor_client", lambda _conf: client)
+
+    def create_client(conf: Any) -> RecordingClient:
+        assert conf.project == "project-a"
+        assert conf.experiment_name == "experiment-a"
+        return client
+
+    monkeypatch.setattr(api, "create_monitor_client", create_client)
     api.init(
         project="project-a",
         experiment_name="experiment-a",
@@ -102,11 +113,7 @@ def test_metric_helpers_should_emit_typed_events_when_monitoring_is_enabled(
     assert recording_client.events[0]["documentation"] == "Counter steps"
     assert recording_client.events[1]["documentation"] == "Latest reward"
     assert recording_client.events[2]["documentation"] == "Histogram latency"
-    assert recording_client.events[0]["labels"] == {
-        "project": "project-a",
-        "experiment_name": "experiment-a",
-        "worker": "w0",
-    }
+    assert recording_client.events[0]["labels"] == {"worker": "w0"}
 
 
 def test_trace_state_should_merge_same_state_and_ignore_shadow_when_lane_is_busy(
@@ -378,3 +385,25 @@ def test_trace_span_and_trace_op_should_produce_same_event_shape(
     # the one intended difference is the compat-only segment marker
     assert decorator_event["attributes"]["monitor.trace_segment"] == "duration"
     assert "monitor.trace_segment" not in direct_event["attributes"]
+
+
+def test_get_status_should_return_client_snapshot_when_monitoring_is_enabled(
+    recording_client: RecordingClient,
+) -> None:
+    recording_client.status = {
+        "project": "hub",
+        "experiment_name": "from-collector",
+        "metrics_port": 9092,
+        "node_ip": "10.0.0.8",
+    }
+
+    assert api.get_status() == {
+        "project": "hub",
+        "experiment_name": "from-collector",
+        "metrics_port": 9092,
+        "node_ip": "10.0.0.8",
+    }
+
+
+def test_get_status_should_return_empty_when_monitoring_is_disabled() -> None:
+    assert api.get_status() == {}

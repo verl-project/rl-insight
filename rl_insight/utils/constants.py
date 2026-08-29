@@ -40,6 +40,7 @@ class MonitorRayActor:
 
     NAME = "RLInsightMonitorHub"
     NAMESPACE = "rl-insight-monitor"
+    STATUS_TIMEOUT_SECONDS = 5
 
 
 class MonitorEnv:

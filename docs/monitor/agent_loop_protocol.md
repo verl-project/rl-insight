@@ -155,4 +155,4 @@ The test requires a live RL-Insight server, Tempo, Prometheus, and Grafana.
 ## Related documentation
 
 - [Use RL-Insight to monitor verl training](https://github.com/verl-project/verl/blob/main/docs/advance/rl_insight.md)
-- [Uni-Agent RL-Insight instrumentation guide](https://github.com/verl-project/uni-agent/blob/rlinsight/docs/source/concepts/rl-insight-integration.md)
+- [Uni-Agent RL-Insight instrumentation guide](https://github.com/verl-project/uni-agent/blob/main/docs/source/concepts/rl-insight-integration.md)

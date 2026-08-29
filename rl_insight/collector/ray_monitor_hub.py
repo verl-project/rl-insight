@@ -31,8 +31,8 @@ from ..utils import (
     MonitorEventKind,
     OpenTelemetryTraceCollector,
     start_metrics_http_server,
-    update_prometheus_config,
 )
+from ..utils.prometheus_utils import _experiment_labels, update_prometheus_config
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
@@ -72,6 +72,12 @@ class MonitorHubActor(MonitorCollector):
         self._events_applied = 0
         self._node_ip = ray.util.get_node_ip_address()
         self._metrics_port = int(self._conf.prometheus.metrics_report_port)
+        self._experiment_labels = _experiment_labels(
+            {
+                "project": self._conf.get("project"),
+                "experiment_name": self._conf.get("experiment_name"),
+            }
+        )
         self._event_handlers = {
             MonitorEventKind.COUNTER: self._handle_counter,
             MonitorEventKind.GAUGE: self._handle_gauge,
@@ -80,7 +86,10 @@ class MonitorHubActor(MonitorCollector):
         }
 
         start_metrics_http_server(self._metrics_port, addr=self._node_ip)
-        update_prometheus_config([format_host_port(self._node_ip, self._metrics_port)])
+        update_prometheus_config(
+            [format_host_port(self._node_ip, self._metrics_port)],
+            experiment_labels=_experiment_labels(self.get_status()),
+        )
         logger.info(
             "[rl-insight] MonitorHubActor HTTP bind %s:%s, "
             "Prometheus scrape target %s:%s",
@@ -108,20 +117,18 @@ class MonitorHubActor(MonitorCollector):
         handler(event)
 
     def get_status(self) -> dict[str, Any]:
-        """Return a small status dict for debugging (endpoints, counters).
-
-        Returns:
-            Dict with ``actor_name``, ``namespace`` (Ray placement namespace, not metric prefix), scrape URL, flags.
-        """
+        """Return a status snapshot from the collector."""
         return {
             "actor_name": MonitorRayActor.NAME,
             "namespace": MonitorRayActor.NAMESPACE,
             "node_ip": self._node_ip,
+            "metrics_port": self._metrics_port,
             "metrics_endpoint": (
                 "http://"
                 + format_host_port(self._node_ip, self._metrics_port)
                 + "/metrics"
             ),
+            **self._experiment_labels,
             "prometheus_metrics_enabled": True,
             "otel_traces_enabled": self._trace_collector.enabled,
             "events_applied": self._events_applied,

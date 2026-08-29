@@ -45,6 +45,10 @@ class MonitorClient(ABC):
     def apply_event(self, event: dict[str, Any]) -> None:
         """Forward one monitor event to the collector backend."""
 
+    @abstractmethod
+    def get_status(self) -> dict[str, Any]:
+        """Return a status snapshot from the collector backend."""
+
 
 def register_monitor_client(backend: str, factory: MonitorClientFactory) -> None:
     """Register a client factory for ``server.backend``."""

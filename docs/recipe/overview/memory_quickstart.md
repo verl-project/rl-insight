@@ -82,7 +82,7 @@ profiling 数据 → MemoryParser → DataChecker → MemoryVisualizer → HTML 
 
 使用 VeRL 框架 + Ascend Profiler 采集内存数据，详细参考：
 
-[VeRL NPU Profiling 教程](https://github.com/verl-project/verl/blob/main/docs/ascend_tutorial/dev_guide/performance/ascend_profiling_zh.rst)
+[VeRL NPU Profiling 教程](https://github.com/verl-project/verl/blob/main/docs/ascend_tutorial/zh/dev_guide/performance/ascend_profiling.rst)
 
 ### 3.2 离线解析
 

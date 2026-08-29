@@ -28,6 +28,9 @@ class DummyClient(base.MonitorClient):
     def apply_event(self, event: dict[str, Any]) -> None:
         pass
 
+    def get_status(self) -> dict[str, Any]:
+        return {}
+
 
 def test_create_monitor_client_should_use_registered_factory_when_backend_exists(
     monkeypatch: pytest.MonkeyPatch,

@@ -22,6 +22,7 @@ from unittest.mock import MagicMock
 import pytest
 import yaml
 
+from rl_insight import api as api_module
 from rl_insight.utils import prometheus_utils as prometheus_module
 
 
@@ -86,9 +87,96 @@ def test_register_should_merge_and_sort_targets_when_config_already_exists(
     groups = saved["scrape_configs"][0]["static_configs"]
     assert result["target_count"] == 2
     assert groups == [
-        {"targets": ["host-a:9000"], "labels": {"rank": "0"}},
-        {"targets": ["host-b:9000"], "labels": {"rank": "1"}},
+        {
+            "targets": ["host-a:9000"],
+            "labels": {
+                "project": "default",
+                "experiment_name": "default",
+                "rank": "0",
+            },
+        },
+        {
+            "targets": ["host-b:9000"],
+            "labels": {
+                "project": "default",
+                "experiment_name": "default",
+                "rank": "1",
+            },
+        },
     ]
+
+
+def test_register_should_keep_other_jobs_unchanged_when_experiment_labels_are_set(
+    tmp_path,
+) -> None:
+    config_file = tmp_path / "prometheus.yml"
+    config_file.write_text(
+        yaml.safe_dump(
+            {
+                "scrape_configs": [
+                    {
+                        "job_name": "node-exporter",
+                        "static_configs": [
+                            {
+                                "targets": ["node-a:9100"],
+                                "labels": {
+                                    "project": "default",
+                                    "experiment_name": "default",
+                                    "node": "node-a",
+                                },
+                            }
+                        ],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    store = prometheus_module.PrometheusTargetStore(config_file, 9090)
+
+    store.register(
+        "trainer_metrics",
+        [
+            prometheus_module.PrometheusTarget(
+                "trainer:9092",
+                {"project": "verl", "experiment_name": "ppo-test"},
+            )
+        ],
+    )
+
+    saved = yaml.safe_load(config_file.read_text(encoding="utf-8"))
+    jobs = {job["job_name"]: job for job in saved["scrape_configs"]}
+    assert jobs["node-exporter"]["static_configs"][0]["labels"] == {
+        "project": "default",
+        "experiment_name": "default",
+        "node": "node-a",
+    }
+    assert jobs["trainer_metrics"]["static_configs"][0]["labels"] == {
+        "project": "verl",
+        "experiment_name": "ppo-test",
+    }
+
+    store.register(
+        "npu-exporter",
+        [
+            prometheus_module.PrometheusTarget(
+                "node-a:8082",
+                {
+                    "project": "verl",
+                    "experiment_name": "ppo-test",
+                    "node": "node-a",
+                },
+            )
+        ],
+    )
+
+    saved = yaml.safe_load(config_file.read_text(encoding="utf-8"))
+    jobs = {job["job_name"]: job for job in saved["scrape_configs"]}
+    assert jobs["npu-exporter"]["static_configs"][0]["labels"] == {
+        "project": "verl",
+        "experiment_name": "ppo-test",
+        "node": "node-a",
+    }
 
 
 def test_reload_should_post_to_local_prometheus_when_store_is_configured(
@@ -149,3 +237,35 @@ def test_update_prometheus_config_should_reject_mismatched_labels_when_lengths_d
         prometheus_module.update_prometheus_config(
             ["host-a:9000", "host-b:9000"], labels=[{"rank": 0}]
         )
+
+
+def test_update_prometheus_config_should_include_status_and_per_target_labels(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    response = MagicMock()
+    post = MagicMock(return_value=response)
+    monkeypatch.setenv("RL_INSIGHT_SERVER_URL", "http://server:18080")
+    monkeypatch.setattr(prometheus_module.requests, "post", post)
+    monkeypatch.setattr(
+        api_module,
+        "get_status",
+        lambda: {
+            "project": "verl",
+            "experiment_name": "ppo-test",
+            "replica": "ignored",
+        },
+    )
+
+    prometheus_module.update_prometheus_config(
+        ["host-a:9000"], job_name="sglang", labels=[{"replica": 0}]
+    )
+
+    post.assert_called_once_with(
+        "http://server:18080/api/v1/prometheus/targets",
+        json={
+            "job_name": "sglang",
+            "targets": [{"target": "host-a:9000", "labels": {"replica": "0"}}],
+            "labels": {"project": "verl", "experiment_name": "ppo-test"},
+        },
+        timeout=10,
+    )

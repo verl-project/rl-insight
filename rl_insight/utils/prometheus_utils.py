@@ -35,6 +35,11 @@ from .constants import MonitorEnv, MonitorPaths, PrometheusScrape
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.WARNING)
 
+_FALLBACK_TARGET_LABELS = {
+    "project": "default",
+    "experiment_name": "default",
+}
+
 
 __all__ = [
     "MetricRegistry",
@@ -73,13 +78,10 @@ class PrometheusTargetStore:
         return cls(base / "prometheus.yml", prometheus_port)
 
     def register(
-        self, job_name: str, targets: Sequence[PrometheusTarget]
+        self,
+        job_name: str,
+        targets: Sequence[PrometheusTarget],
     ) -> dict[str, Any]:
-        incoming = {
-            str(item.target): {str(k): str(v) for k, v in item.labels.items()}
-            for item in targets
-        }
-
         with self._lock:
             source = (
                 self.config_file
@@ -88,7 +90,6 @@ class PrometheusTargetStore:
             )
             data = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
             scrape_configs = data.setdefault("scrape_configs", [])
-
             job_config = next(
                 (
                     config
@@ -102,13 +103,20 @@ class PrometheusTargetStore:
                 scrape_configs.append(job_config)
 
             target_map = {
-                target: group.get("labels", {})
+                target: _merge_labels(_FALLBACK_TARGET_LABELS, group.get("labels", {}))
                 for group in job_config.get("static_configs", [])
                 for target in group.get("targets", [])
             }
-            target_map.update(incoming)
+            target_map.update(
+                {
+                    str(item.target): _merge_labels(
+                        _FALLBACK_TARGET_LABELS, item.labels
+                    )
+                    for item in targets
+                }
+            )
             job_config["static_configs"] = [
-                {"targets": [target], **({"labels": labels} if labels else {})}
+                {"targets": [target], "labels": labels}
                 for target, labels in sorted(target_map.items())
             ]
 
@@ -157,6 +165,21 @@ def _merge_labels(
     if overrides:
         out.update({str(k): str(v) for k, v in overrides.items()})
     return out
+
+
+def _experiment_labels(labels: Mapping[str, Any] | None) -> dict[str, str]:
+    return {
+        key: str(labels[key])
+        for key in _FALLBACK_TARGET_LABELS
+        if labels and key in labels
+    }
+
+
+def _status_experiment_labels() -> dict[str, str]:
+    # Imported lazily to avoid the api -> utils import cycle.
+    from ..api import get_status
+
+    return _experiment_labels(get_status())
 
 
 def start_metrics_http_server(port: int, addr: str = "") -> None:
@@ -295,6 +318,7 @@ def update_prometheus_config(
     server_addresses: list[str],
     job_name: str | None = None,
     labels: list[Mapping[str, Any] | None] | None = None,
+    experiment_labels: Mapping[str, Any] | None = None,
 ) -> None:
     """Register trainer metrics endpoints with the RL-Insight server.
 
@@ -309,6 +333,8 @@ def update_prometheus_config(
             trainer metrics job.
         labels: Optional per-target labels. When provided, its length must match
             ``server_addresses``.
+        experiment_labels: Optional project and experiment labels. These override
+            values returned by the monitor hub status.
     """
     if not server_addresses:
         logger.warning("[rl-insight] No server addresses available to register")
@@ -328,10 +354,15 @@ def update_prometheus_config(
         )
         return
 
-    payload = {
+    payload: dict[str, Any] = {
         "job_name": job_name or PrometheusScrape.TRAINER_METRICS_JOB,
         "targets": _build_target_payload(server_addresses, labels),
     }
+    inherited_labels = _merge_labels(
+        _status_experiment_labels(), _experiment_labels(experiment_labels)
+    )
+    if inherited_labels:
+        payload["labels"] = inherited_labels
     url = f"{base_url}/api/v1/prometheus/targets"
     try:
         response = requests.post(url, json=payload, timeout=10)
