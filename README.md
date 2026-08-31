@@ -148,6 +148,14 @@ pip install "rl-insight[recipe]"
 - [Default server config](./rl_insight/config/config.yaml): bundled ports, retention settings, and service config paths.
 - [Recipe README](./recipe/README.md): offline timeline, heatmap, and parser utilities.
 
+## Community
+
+Join our Lark group to connect with the team and other developers:
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/verl-project/rl-insight/main/assets/community/lark-qr.png" width="240" alt="Join RL-Insight on Lark">
+</p>
+
 ## Contribution Guide
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md).

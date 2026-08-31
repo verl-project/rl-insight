@@ -2,6 +2,14 @@
 
 Thank you for considering a contribution to rl-insight! We welcome contributions of any kind - bug fixes, enhancements, documentation improvements, or even just feedback. Whether you're an experienced developer or this is your first open-source project, your help is invaluable.
 
+## Community
+
+Join our Lark group to connect with the team and other developers:
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/verl-project/rl-insight/main/assets/community/lark-qr.png" width="240" alt="Join RL-Insight on Lark">
+</p>
+
 Your support can take many forms:
 - Report issues or unexpected behaviors.
 - Suggest or implement new features.
