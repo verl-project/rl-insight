@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from omegaconf import DictConfig, OmegaConf
+
 _MONITOR_DIR = Path(__file__).resolve().parents[1]
 
 
@@ -83,3 +85,21 @@ class PrometheusScrape:
     """Prometheus scrape job names managed by the monitor hub."""
 
     TRAINER_METRICS_JOB = "trainer_metrics"
+    DYNAMIC_CONFIG_JOB = "rl-insight-dynamic"
+    DYNAMIC_JOB_LABEL = "rl_insight_job"
+    TARGETS_FILE_NAME = "prometheus-targets.yml"
+    TARGETS_REFRESH_INTERVAL = "5s"
+
+
+def prometheus_targets_file_from_config(conf: DictConfig) -> Path:
+    """Return the persistent file_sd target store configured for the server."""
+    # TODO: Partition file_sd targets by experiment once stable experiment
+    # identity and lifecycle management are available, then have Prometheus
+    # watch all experiment target files collectively.
+    raw_data_dir = OmegaConf.select(conf, "server.data_dir")
+    data_dir = (
+        Path(str(raw_data_dir)).expanduser().resolve()
+        if raw_data_dir
+        else (MonitorPaths.STATE_ROOT / "data").resolve()
+    )
+    return (data_dir / "targets" / PrometheusScrape.TARGETS_FILE_NAME).resolve()

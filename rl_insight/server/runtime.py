@@ -18,13 +18,16 @@ from __future__ import annotations
 
 import configparser
 import datetime as _dt
+import fcntl
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
 import sys
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
@@ -34,6 +37,10 @@ from omegaconf import DictConfig, OmegaConf
 
 from .catalog import DEFAULT_STATE_ROOT, STATE_FILE
 from .network import format_host_port, local_addresses
+from ..utils.constants import (
+    PrometheusScrape,
+    prometheus_targets_file_from_config,
+)
 from .dependencies import (
     MissingDependencyError,
     DependencyManager,
@@ -378,10 +385,249 @@ def _service_data_root(conf: DictConfig, _install_root: Path) -> Path:
 
 def _render_prometheus_config(conf: DictConfig, runtime_dir: Path) -> Path:
     target = runtime_dir / "prometheus.yml"
+    targets_file = prometheus_targets_file_from_config(conf)
+    legacy_targets_file = (runtime_dir / PrometheusScrape.TARGETS_FILE_NAME).resolve()
     source = Path(str(OmegaConf.select(conf, "prometheus.config_file")))
     data = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
-    target.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    scrape_configs = data.get("scrape_configs") or []
+    if not isinstance(scrape_configs, list):
+        raise ValueError("Prometheus scrape_configs must be a list")
+
+    with _prometheus_targets_lock(targets_file):
+        if not targets_file.exists():
+            migrated_targets = (
+                _read_file_sd_targets(legacy_targets_file)
+                if legacy_targets_file.exists()
+                else _migrate_prometheus_static_targets(
+                    target, scrape_configs, targets_file
+                )
+            )
+            _write_yaml_atomically(targets_file, migrated_targets)
+
+    scrape_configs = [
+        item
+        for item in scrape_configs
+        if not _is_managed_prometheus_job(item, targets_file)
+    ]
+    source_job_names: list[str] = []
+    managed_jobs: list[dict[str, Any]] = []
+    for source_job in scrape_configs:
+        if not isinstance(source_job, dict):
+            continue
+        source_job_name = str(source_job.get("job_name") or "").strip()
+        if not source_job_name:
+            continue
+        source_job_names.append(source_job_name)
+        profile_name = _available_prometheus_job_name([*scrape_configs, *managed_jobs])
+        managed_jobs.append(
+            _profiled_prometheus_job(
+                profile_name, source_job_name, source_job, targets_file
+            )
+        )
+
+    dynamic_job_name = _available_prometheus_job_name([*scrape_configs, *managed_jobs])
+    managed_jobs.append(
+        _managed_prometheus_job(
+            dynamic_job_name, targets_file, excluded_jobs=source_job_names
+        )
+    )
+    scrape_configs.extend(managed_jobs)
+    data["scrape_configs"] = scrape_configs
+    _write_yaml_atomically(target, data)
     return target
+
+
+def _managed_prometheus_job(
+    job_name: str,
+    targets_file: Path,
+    *,
+    excluded_jobs: Sequence[str] = (),
+) -> dict[str, Any]:
+    relabel_configs: list[dict[str, Any]] = []
+    if excluded_jobs:
+        relabel_configs.append(
+            {
+                "source_labels": [PrometheusScrape.DYNAMIC_JOB_LABEL],
+                "regex": "|".join(re.escape(name) for name in excluded_jobs),
+                "action": "drop",
+            }
+        )
+    relabel_configs.extend(
+        [
+            {
+                "source_labels": [PrometheusScrape.DYNAMIC_JOB_LABEL],
+                "target_label": "job",
+            },
+            {
+                "regex": PrometheusScrape.DYNAMIC_JOB_LABEL,
+                "action": "labeldrop",
+            },
+        ]
+    )
+    return {
+        "job_name": job_name,
+        "file_sd_configs": [
+            {
+                "files": [str(targets_file)],
+                "refresh_interval": PrometheusScrape.TARGETS_REFRESH_INTERVAL,
+            }
+        ],
+        "relabel_configs": relabel_configs,
+    }
+
+
+def _profiled_prometheus_job(
+    profile_name: str,
+    source_job_name: str,
+    source_job: dict[str, Any],
+    targets_file: Path,
+) -> dict[str, Any]:
+    discovery_keys = {
+        key
+        for key in source_job
+        if key == "static_configs" or key.endswith("_sd_configs")
+    }
+    profile = {
+        "job_name": profile_name,
+        **{
+            key: value
+            for key, value in source_job.items()
+            if key not in discovery_keys and key not in {"job_name", "relabel_configs"}
+        },
+        "file_sd_configs": [
+            {
+                "files": [str(targets_file)],
+                "refresh_interval": PrometheusScrape.TARGETS_REFRESH_INTERVAL,
+            }
+        ],
+        "relabel_configs": [
+            {
+                "source_labels": [PrometheusScrape.DYNAMIC_JOB_LABEL],
+                "regex": re.escape(source_job_name),
+                "action": "keep",
+            },
+            {
+                "source_labels": [PrometheusScrape.DYNAMIC_JOB_LABEL],
+                "target_label": "job",
+            },
+            {
+                "regex": PrometheusScrape.DYNAMIC_JOB_LABEL,
+                "action": "labeldrop",
+            },
+            *(source_job.get("relabel_configs") or []),
+        ],
+    }
+    return profile
+
+
+def _is_managed_prometheus_job(item: Any, targets_file: Path) -> bool:
+    if not isinstance(item, dict):
+        return False
+    name = str(item.get("job_name") or "")
+    if not name.startswith(PrometheusScrape.DYNAMIC_CONFIG_JOB):
+        return False
+    file_sd_configs = item.get("file_sd_configs") or []
+    if not any(
+        isinstance(config, dict) and config.get("files") == [str(targets_file)]
+        for config in file_sd_configs
+    ):
+        return False
+    return any(
+        isinstance(config, dict)
+        and config.get("regex") == PrometheusScrape.DYNAMIC_JOB_LABEL
+        and config.get("action") == "labeldrop"
+        for config in item.get("relabel_configs") or []
+    )
+
+
+def _available_prometheus_job_name(scrape_configs: list[Any]) -> str:
+    used_names = {
+        str(item.get("job_name"))
+        for item in scrape_configs
+        if isinstance(item, dict) and item.get("job_name") is not None
+    }
+    base = PrometheusScrape.DYNAMIC_CONFIG_JOB
+    if base not in used_names:
+        return base
+    suffix = 1
+    while f"{base}-{suffix}" in used_names:
+        suffix += 1
+    return f"{base}-{suffix}"
+
+
+def _write_yaml_atomically(path: Path, data: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        tmp_path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+        os.replace(tmp_path, path)
+    except BaseException:
+        try:
+            tmp_path.unlink()
+        except FileNotFoundError:
+            pass
+        raise
+
+
+@contextmanager
+def _prometheus_targets_lock(path: Path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_file = path.with_name(f".{path.name}.lock")
+    with lock_file.open("a+", encoding="utf-8") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def _read_file_sd_targets(path: Path) -> list[dict[str, Any]]:
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or []
+    if not isinstance(data, list):
+        raise ValueError("Prometheus file_sd targets must be a list")
+    return data
+
+
+def _migrate_prometheus_static_targets(
+    config_file: Path,
+    source_scrape_configs: list[Any],
+    targets_file: Path,
+) -> list[dict[str, Any]]:
+    if not config_file.exists():
+        return []
+    legacy = yaml.safe_load(config_file.read_text(encoding="utf-8")) or {}
+    source_targets = {
+        (str(job.get("job_name") or ""), str(target))
+        for job in source_scrape_configs
+        if isinstance(job, dict)
+        for static_group in job.get("static_configs") or []
+        if isinstance(static_group, dict)
+        for target in static_group.get("targets") or []
+    }
+    groups: list[dict[str, Any]] = []
+    for job in legacy.get("scrape_configs") or []:
+        if not isinstance(job, dict):
+            continue
+        job_name = str(job.get("job_name") or "").strip()
+        if not job_name or _is_managed_prometheus_job(job, targets_file):
+            continue
+        for static_group in job.get("static_configs") or []:
+            if not isinstance(static_group, dict):
+                continue
+            targets = [
+                str(item)
+                for item in static_group.get("targets") or []
+                if (job_name, str(item)) not in source_targets
+            ]
+            if not targets:
+                continue
+            labels = {
+                str(key): str(value)
+                for key, value in (static_group.get("labels") or {}).items()
+            }
+            labels[PrometheusScrape.DYNAMIC_JOB_LABEL] = job_name
+            groups.append({"targets": targets, "labels": labels})
+    return groups
 
 
 def _render_tempo_config(

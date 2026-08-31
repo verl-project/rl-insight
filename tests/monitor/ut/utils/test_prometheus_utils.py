@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import multiprocessing
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -23,6 +24,19 @@ import pytest
 import yaml
 
 from rl_insight.utils import prometheus_utils as prometheus_module
+
+
+def _register_target_in_process(
+    config_file: str, targets_file: str, start_event, index: int
+) -> None:
+    store = prometheus_module.PrometheusTargetStore(
+        config_file, 9090, targets_file=targets_file
+    )
+    start_event.wait()
+    store.register(
+        "trainers",
+        [prometheus_module.PrometheusTarget(f"host-{index}:9000")],
+    )
 
 
 def _samples(collector: Any) -> dict[str, Any]:
@@ -55,40 +69,46 @@ def test_metric_registry_should_store_real_samples_when_all_metric_types_are_rec
     assert histogram["monitor_ut_latency_sum"].value == 12
 
 
-def test_register_should_merge_and_sort_targets_when_config_already_exists(
+def test_register_should_write_file_sd_targets_without_changing_main_config(
     tmp_path,
 ) -> None:
     config_file = tmp_path / "prometheus.yml"
-    config_file.write_text(
-        yaml.safe_dump(
-            {
-                "scrape_configs": [
-                    {
-                        "job_name": "trainers",
-                        "static_configs": [{"targets": ["host-b:9000"]}],
-                    }
-                ]
-            }
-        ),
-        encoding="utf-8",
-    )
+    original_config = {"global": {"scrape_interval": "10s"}}
+    config_file.write_text(yaml.safe_dump(original_config), encoding="utf-8")
     store = prometheus_module.PrometheusTargetStore(config_file, 9090)
 
     result = store.register(
         "trainers",
         [
             prometheus_module.PrometheusTarget("host-a:9000", {"rank": 0}),
-            prometheus_module.PrometheusTarget("host-b:9000", {"rank": 1}),
+            prometheus_module.PrometheusTarget("host-b:9000"),
         ],
     )
 
-    saved = yaml.safe_load(config_file.read_text(encoding="utf-8"))
-    groups = saved["scrape_configs"][0]["static_configs"]
+    targets_file = tmp_path / "prometheus-targets.yml"
+    saved = yaml.safe_load(targets_file.read_text(encoding="utf-8"))
     assert result["target_count"] == 2
-    assert groups == [
-        {"targets": ["host-a:9000"], "labels": {"rank": "0"}},
-        {"targets": ["host-b:9000"], "labels": {"rank": "1"}},
+    assert yaml.safe_load(config_file.read_text(encoding="utf-8")) == original_config
+    assert saved == [
+        {
+            "targets": ["host-a:9000"],
+            "labels": {"rl_insight_job": "trainers", "rank": "0"},
+        },
+        {
+            "targets": ["host-b:9000"],
+            "labels": {"rl_insight_job": "trainers"},
+        },
     ]
+
+    store.register(
+        "trainers",
+        [prometheus_module.PrometheusTarget("host-b:9000", {"rank": 1})],
+    )
+    saved = yaml.safe_load(targets_file.read_text(encoding="utf-8"))
+    assert saved[1] == {
+        "targets": ["host-b:9000"],
+        "labels": {"rl_insight_job": "trainers", "rank": "1"},
+    }
 
 
 def test_reload_should_post_to_local_prometheus_when_store_is_configured(
@@ -112,6 +132,32 @@ def test_reload_should_post_to_local_prometheus_when_store_is_configured(
         "http://127.0.0.1:9090/-/reload", timeout=5
     )
     response.raise_for_status.assert_called_once_with()
+
+
+def test_register_should_preserve_concurrent_cross_process_updates(tmp_path) -> None:
+    config_file = tmp_path / "prometheus.yml"
+    targets_file = tmp_path / "prometheus-targets.yml"
+    context = multiprocessing.get_context("fork")
+    start_event = context.Event()
+    processes = [
+        context.Process(
+            target=_register_target_in_process,
+            args=(str(config_file), str(targets_file), start_event, index),
+        )
+        for index in range(8)
+    ]
+
+    for process in processes:
+        process.start()
+    start_event.set()
+    for process in processes:
+        process.join(timeout=10)
+
+    assert [process.exitcode for process in processes] == [0] * len(processes)
+    saved = yaml.safe_load(targets_file.read_text(encoding="utf-8"))
+    assert {group["targets"][0] for group in saved} == {
+        f"host-{index}:9000" for index in range(8)
+    }
 
 
 def test_update_prometheus_config_should_send_normalized_targets_when_server_is_set(

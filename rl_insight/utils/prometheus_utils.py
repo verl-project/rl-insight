@@ -20,6 +20,7 @@ import logging
 import os
 import threading
 from collections.abc import Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -30,7 +31,12 @@ from omegaconf import DictConfig, OmegaConf
 from prometheus_client import Counter, Gauge, Histogram, start_http_server
 
 from ..server.network import format_host_port, local_addresses
-from .constants import MonitorEnv, MonitorPaths, PrometheusScrape
+from .constants import (
+    MonitorEnv,
+    MonitorPaths,
+    PrometheusScrape,
+    prometheus_targets_file_from_config,
+)
 
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.WARNING)
@@ -54,10 +60,20 @@ class PrometheusTarget:
 
 
 class PrometheusTargetStore:
-    """Maintain Prometheus scrape targets in the runtime config file."""
+    """Maintain Prometheus scrape targets in a file_sd discovery file."""
 
-    def __init__(self, config_file: str | Path, prometheus_port: int):
+    def __init__(
+        self,
+        config_file: str | Path,
+        prometheus_port: int,
+        targets_file: str | Path | None = None,
+    ):
         self.config_file = Path(config_file).expanduser().resolve()
+        self.targets_file = (
+            Path(targets_file).expanduser().resolve()
+            if targets_file is not None
+            else self.config_file.with_name(PrometheusScrape.TARGETS_FILE_NAME)
+        )
         self.prometheus_port = prometheus_port
         self._lock = threading.Lock()
 
@@ -70,7 +86,11 @@ class PrometheusTargetStore:
             else (MonitorPaths.STATE_ROOT / "runtime").resolve()
         )
         prometheus_port = int(OmegaConf.select(conf, "prometheus.prometheus_port"))
-        return cls(base / "prometheus.yml", prometheus_port)
+        return cls(
+            base / "prometheus.yml",
+            prometheus_port,
+            prometheus_targets_file_from_config(conf),
+        )
 
     def register(
         self, job_name: str, targets: Sequence[PrometheusTarget]
@@ -80,51 +100,93 @@ class PrometheusTargetStore:
             for item in targets
         }
 
-        with self._lock:
-            source = (
-                self.config_file
-                if self.config_file.exists()
-                else MonitorPaths.PROMETHEUS_CONFIG_FILE
+        with self._lock, self._file_lock():
+            target_map = self._read_targets()
+            target_map.update(
+                {(str(job_name), target): labels for target, labels in incoming.items()}
             )
-            data = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
-            scrape_configs = data.setdefault("scrape_configs", [])
-
-            job_config = next(
-                (
-                    config
-                    for config in scrape_configs
-                    if config.get("job_name") == job_name
-                ),
-                None,
-            )
-            if job_config is None:
-                job_config = {"job_name": job_name}
-                scrape_configs.append(job_config)
-
-            target_map = {
-                target: group.get("labels", {})
-                for group in job_config.get("static_configs", [])
-                for target in group.get("targets", [])
-            }
-            target_map.update(incoming)
-            job_config["static_configs"] = [
-                {"targets": [target], **({"labels": labels} if labels else {})}
-                for target, labels in sorted(target_map.items())
-            ]
-
-            self.config_file.parent.mkdir(parents=True, exist_ok=True)
-            payload = yaml.safe_dump(data, sort_keys=False)
-            tmp_path = self.config_file.with_name(
-                f".{self.config_file.name}.{os.getpid()}.tmp"
-            )
-            tmp_path.write_text(payload, encoding="utf-8")
-            os.replace(tmp_path, self.config_file)
+            self._write_targets(target_map)
 
         return {
             "job_name": job_name,
-            "target_count": len(target_map),
+            "target_count": sum(
+                1 for stored_job, _target in target_map if stored_job == job_name
+            ),
             "config_file": str(self.config_file),
+            "targets_file": str(self.targets_file),
         }
+
+    @contextmanager
+    def _file_lock(self):
+        """Serialize read-modify-write updates made by different processes."""
+        try:
+            import fcntl
+        except ImportError as exc:
+            raise RuntimeError(
+                "Prometheus target persistence requires a POSIX server"
+            ) from exc
+
+        self.targets_file.parent.mkdir(parents=True, exist_ok=True)
+        lock_file = self.targets_file.with_name(f".{self.targets_file.name}.lock")
+        with lock_file.open("a+", encoding="utf-8") as handle:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+    def _write_targets(
+        self, target_map: Mapping[tuple[str, str], Mapping[str, str]]
+    ) -> None:
+        groups = [
+            {
+                "targets": [target],
+                "labels": {
+                    **labels,
+                    PrometheusScrape.DYNAMIC_JOB_LABEL: stored_job,
+                },
+            }
+            for (stored_job, target), labels in sorted(target_map.items())
+        ]
+        payload = yaml.safe_dump(groups, sort_keys=False)
+        tmp_path = self.targets_file.with_name(
+            f".{self.targets_file.name}.{os.getpid()}.{threading.get_ident()}.tmp"
+        )
+        try:
+            tmp_path.write_text(payload, encoding="utf-8")
+            os.replace(tmp_path, self.targets_file)
+        except BaseException:
+            try:
+                tmp_path.unlink()
+            except FileNotFoundError:
+                pass
+            raise
+
+    def _read_targets(self) -> dict[tuple[str, str], dict[str, str]]:
+        if not self.targets_file.exists():
+            return {}
+        groups = yaml.safe_load(self.targets_file.read_text(encoding="utf-8")) or []
+        if not isinstance(groups, list):
+            raise ValueError("Prometheus file_sd targets must be a list")
+
+        target_map: dict[tuple[str, str], dict[str, str]] = {}
+        for group in groups:
+            if not isinstance(group, Mapping):
+                raise ValueError(
+                    "Each Prometheus file_sd target group must be an object"
+                )
+            raw_labels = group.get("labels") or {}
+            if not isinstance(raw_labels, Mapping):
+                raise ValueError("Prometheus file_sd target labels must be an object")
+            labels = {str(key): str(value) for key, value in raw_labels.items()}
+            stored_job = labels.pop(PrometheusScrape.DYNAMIC_JOB_LABEL, "").strip()
+            if not stored_job:
+                raise ValueError(
+                    "Prometheus file_sd target group is missing managed job label"
+                )
+            for target in group.get("targets") or []:
+                target_map[(stored_job, str(target))] = dict(labels)
+        return target_map
 
     def reload(self) -> bool:
         url = (
@@ -298,9 +360,9 @@ def update_prometheus_config(
 ) -> None:
     """Register trainer metrics endpoints with the RL-Insight server.
 
-    The RL-Insight server writes these targets into the runtime Prometheus
-    config and reloads the managed Prometheus process. ``server_addresses``
-    should contain scrape targets in ``host:port`` or ``[ipv6]:port`` form, not full URLs.
+    The RL-Insight server writes these targets into its file_sd discovery file;
+    Prometheus observes the update automatically. ``server_addresses`` should
+    contain scrape targets in ``host:port`` or ``[ipv6]:port`` form, not full URLs.
 
     Args:
         server_addresses: Prometheus scrape targets exposed by trainer-side
