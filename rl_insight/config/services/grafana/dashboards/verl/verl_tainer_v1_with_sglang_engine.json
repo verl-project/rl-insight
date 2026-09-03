@@ -13459,7 +13459,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.99, sum by (le, replica) (rate(sglang:e2e_request_latency_seconds_bucket{model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])))",
+                        "expr": "histogram_quantile(0.99, sum by (le, replica) (rate({__name__=~\"sglang[:_]e2e_request_latency_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])))",
                         "interval": "",
                         "legendFormat": "replica {{replica}} P99",
                         "queryType": "randomWalk",
@@ -13480,7 +13480,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.9, sum by (le, replica) (rate(sglang:e2e_request_latency_seconds_bucket{model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])))",
+                        "expr": "histogram_quantile(0.9, sum by (le, replica) (rate({__name__=~\"sglang[:_]e2e_request_latency_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])))",
                         "interval": "",
                         "legendFormat": "replica {{replica}} P90",
                         "queryType": "randomWalk",
@@ -13501,7 +13501,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.5, sum by (le, replica) (rate(sglang:e2e_request_latency_seconds_bucket{model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])))",
+                        "expr": "histogram_quantile(0.5, sum by (le, replica) (rate({__name__=~\"sglang[:_]e2e_request_latency_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])))",
                         "interval": "",
                         "legendFormat": "replica {{replica}} P50",
                         "queryType": "randomWalk",
@@ -13522,7 +13522,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by (replica) (rate(sglang:e2e_request_latency_seconds_sum{model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])) / sum by (replica) (rate(sglang:e2e_request_latency_seconds_count{model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval]))",
+                        "expr": "sum by (replica) (rate({__name__=~\"sglang[:_]e2e_request_latency_seconds_sum\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])) / sum by (replica) (rate({__name__=~\"sglang[:_]e2e_request_latency_seconds_count\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval]))",
                         "interval": "",
                         "legendFormat": "replica {{replica}} Avg",
                         "queryType": "randomWalk",
@@ -13738,7 +13738,7 @@
                       "spec": {
                         "editorMode": "builder",
                         "exemplar": true,
-                        "expr": "sum by (le, replica) (increase(sglang:e2e_request_latency_seconds_bucket{model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval]))",
+                        "expr": "sum by (le, replica) (increase({__name__=~\"sglang[:_]e2e_request_latency_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval]))",
                         "interval": "",
                         "legendFormat": "replica {{replica}} le {{le}}",
                         "queryType": "randomWalk",
@@ -13848,7 +13848,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.99, sum by (le, replica) (rate(sglang:time_to_first_token_seconds_bucket{model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])))",
+                        "expr": "histogram_quantile(0.99, sum by (le, replica) (rate({__name__=~\"sglang[:_]time_to_first_token_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])))",
                         "interval": "",
                         "legendFormat": "replica {{replica}} P99",
                         "queryType": "randomWalk",
@@ -13869,7 +13869,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.9, sum by (le, replica) (rate(sglang:time_to_first_token_seconds_bucket{model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])))",
+                        "expr": "histogram_quantile(0.9, sum by (le, replica) (rate({__name__=~\"sglang[:_]time_to_first_token_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])))",
                         "interval": "",
                         "legendFormat": "replica {{replica}} P90",
                         "queryType": "randomWalk",
@@ -13890,7 +13890,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.5, sum by (le, replica) (rate(sglang:time_to_first_token_seconds_bucket{model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])))",
+                        "expr": "histogram_quantile(0.5, sum by (le, replica) (rate({__name__=~\"sglang[:_]time_to_first_token_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])))",
                         "interval": "",
                         "legendFormat": "replica {{replica}} P50",
                         "queryType": "randomWalk",
@@ -13911,7 +13911,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by (replica) (rate(sglang:time_to_first_token_seconds_sum{model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])) / sum by (replica) (rate(sglang:time_to_first_token_seconds_count{model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval]))",
+                        "expr": "sum by (replica) (rate({__name__=~\"sglang[:_]time_to_first_token_seconds_sum\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])) / sum by (replica) (rate({__name__=~\"sglang[:_]time_to_first_token_seconds_count\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval]))",
                         "interval": "",
                         "legendFormat": "replica {{replica}} Avg",
                         "queryType": "randomWalk",
@@ -14127,7 +14127,7 @@
                       "spec": {
                         "editorMode": "builder",
                         "exemplar": false,
-                        "expr": "sum by (le, replica) (increase(sglang:time_to_first_token_seconds_bucket{model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval]))",
+                        "expr": "sum by (le, replica) (increase({__name__=~\"sglang[:_]time_to_first_token_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval]))",
                         "interval": "",
                         "legendFormat": "replica {{replica}} le {{le}}",
                         "queryType": "randomWalk",
@@ -14237,7 +14237,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sglang:num_running_reqs{model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}",
+                        "expr": "{__name__=~\"sglang[:_]num_running_reqs\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}",
                         "interval": "",
                         "legendFormat": "replica {{replica}}",
                         "queryType": "randomWalk",
@@ -14453,7 +14453,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sglang:gen_throughput{model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}",
+                        "expr": "{__name__=~\"sglang[:_]gen_throughput\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}",
                         "interval": "",
                         "legendFormat": "replica {{replica}}",
                         "queryType": "randomWalk",
@@ -14669,7 +14669,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sglang:cache_hit_rate{model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}",
+                        "expr": "{__name__=~\"sglang[:_]cache_hit_rate\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}",
                         "interval": "",
                         "legendFormat": "replica {{replica}}",
                         "queryType": "randomWalk",
@@ -14885,7 +14885,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sglang:num_queue_reqs{model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}",
+                        "expr": "{__name__=~\"sglang[:_]num_queue_reqs\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}",
                         "interval": "",
                         "legendFormat": "replica {{replica}}",
                         "queryType": "randomWalk",
@@ -17125,14 +17125,14 @@
               "name": "${datasource}"
             },
             "spec": {
-              "query": "label_values(sglang:gen_throughput, model_name)",
+              "query": "label_values({__name__=~\"sglang[:_]gen_throughput\"}, model_name)",
               "refId": "StandardVariableQuery"
             }
           },
           "regex": "",
           "regexApplyTo": "value",
           "sort": "disabled",
-          "definition": "label_values(sglang:gen_throughput, model_name)",
+          "definition": "label_values({__name__=~\"sglang[:_]gen_throughput\"}, model_name)",
           "options": [],
           "multi": false,
           "includeAll": true,
@@ -17161,14 +17161,14 @@
               "name": "${datasource}"
             },
             "spec": {
-              "query": "label_values(sglang:gen_throughput, replica)",
+              "query": "label_values({__name__=~\"sglang[:_]gen_throughput\"}, replica)",
               "refId": "StandardVariableQuery"
             }
           },
           "regex": "",
           "regexApplyTo": "value",
           "sort": "disabled",
-          "definition": "label_values(sglang:gen_throughput, replica)",
+          "definition": "label_values({__name__=~\"sglang[:_]gen_throughput\"}, replica)",
           "options": [],
           "multi": false,
           "includeAll": true,
