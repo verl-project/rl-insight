@@ -84,7 +84,7 @@ RL-Insight manages three open-source services locally on Linux:
 | Tempo | Trace storage and query API | `3200` | `>= 2.0.0` | `2.6.1` |
 | Grafana | Dashboards and trace exploration | `3000` | `>= 13.0.0` | `13.0.0` |
 
-`rl-insight server install` downloads supported Linux binaries into `~/.rl-insight/services`. `rl-insight server start` runs the RL-Insight server with Prometheus, Tempo, and Grafana with data persisted under `~/.rl-insight/data` by default.
+`rl-insight server install` downloads supported Linux binaries into `~/.rl-insight/services`. `rl-insight server start` runs the RL-Insight server with Prometheus, Tempo, and Grafana with data persisted under `~/.rl-insight/data` by default. Pass `--log-dir /path/to/data` to use or restore another data directory.
 
 ## Training API
 

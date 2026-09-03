@@ -51,9 +51,12 @@ Common variants:
 ```bash
 rl-insight server start --detach
 rl-insight server start --attach-logs
+rl-insight server start --log-dir /path/to/rl-insight-data
 rl-insight server start --config path/to/config.yaml
 rl-insight server stop
 ```
+
+`--log-dir` points the stack at a custom data directory, matching the intent of TensorBoard's `--logdir`. By default, RL-Insight stores data under `~/.rl-insight/data`.
 
 Default endpoints:
 

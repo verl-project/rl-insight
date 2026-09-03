@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 from unittest.mock import MagicMock, call
 
+from omegaconf import OmegaConf
 import pytest
 import requests
 
@@ -36,6 +37,36 @@ def test_parser_should_accept_targets_add_command(tmp_path) -> None:
 
     assert args.target_file == target_file
     assert args.func.__name__ == "add_targets"
+
+
+def test_parser_should_accept_log_dir_for_server_start(tmp_path) -> None:
+    log_dir = tmp_path / "rl-insight-data"
+
+    args = cli._build_parser().parse_args(
+        ["server", "start", "--log-dir", str(log_dir)]
+    )
+
+    assert args.log_dir == log_dir
+    assert args.detach is False
+    assert args.func.__name__ == "start"
+
+
+def test_apply_log_dir_should_override_server_data_dir(tmp_path) -> None:
+    conf = OmegaConf.create({"server": {"data_dir": None}})
+
+    commands_module.ServerCommands._apply_log_dir(conf, tmp_path / "logs")
+
+    assert conf.server.data_dir == str(tmp_path / "logs")
+
+
+def test_data_dir_should_resolve_explicit_and_default_paths(tmp_path) -> None:
+    explicit = OmegaConf.create({"server": {"data_dir": str(tmp_path / "logs")}})
+    default = OmegaConf.create({"server": {}})
+
+    assert commands_module.ServerCommands._data_dir(explicit) == tmp_path / "logs"
+    assert commands_module.ServerCommands._data_dir(default) == (
+        commands_module.DEFAULT_STATE_ROOT / "data"
+    )
 
 
 def test_add_targets_should_register_each_job_and_reload_once(

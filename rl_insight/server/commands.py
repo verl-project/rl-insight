@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 from collections.abc import Mapping
 from typing import Sequence
 
@@ -28,6 +29,7 @@ from ..utils.monitor_config_loader import load_server_config_file
 from ..utils.constants import MonitorEnv
 from ..utils.prometheus_utils import PrometheusTarget, PrometheusTargetStore
 from .dependencies import MissingDependencyError, ServiceStatus
+from .catalog import DEFAULT_STATE_ROOT
 from .display import (
     active_state_rows,
     dependency_rows,
@@ -100,6 +102,9 @@ class ServerCommands:
     def start(self, args: argparse.Namespace) -> int:
         """Start local RL-Insight server, Prometheus, Tempo, and Grafana processes."""
         conf = self._load_config(args)
+        log_dir = getattr(args, "log_dir", None)
+        if log_dir is not None:
+            self._apply_log_dir(conf, log_dir)
         if not self._stack_management_enabled(conf, action="start"):
             return 0
 
@@ -140,7 +145,11 @@ class ServerCommands:
             print("RL-Insight server services are running in background mode.")
             return 0
 
-        print("RL-Insight server services are running. Press Ctrl+C to stop.")
+        data_dir = self._data_dir(conf)
+        print(
+            "RL-Insight server services are running with data directory "
+            f"{data_dir}. Press Ctrl+C to stop."
+        )
         return manager.wait(stack, attach_logs=args.attach_logs)
 
     def stop(self, args: argparse.Namespace) -> int:
@@ -226,6 +235,20 @@ class ServerCommands:
     @staticmethod
     def _load_config(args: argparse.Namespace) -> DictConfig:
         return load_server_config_file(config_path=args.config)
+
+    @staticmethod
+    def _apply_log_dir(conf: DictConfig, log_dir: Path) -> None:
+        """Persist server data under ``log_dir`` instead of the default root."""
+        path = Path(str(log_dir)).expanduser().resolve()
+        OmegaConf.update(conf, "server.data_dir", str(path), force_add=True)
+
+    @staticmethod
+    def _data_dir(conf: DictConfig) -> Path:
+        """Return the resolved server data directory."""
+        raw = OmegaConf.select(conf, "server.data_dir")
+        if raw:
+            return Path(str(raw)).expanduser().resolve()
+        return (DEFAULT_STATE_ROOT / "data").resolve()
 
     @staticmethod
     def _stack_management_enabled(conf: DictConfig, action: str) -> bool:
