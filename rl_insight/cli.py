@@ -18,11 +18,14 @@ from __future__ import annotations
 
 import argparse
 import logging
+import subprocess
+import sys
 from pathlib import Path
 from typing import Sequence
 
 from . import __version__
 from .server.commands import ServerCommands
+from .utils.constants import MonitorPaths
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -55,6 +58,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     subparsers = parser.add_subparsers(dest="command", required=True)
     _add_server_parser(subparsers)
+    _add_data_parser(subparsers)
     return parser
 
 
@@ -132,6 +136,56 @@ def _add_server_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     _add_common_config_args(add_targets)
     add_targets.set_defaults(func=commands.add_targets)
+
+
+def _add_data_parser(subparsers: argparse._SubParsersAction) -> None:
+    data = subparsers.add_parser(
+        "data",
+        help="Inspect persisted RL-Insight data.",
+    )
+    data_subparsers = data.add_subparsers(dest="data_command", required=True)
+    inspect = data_subparsers.add_parser(
+        "inspect",
+        help="List projects, experiments, and their time ranges.",
+    )
+    inspect.add_argument(
+        "--log-dir",
+        type=Path,
+        default=None,
+        help="RL-Insight data directory; defaults to ~/.rl-insight/data.",
+    )
+    inspect.add_argument(
+        "--promtool-bin",
+        type=Path,
+        default=None,
+        help="Path to promtool; auto-detected when omitted.",
+    )
+    inspect.set_defaults(func=_handle_data_inspect)
+
+
+def _handle_data_inspect(args: argparse.Namespace) -> int:
+    """Inspect persisted data and print the result."""
+    from .data_inspection import format_summaries, inspect_data_directory
+
+    data_dir = _resolve_data_dir(args)
+    try:
+        summaries = inspect_data_directory(data_dir, promtool_bin=args.promtool_bin)
+    except (FileNotFoundError, subprocess.CalledProcessError, ValueError) as exc:
+        print(f"Data inspection failed: {exc}", file=sys.stderr)
+        return 1
+
+    if not summaries:
+        print("Data not found.")
+        return 0
+
+    print(format_summaries(summaries))
+    return 0
+
+
+def _resolve_data_dir(args: argparse.Namespace) -> Path:
+    if args.log_dir is None:
+        return (MonitorPaths.STATE_ROOT / "data").resolve()
+    return args.log_dir.expanduser().resolve()
 
 
 def _add_common_config_args(parser: argparse.ArgumentParser) -> None:
