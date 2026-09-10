@@ -387,6 +387,19 @@ def update_prometheus_config(
             f"{len(labels)} != {len(server_addresses)}"
         )
 
+    # Push backend: no external RL-Insight server is involved. Register targets
+    # in-process so the local rollout poller scrapes them directly.
+    from ..client.push.poller import get_active_registry
+
+    registry = get_active_registry()
+    if registry is not None:
+        registry.set_targets(server_addresses, labels)
+        logger.info(
+            "[rl-insight] Registered %d push scrape targets in-process",
+            len(server_addresses),
+        )
+        return
+
     base_url = str(os.environ.get(MonitorEnv.SERVER_URL, "")).strip().rstrip("/")
     if not base_url:
         logger.error(
