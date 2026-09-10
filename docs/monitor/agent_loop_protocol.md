@@ -119,11 +119,36 @@ Use `trace_span()` for completed spans. The required names and attributes are:
 |---|---|---|
 | `agent_session` | `session.finish()` | `monitor.trace_source="session"`, identity, `runner_name`, `status`, `num_trajectories`, `reward_source`, `finished` |
 | `agent_task` | Task runner | `monitor.trace_source="task"`, identity, `task_name`, `image_ref`, `prompt_hash`, `status`, `reward`, `accuracy`, `finished`, `reward_posted`, `error` |
-| `gateway_generation` | Model gateway | `monitor.trace_source="gateway"`, identity, `state_lane_id`, `traj`, `chain_id`, `turn`, `type`, `tools`, `content`, `prompt_tokens`, `completion_tokens`, `finish_reason`, `status`, `error` |
+| `gateway_generation` | Model gateway | `monitor.trace_source="gateway"`, identity, `state_lane_id`, `traj`, `chain_id`, `turn`, `type`, `tools`, `tool_args`, `reasoning`, `content`, `prompt_tokens`, `completion_tokens`, `finish_reason`, `status`, `error` |
 
 Use these status values: `success`, `failure`, `empty`, `capacity_exhausted`,
 or `error`. Keep timestamps monotonic within a span and include failures even
 when the operation raises.
+
+### Turn text fields
+
+A turn carries four text fields. `tools` and `tool_args` are parallel lists
+with one entry per tool call:
+
+| Field | Content |
+|---|---|
+| `tools` | Tool names, e.g. `["shell"]`. |
+| `tool_args` | Tool arguments, i.e. the command that ran. JSON-encoded per call. |
+| `reasoning` | Model reasoning: the text before `</think>`. |
+| `content` | The answer: the text after `</think>`. |
+
+Frameworks whose chat template prefills an opening `<think>` should split the
+completion at the closing tag and publish the two halves separately, rather
+than publishing one combined field. A turn where the model goes straight to a
+tool call then yields an empty `reasoning` and an empty `content`, instead of a
+bare `</think>` that reads like a capture failure. When the completion has no
+closing tag it never left the think block, so all of it is `reasoning`.
+
+Split before truncating. Publishers cap each text field to bound trace size,
+and a combined field loses the delimiter whenever reasoning exceeds the cap,
+which makes the split impossible downstream. On one 1900-turn sample the
+closing tag sat at a median offset of 318 characters but reached 2413 at p90,
+so a 500-character cap dropped the delimiter on 40% of turns.
 
 ## Dashboard mapping
 

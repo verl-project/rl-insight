@@ -625,7 +625,7 @@
         "spec": {
           "id": 327,
           "title": "Turn details",
-          "description": "Each row is one turn: type, tools, finish reason, and content (thought, or response if thought is empty).",
+          "description": "Each row is one turn: type, tools, tool arguments, finish reason, reasoning, and content. Reasoning is the text before </think>; content is what follows it. Both are empty when the model went straight to a tool call.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -644,7 +644,7 @@
                       "spec": {
                         "limit": 500,
                         "metricsQueryType": "range",
-                        "query": "{span.state_lane_id =~ \"experiment=${experiment}/${session}/traj=${traj}\" && span.experiment_name =~ \"${experiment}\" && span.project =~ \"${project}\" && span.global_steps = ${step} && span.turn >= 0 && resource.service.name=\"rl_insight_monitor\"} | select(span.turn, span.type, span.tools, span.finish_reason, span.content, span.prompt_tokens, span.completion_tokens)",
+                        "query": "{span.state_lane_id =~ \"experiment=${experiment}/${session}/traj=${traj}\" && span.experiment_name =~ \"${experiment}\" && span.project =~ \"${project}\" && span.global_steps = ${step} && span.turn >= 0 && resource.service.name=\"rl_insight_monitor\"} | select(span.turn, span.type, span.tools, span.tool_args, span.finish_reason, span.reasoning, span.content, span.prompt_tokens, span.completion_tokens)",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 100,
@@ -681,10 +681,12 @@
                         "turn": 1,
                         "type": 2,
                         "tools": 3,
-                        "finish_reason": 4,
-                        "content": 5,
-                        "prompt_tokens": 6,
-                        "completion_tokens": 7
+                        "finish_reason": 5,
+                        "content": 7,
+                        "prompt_tokens": 8,
+                        "completion_tokens": 9,
+                        "tool_args": 4,
+                        "reasoning": 6
                       },
                       "renameByName": {
                         "time": "Start",
@@ -694,7 +696,9 @@
                         "finish_reason": "Finish reason",
                         "content": "Content",
                         "prompt_tokens": "Prompt tokens",
-                        "completion_tokens": "Completion tokens"
+                        "completion_tokens": "Completion tokens",
+                        "tool_args": "Tool args",
+                        "reasoning": "Reasoning"
                       }
                     }
                   }
