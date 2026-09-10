@@ -25,7 +25,17 @@ from .constants import (
     PrometheusScrape,
 )
 from .monitor_config_loader import load_monitor_config, load_server_config_file
-from .opentelemetry_utils import OpenTelemetryTraceCollector
+
+try:  # OpenTelemetry is only needed by the trace collector, not lightweight clients.
+    from .opentelemetry_utils import OpenTelemetryTraceCollector
+except ImportError as exc:  # pragma: no cover - exercised only in slim installs
+    import logging as _logging
+
+    _logging.getLogger(__name__).debug(
+        "[rl-insight] OpenTelemetry trace collector is unavailable: %s", exc
+    )
+    OpenTelemetryTraceCollector = None
+
 from .prometheus_utils import (
     MetricRegistry,
     PrometheusTarget,
