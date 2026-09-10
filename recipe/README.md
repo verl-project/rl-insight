@@ -11,7 +11,7 @@
 RL-Insight Recipe provides offline performance insight capabilities for RL training frameworks. It defines a general pipeline for parsing profiling data and rendering timeline, heatmap, and memory-analysis views.
 
 <div align="center">
- <img src="../assets/recipe/rl_insight_framework.svg" width="600" alt="rl-insight-arch">
+ <img src="https://raw.githubusercontent.com/verl-project/rl-insight/v0.2.x/assets/recipe/rl_insight_framework.svg" width="600" alt="rl-insight-arch">
 </div>
 
 ## Key Features
@@ -99,12 +99,12 @@ python -m recipe.main \
 
 ## Documentation
 
-- [Architecture & Design](../docs/recipe/overview/architecture.md)
-- [Offline Timeline Quickstart](../docs/recipe/overview/RL_Timeline_quickstart.md)
-- [GMM Heatmap Quickstart](../docs/recipe/overview/gmm_heatmap_quickstart.md)
-- [Memory Parser Guide](../docs/recipe/developer_guides/memory_parser_guide.md)
-- [Extension Guide](../docs/recipe/developer_guides/extending_guide.md)
+- [Architecture & Design](https://github.com/verl-project/rl-insight/blob/v0.2.x/docs/recipe/overview/architecture.md)
+- [Offline Timeline Quickstart](https://github.com/verl-project/rl-insight/blob/v0.2.x/docs/recipe/overview/RL_Timeline_quickstart.md)
+- [GMM Heatmap Quickstart](https://github.com/verl-project/rl-insight/blob/v0.2.x/docs/recipe/overview/gmm_heatmap_quickstart.md)
+- [Memory Parser Guide](https://github.com/verl-project/rl-insight/blob/v0.2.x/docs/recipe/developer_guides/memory_guide.md)
+- [Extension Guide](https://github.com/verl-project/rl-insight/blob/v0.2.x/docs/recipe/developer_guides/extending_guide.md)
 
 ## Contribution Guide
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md).
+See [CONTRIBUTING.md](https://github.com/verl-project/rl-insight/blob/v0.2.x/CONTRIBUTING.md).

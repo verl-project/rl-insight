@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/monitor/rl-insight-logo.png" width="180" alt="RL-Insight logo">
+  <img src="https://raw.githubusercontent.com/verl-project/rl-insight/v0.2.x/assets/monitor/rl-insight-logo.png" width="180" alt="RL-Insight logo">
 </p>
 
 <h1 align="center">RL-Insight</h1>
@@ -29,7 +29,7 @@ RL-Insight focuses on the online observability path that RL training needs most:
 ## Architecture
 
 <p align="center">
-  <img src="./assets/monitor/rl-insight-monitor-architecture.svg" width="960" alt="RL-Insight monitor architecture">
+  <img src="https://raw.githubusercontent.com/verl-project/rl-insight/v0.2.x/assets/monitor/rl-insight-monitor-architecture.svg" width="960" alt="RL-Insight monitor architecture">
 </p>
 
 RL-Insight has two metric sources. Training code reports framework-internal signals through the Python API, and RL subsystems such as rollout engines and transfer queues register their own `/metrics` endpoints through the metric aggregation interface. The RL-Insight server coordinates the training side and manages Prometheus, Tempo, and Grafana so metrics, traces, and subsystem signals converge into unified RL dashboards.
@@ -64,14 +64,14 @@ Start with the guide that matches your current setup:
 
 | Document | What it covers | When to use it |
 |---|---|---|
-| [Server Installation](./docs/monitor/server_installation.md) | Prometheus, Tempo, and Grafana service setup, including supported Linux platforms, direct installation, offline installation, and existing service binaries. | Use this first if the monitor services are not installed or you need to verify the server environment. |
-| [Quick Start](./docs/monitor/quick_start.md) | A full smoke-test flow: install the Python package, start the monitor stack, emit sample metric/trace data, and open Grafana. | Use this after the services are ready, or when you want to validate the monitor path end to end. |
-| [Hardware Monitoring](./docs/monitor/hardware/index.md) | Install or reuse node_exporter and NPU Exporter, then register CPU and Ascend NPU targets with RL-Insight. | Use this when you want hardware metrics in the RL-Insight Grafana dashboards. |
+| [Server Installation](https://github.com/verl-project/rl-insight/blob/v0.2.x/docs/monitor/server_installation.md) | Prometheus, Tempo, and Grafana service setup, including supported Linux platforms, direct installation, offline installation, and existing service binaries. | Use this first if the monitor services are not installed or you need to verify the server environment. |
+| [Quick Start](https://github.com/verl-project/rl-insight/blob/v0.2.x/docs/monitor/quick_start.md) | A full smoke-test flow: install the Python package, start the monitor stack, emit sample metric/trace data, and open Grafana. | Use this after the services are ready, or when you want to validate the monitor path end to end. |
+| [Hardware Monitoring](https://github.com/verl-project/rl-insight/blob/v0.2.x/docs/monitor/hardware/index.md) | Install or reuse node_exporter and NPU Exporter, then register CPU and Ascend NPU targets with RL-Insight. | Use this when you want hardware metrics in the RL-Insight Grafana dashboards. |
 
 Recommended order:
 
-1. Prepare the server services with [Server Installation](./docs/monitor/server_installation.md).
-2. Run the end-to-end flow with [Quick Start](./docs/monitor/quick_start.md).
+1. Prepare the server services with [Server Installation](https://github.com/verl-project/rl-insight/blob/v0.2.x/docs/monitor/server_installation.md).
+2. Run the end-to-end flow with [Quick Start](https://github.com/verl-project/rl-insight/blob/v0.2.x/docs/monitor/quick_start.md).
 
 ## Server Stack
 
@@ -126,7 +126,7 @@ Useful environment variables:
 
 ## Recipe Offline Analysis
 
-Offline timeline, heatmap, and parser utilities are kept under `recipe/`; see [Recipe README](./recipe/README.md) for that workflow.
+Offline timeline, heatmap, and parser utilities are kept under `recipe/`; see [Recipe README](https://github.com/verl-project/rl-insight/blob/v0.2.x/recipe/README.md) for that workflow.
 
 ## Roadmap
 
@@ -135,12 +135,12 @@ Offline timeline, heatmap, and parser utilities are kept under `recipe/`; see [R
 
 ## Documentation
 
-- [Quick Start](./docs/monitor/quick_start.md): install RL-Insight, start the services, instrument code, and open Grafana.
-- [Server Installation](./docs/monitor/server_installation.md): Linux service requirements, supported OS/CPU combinations, and version policy.
-- [Hardware Monitoring](./docs/monitor/hardware/index.md): install exporters and register CPU or Ascend NPU scrape targets.
-- [Default server config](./rl_insight/config/config.yaml): bundled ports, retention settings, and service config paths.
-- [Recipe README](./recipe/README.md): offline timeline, heatmap, and parser utilities.
+- [Quick Start](https://github.com/verl-project/rl-insight/blob/v0.2.x/docs/monitor/quick_start.md): install RL-Insight, start the services, instrument code, and open Grafana.
+- [Server Installation](https://github.com/verl-project/rl-insight/blob/v0.2.x/docs/monitor/server_installation.md): Linux service requirements, supported OS/CPU combinations, and version policy.
+- [Hardware Monitoring](https://github.com/verl-project/rl-insight/blob/v0.2.x/docs/monitor/hardware/index.md): install exporters and register CPU or Ascend NPU scrape targets.
+- [Default server config](https://github.com/verl-project/rl-insight/blob/v0.2.x/rl_insight/config/config.yaml): bundled ports, retention settings, and service config paths.
+- [Recipe README](https://github.com/verl-project/rl-insight/blob/v0.2.x/recipe/README.md): offline timeline, heatmap, and parser utilities.
 
 ## Contribution Guide
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md).
+See [CONTRIBUTING.md](https://github.com/verl-project/rl-insight/blob/v0.2.x/CONTRIBUTING.md).

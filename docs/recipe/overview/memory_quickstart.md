@@ -8,7 +8,7 @@ RL-Insight 的 Memory 分析模块包含 Memory Parser（解析）和 Memory Vis
 profiling 数据 → MemoryParser → DataChecker → MemoryVisualizer → HTML 交互图表
 ```
 
-模块划分、流水线与扩展步骤见 [架构说明](./architecture.md)。更完整的数据目录与 JSON 字段约定见 [数据规格与格式说明](../data/data_specification.md)。
+模块划分、流水线与扩展步骤见 [架构说明](https://github.com/verl-project/rl-insight/blob/v0.2.x/docs/recipe/overview/architecture.md)。更完整的数据目录与 JSON 字段约定见 [数据规格与格式说明](https://github.com/verl-project/rl-insight/blob/v0.2.x/docs/recipe/data/data_specification.md)。
 
 ### 1.1 主要功能
 
@@ -53,7 +53,7 @@ profiling 数据 → MemoryParser → DataChecker → MemoryVisualizer → HTML 
 ### 2.2 数据要求
 
 1. **采集方式**：使用 Ascend Profiler 采集，至少采集 level0 及以上数据，采用离散模式采集（`discrete=True`）
-2. **离线解析**：采集数据需经过离线解析（`analyse=False`），离线解析参考 [MSTX 预处理](../utils/mstx_preprocessing.md)
+2. **离线解析**：采集数据需经过离线解析（`analyse=False`），离线解析参考 [MSTX 预处理](https://github.com/verl-project/rl-insight/blob/v0.2.x/docs/recipe/utils/mstx_preprocessing.md)
 3. **`operator_memory.csv`**：Ascend Profiler 输出的算子级内存分配记录，包含 `Name`、`Size(KB)`、`Allocation Time(us)`、`Duration(us)`、`Allocation Total Allocated/Reserved/Active(MB)`、`Device Type` 等字段
 4. **`trace_view.json`**：完整时间线事件，用于调用栈关联。需包含 `cat=="cpu_op"` 且 `args` 中含 `"Call stack"` 的事件；文件可能较大，Parser 内部使用 `ijson` 流式解析
 5. **`profiler_info_*.json`**：用于提取 `rank_id`
@@ -78,7 +78,7 @@ profiling 数据 → MemoryParser → DataChecker → MemoryVisualizer → HTML 
 
 使用 VeRL 框架 + Ascend Profiler 采集内存数据，详细参考：
 
-[VeRL NPU Profiling 教程](https://github.com/verl-project/verl/blob/main/docs/ascend_tutorial/dev_guide/performance/ascend_profiling_zh.rst)
+[VeRL NPU Profiling 教程](https://github.com/verl-project/verl/blob/main/docs/ascend_tutorial/zh/dev_guide/performance/ascend_profiling.rst)
 
 ### 3.2 离线解析
 
@@ -88,7 +88,7 @@ profiling 数据 → MemoryParser → DataChecker → MemoryVisualizer → HTML 
 python -m recipe.utils.mstx_preprocessing <profiling_data_path>
 ```
 
-详见 [MSTX 预处理](../utils/mstx_preprocessing.md)。
+详见 [MSTX 预处理](https://github.com/verl-project/rl-insight/blob/v0.2.x/docs/recipe/utils/mstx_preprocessing.md)。
 
 ### 3.3 执行 Memory Pipeline（Parser + Visualizer）
 
