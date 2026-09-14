@@ -4,7 +4,7 @@
 
 RL-Insight 是一个强化学习性能数据快速分析的可视化工具，基于 VeRL 框架采集的 profiling 数据进行解析，生成强化学习各阶段的 Timeline 图表。
 
-模块划分、流水线与扩展步骤见 [架构与开发指导](./architecture_and_guideline.md)。更完整的数据目录与 JSON 字段约定见 [数据规格与格式说明](../data/data_specification.md)。
+模块划分、流水线与扩展步骤见 [架构与开发指导](https://github.com/verl-project/rl-insight/blob/v0.1.x/docs/overview/architecture.md)。更完整的数据目录与 JSON 字段约定见 [数据规格与格式说明](https://github.com/verl-project/rl-insight/blob/v0.1.x/docs/data/data_specification.md)。
 
 ### 1.1 主要功能
 
@@ -26,7 +26,7 @@ RL-Insight 是一个强化学习性能数据快速分析的可视化工具，基
 git clone https://github.com/verl-project/rl-insight.git
 ```
 
-依赖版本以仓库根目录 [`requirements.txt`](../../requirements.txt) 为准（含 **pandas、plotly、numpy、loguru** 等）。开发/运行前请安装：
+依赖版本以仓库根目录 [`requirements.txt`](https://github.com/verl-project/rl-insight/blob/v0.1.x/requirements.txt) 为准（含 **pandas、plotly、numpy、loguru** 等）。开发/运行前请安装：
 
 ```bash
 cd rl-insight
@@ -46,7 +46,7 @@ pip install -e .
 
 使用 VeRL 框架采集性能数据，详细参考：
 
-[VeRL NPU Profiling 教程](https://github.com/verl-project/verl/blob/main/docs/ascend_tutorial/dev_guide/performance/ascend_profiling_zh.rst)
+[VeRL NPU Profiling 教程](https://github.com/verl-project/verl/blob/main/docs/ascend_tutorial/zh/dev_guide/performance/ascend_profiling.rst)
 
 [VeRL GPU Profiling 教程](https://github.com/verl-project/verl/blob/main/docs/perf/nsight_profiling.md)
 
@@ -150,7 +150,7 @@ bash examples/nvtx_exec.sh
 3. 采用离散模式采集 `discrete=True`
 4. MSTX 数据满足以下要求：
    - 采集数据需经过解析，仅支持使用离线解析方式（analyse=False）
-   - 离线解析参考 [MSTX profiling 离线解析](../utils/mstx_preprocessing.md)
+   - 离线解析参考 [MSTX profiling 离线解析](https://github.com/verl-project/rl-insight/blob/v0.1.x/docs/utils/mstx_preprocessing.md)
    - 输入路径下需包含 `*_ascend_pt` 目录
    - 每个 ascend_pt 目录下需包含 `profiler_info_*.json` 文件
    - trace_view.json 文件位于 `ASCEND_PROFILER_OUTPUT` 子目录中
@@ -165,4 +165,4 @@ bash examples/nvtx_exec.sh
    - 输入路径下需包含文件名格式为 `worker_process_<PID>.<RID>.jsonl`的数据文件，即 上一步解析后的文件，且所有要解析的数据文件要在同一个目录下。
    - 系统会自动筛选出满足`worker_process_<PID>.<RID>.jsonl`格式的文件
 
-目录与 JSON 字段的集中说明另见 [数据规格与格式说明](../data/data_specification.md)。运行时校验逻辑以 `rl_insight.data.DataChecker` 及 [`rl_insight/data/rules.py`](../../rl_insight/data/rules.py) 中的规则定义为准。
+目录与 JSON 字段的集中说明另见 [数据规格与格式说明](https://github.com/verl-project/rl-insight/blob/v0.1.x/docs/data/data_specification.md)。运行时校验逻辑以 `rl_insight.data.DataChecker` 及 [`rl_insight/data/rules.py`](https://github.com/verl-project/rl-insight/blob/v0.1.x/rl_insight/data/rules.py) 中的规则定义为准。

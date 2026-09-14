@@ -2,7 +2,7 @@
 
 本文说明 RL-Insight 当前支持各种数据规格的目录布局和数据要求，便于采集与对接。
 
-流水线在校验阶段会使用 `rl_insight.data.DataChecker` 注册的规则；通用规则见 [`rl_insight/data/rules.py`](../../rl_insight/data/rules.py)，VeRL 日志规则见 [`rl_insight/data/verl_log_rules.py`](../../rl_insight/data/verl_log_rules.py)。**具体校验项以代码为准**，部分规则可能尚未接入 `DataChecker.rules`，文档仅描述数据侧约定。
+流水线在校验阶段会使用 `rl_insight.data.DataChecker` 注册的规则；通用规则见 [`rl_insight/data/rules.py`](https://github.com/verl-project/rl-insight/blob/v0.1.x/rl_insight/data/rules.py)，VeRL 日志规则见 [`rl_insight/data/verl_log_rules.py`](https://github.com/verl-project/rl-insight/blob/v0.1.x/rl_insight/data/verl_log_rules.py)。**具体校验项以代码为准**，部分规则可能尚未接入 `DataChecker.rules`，文档仅描述数据侧约定。
 
 ## 1. Torch Profiler 数据
 ### 1.1 目录结构
@@ -12,7 +12,7 @@
 └── <role>/
     └── prof_*.json.gz
 ```
-参考：[`./rl-insight/data/torch_data`](../../data/torch_data)
+参考：[`./rl-insight/data/torch_data`](https://github.com/verl-project/rl-insight/tree/v0.1.x/data/torch_data)
 
 ### 1.2 文件内容要点
 
@@ -64,7 +64,7 @@
         └── ASCEND_PROFILER_OUTPUT/
             └── trace_view.json
 ```
-参考：[`./rl-insight/data/mstx_data`](../../data/mstx_data)
+参考：[`./rl-insight/data/mstx_data`](https://github.com/verl-project/rl-insight/tree/v0.1.x/data/mstx_data)
 
 ### 2.2 trace_view.json 要点
 
@@ -142,7 +142,7 @@ MSTX 输入当前包含三类检查：
 <summary-event-data-path>/
 └── summary_event_dataframe_sample.json
 ```
-参考：[`./rl-insight/data/summary_event_data`](../../data/summary_event_data)
+参考：[`./rl-insight/data/summary_event_data`](https://github.com/verl-project/rl-insight/tree/v0.1.x/data/summary_event_data)
 
 解析后汇总生成的数据文件 summary_event_dataframe_sample.json，内容必须包含"role", "name", "rank_id", "start_time_ms", "end_time_ms"字段，文件内容示例：
 
@@ -189,12 +189,12 @@ MSTX 输入当前包含三类检查：
 
 ## 5. VeRL 训练日志（可选校验）
 
-`DataEnum.VERL_LOG` 对 **单个** VeRL 训练 `.log` 文件做存在性与关键指标子串校验（例如 `DataChecker` 或 [`tests/data/check_verl_log.py`](../../tests/data/check_verl_log.py)）。路径必须是文件，不能是目录。
+`DataEnum.VERL_LOG` 对 **单个** VeRL 训练 `.log` 文件做存在性与关键指标子串校验（例如 `DataChecker` 或 [`tests/data/check_verl_log.py`](https://github.com/verl-project/rl-insight/blob/v0.1.x/tests/data/check_verl_log.py)）。路径必须是文件，不能是目录。
 
 ### 5.1 校验规则（以代码为准）
 
 1. **存在与路径**（`VerlLogExistRule`）：扩展名为 `.log`，文件非空，且能被识别为 VeRL 日志：文件名中含 `verl`（不区分大小写），或文件开头约 64KiB 内容中含 `verl`。
-2. **关键子串**（`VerlLogKeyParamsRule`）：日志正文（读取至多约 2MiB，**不区分大小写**）须**同时包含**以下子串，定义见 [`rl_insight/data/verl_log_rules.py`](../../rl_insight/data/verl_log_rules.py) 中 `DEFAULT_REQUIRED_KEYWORDS`：
+2. **关键子串**（`VerlLogKeyParamsRule`）：日志正文（读取至多约 2MiB，**不区分大小写**）须**同时包含**以下子串，定义见 [`rl_insight/data/verl_log_rules.py`](https://github.com/verl-project/rl-insight/blob/v0.1.x/rl_insight/data/verl_log_rules.py) 中 `DEFAULT_REQUIRED_KEYWORDS`：
 
    - `verl`
    - `actor/loss`
@@ -212,7 +212,7 @@ MSTX 输入当前包含三类检查：
 
 ### 5.2 `data/verl_data/` 示例数据
 
-仓库 [`data/verl_data/`](../../data/verl_data/) 下提供：
+仓库 [`data/verl_data/`](https://github.com/verl-project/rl-insight/tree/v0.1.x/data/verl_data/) 下提供：
 
 - **`good_minimal_verl.log`**：体量很小的合成日志，覆盖当前必填子串，**推荐**用于脚本/文档中的快速校验示例。
 - **负面样例**（用于手工跑 `check_verl_log.py` 或自测规则；说明文字已避免误包含上述关键字）：
@@ -236,7 +236,7 @@ python tests/data/check_verl_log.py data/verl_data/good_minimal_verl.log
 
 ## 5. GMM 专家负载dump数据
 
-GMM 热力图输入类型为 `DataEnum.GMM_DATA`（CLI：`--input-type gmm_data`、`--profiler-type gmm`）。**路径约定、参数与示意图**见 [`docs/overview/gmm_heatmap_quickstart.md`](../overview/gmm_heatmap_quickstart.md)。本节补充数据侧目录与文件格式说明。
+GMM 热力图输入类型为 `DataEnum.GMM_DATA`（CLI：`--input-type gmm_data`、`--profiler-type gmm`）。**路径约定、参数与示意图**见 [`docs/overview/gmm_heatmap_quickstart.md`](https://github.com/verl-project/rl-insight/blob/v0.1.x/docs/overview/gmm_heatmap_quickstart.md)。本节补充数据侧目录与文件格式说明。
 
 ### 5.1 目录结构
 
@@ -260,7 +260,7 @@ GMM 热力图输入类型为 `DataEnum.GMM_DATA`（CLI：`--input-type gmm_data`
 └── ...
 ```
 
-参考（仓库内**最小可解析**示例，体量极小，便于测试与文档对照）：[`../../data/gmm_data`](../../data/gmm_data)
+参考（仓库内**最小可解析**示例，体量极小，便于测试与文档对照）：[`../../data/gmm_data`](https://github.com/verl-project/rl-insight/tree/v0.1.x/data/gmm_data)
 
 ### 5.2 `group_list.pt` 文件内容
 
@@ -271,7 +271,7 @@ GMM 热力图输入类型为 `DataEnum.GMM_DATA`（CLI：`--input-type gmm_data`
 
 ### 5.3 输入数据校验
 
-`GmmDataRule`（见 [`rl_insight/data/rules.py`](../../rl_insight/data/rules.py)）要求：
+`GmmDataRule`（见 [`rl_insight/data/rules.py`](https://github.com/verl-project/rl-insight/blob/v0.1.x/rl_insight/data/rules.py)）要求：
 
 - 输入为已存在的目录路径；
 - 其下至少存在一个位于 `dump_tensor_data` 路径段中的 `*group_list.pt` 文件。

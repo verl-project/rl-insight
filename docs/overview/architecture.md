@@ -2,7 +2,7 @@
 
 ## 1. 框架概览
 <div align="center">
- <img src="https://raw.githubusercontent.com/verl-project/rl-insight/main/assets/rl_insight_framework.svg" width="600" alt="rl-insight-arch.png">
+ <img src="https://raw.githubusercontent.com/verl-project/rl-insight/v0.1.x/assets/rl_insight_framework.svg" width="600" alt="rl-insight-arch.png">
 </div>
 
 图中绿色为数据侧模块，蓝色为功能侧模块；上述部分规划在 RL-Insight 内落地。红色模块 **CollectController** / **Collector** 已由 [verl.DistProfiler](https://verl.readthedocs.io/en/latest/perf/verl_profiler_system.html) 提供，短期内本仓库不会关注。

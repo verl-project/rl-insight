@@ -73,7 +73,7 @@ Thanks for submitting a PR! To streamline reviews:
 
 ## License
 
-See the [LICENSE](https://github.com/verl-project/rl-insight/blob/main/LICENSE) file for full details.
+See the [LICENSE](https://github.com/verl-project/rl-insight/blob/v0.1.x/LICENSE) file for full details.
 
 ## Thank You
 
