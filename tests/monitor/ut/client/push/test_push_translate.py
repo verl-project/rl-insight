@@ -105,6 +105,27 @@ def test_gauge_emits_current_value_with_sample_labels() -> None:
     assert running[0].tags["model_name"] == "m"
 
 
+def test_gauge_timer_delivers_gauge_value_as_timer() -> None:
+    state = ScrapeState()
+    rules = OmegaConf.create(
+        [
+            {
+                "source": "vllm:num_requests_running",
+                "type": "gauge_timer",
+                "name": "decode_batch_size",
+                "tags": {"pending_status": "infer"},
+            }
+        ]
+    )
+    out = state.translate(_SCRAPE_1, rules)
+    assert len(out) == 1
+    assert out[0].name == "decode_batch_size"
+    assert out[0].op == OP_TIMER
+    assert out[0].value == 3.0
+    assert out[0].tags["model_name"] == "m"
+    assert out[0].tags["pending_status"] == "infer"
+
+
 def test_ratio_emits_numerator_over_denominator() -> None:
     state = ScrapeState()
     out = state.translate(_SCRAPE_1, _RULES)

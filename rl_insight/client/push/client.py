@@ -46,13 +46,29 @@ STREAM_ROLLOUT = "rollout"
 _NS_TO_US = 1000
 
 
+@dataclass(frozen=True)
+class _MetricRule:
+    name: str
+    method: str | None
+    scale: float
+    tags: dict[str, str]
+
+
 @dataclass
 class _BoundSink:
     sink: PushSink
     streams: frozenset[str]
     rollout_prefix: str
     tags: dict[str, str]
+    metric_rules: dict[str, _MetricRule] | None = None
     alive: bool = True
+
+
+_OP_METHOD = {
+    "counter": "emit_counter",
+    "store": "emit_store",
+    "timer": "emit_timer",
+}
 
 
 def _scalar_string_tags(tags: Any) -> dict[str, str]:
@@ -90,20 +106,40 @@ class PushMonitorClient(MonitorClient):
             self._route_metric(kind, event)
 
     # -- routing -----------------------------------------------------------
+    @staticmethod
+    def _method_for_kind(kind: str) -> str:
+        if kind == MonitorEventKind.COUNTER:
+            return "emit_counter"
+        if kind == MonitorEventKind.GAUGE:
+            return "emit_store"
+        return "emit_timer"  # histogram -> timer; producers report microseconds
+
     def _route_metric(self, kind: str, event: dict[str, Any]) -> None:
-        suffix = f"{self._metric_prefix}{event.get('name', '')}"
+        raw_name = str(event.get("name", ""))
         value = float(event.get("value", 0.0))
         event_tags = _scalar_string_tags(event.get("labels"))
+        default_method = self._method_for_kind(kind)
         for bound in list(self._bound):
             if not bound.alive or STREAM_METRIC not in bound.streams:
                 continue
-            tags = {**bound.tags, **event_tags}
-            if kind == MonitorEventKind.COUNTER:
-                self._safe(bound, "emit_counter", suffix, value, tags)
-            elif kind == MonitorEventKind.GAUGE:
-                self._safe(bound, "emit_store", suffix, value, tags)
-            else:  # histogram -> timer; producers must report microseconds
-                self._safe(bound, "emit_timer", suffix, value, tags)
+            rule = (
+                None
+                if bound.metric_rules is None
+                else bound.metric_rules.get(raw_name)
+            )
+            if bound.metric_rules is not None and rule is None:
+                continue  # whitelist sink: unmapped trainer metrics are dropped
+            if rule is None:
+                suffix = f"{self._metric_prefix}{raw_name}"
+                method = default_method
+                out_value = value
+                tags = {**bound.tags, **event_tags}
+            else:
+                suffix = rule.name
+                method = rule.method or default_method
+                out_value = value * rule.scale
+                tags = {**bound.tags, **event_tags, **rule.tags}
+            self._safe(bound, method, suffix, out_value, tags)
 
     def _route_trace(self, event: dict[str, Any]) -> None:
         duration_us = (
@@ -177,6 +213,29 @@ def _select_or(conf: Any, key: str, default: str) -> str:
     return default if value is None else str(value)
 
 
+def _metric_mapping(sink_conf: Any) -> dict[str, _MetricRule] | None:
+    """Parse a sink's ``metric_mapping`` list into ``{source: rule}``.
+
+    When present, only trainer scalar events whose raw name matches a
+    ``source`` are emitted to that sink (whitelist), using the mapped output
+    ``name`` and optional ``op`` (store|counter|timer), ``scale`` and static
+    ``tags``. Returns ``None`` when the sink keeps default prefix passthrough.
+    """
+    raw = OmegaConf.select(sink_conf, "metric_mapping")
+    if raw is None:
+        return None
+    rules: dict[str, _MetricRule] = {}
+    for item in raw:
+        source = str(OmegaConf.select(item, "source"))
+        name = str(OmegaConf.select(item, "name"))
+        op = OmegaConf.select(item, "op")
+        method = None if op is None else _OP_METHOD[str(op)]
+        scale = float(OmegaConf.select(item, "scale", default=1.0))
+        tags = _scalar_string_tags(OmegaConf.select(item, "tags"))
+        rules[source] = _MetricRule(name=name, method=method, scale=scale, tags=tags)
+    return rules
+
+
 def create_push_monitor_client(conf: DictConfig) -> PushMonitorClient | None:
     """Build the push client from ``push`` config; return ``None`` when disabled.
 
@@ -202,6 +261,7 @@ def create_push_monitor_client(conf: DictConfig) -> PushMonitorClient | None:
                     sink_conf, "rollout_name_prefix", DEFAULT_ROLLOUT_PREFIX
                 ),
                 tags=collect_env_tags(OmegaConf.select(sink_conf, "tags_from_env")),
+                metric_rules=_metric_mapping(sink_conf),
             )
         )
 

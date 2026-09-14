@@ -37,6 +37,7 @@ OP_TIMER = "timer"
 RULE_COUNTER_DELTA = "counter_delta"
 RULE_SUMMARY_MEAN_US = "summary_mean_us"
 RULE_GAUGE = "gauge"
+RULE_GAUGE_TIMER = "gauge_timer"
 RULE_RATIO = "ratio"
 
 _SECONDS_TO_US = 1_000_000.0
@@ -132,6 +133,8 @@ class ScrapeState:
                 emissions.extend(self._summary_mean_us(families, rule))
             elif rtype == RULE_GAUGE:
                 emissions.extend(self._gauge(families, rule))
+            elif rtype == RULE_GAUGE_TIMER:
+                emissions.extend(self._gauge(families, rule, OP_TIMER))
             elif rtype == RULE_RATIO:
                 emissions.extend(self._ratio(families, rule))
         return emissions
@@ -191,7 +194,9 @@ class ScrapeState:
             )
         return out
 
-    def _gauge(self, families: dict[str, Any], rule: Any) -> list[Emission]:
+    def _gauge(
+        self, families: dict[str, Any], rule: Any, op: str = OP_STORE
+    ) -> list[Emission]:
         source = str(_rule(rule, "source"))
         name = str(_rule(rule, "name"))
         family = families.get(source)
@@ -200,7 +205,7 @@ class ScrapeState:
         return [
             Emission(
                 name,
-                OP_STORE,
+                op,
                 float(sample.value),
                 self._tags(rule, dict(sample.labels)),
             )

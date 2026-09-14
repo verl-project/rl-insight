@@ -137,6 +137,79 @@ def test_gauge_routes_to_metric_sink_as_store_with_prefix_and_tags(
     client.close()
 
 
+def test_metric_mapping_renames_retags_scales_and_whitelists(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ARNOLD_TRIAL_ID", "303094623")
+    sinks: list[RecordingSink] = []
+    _install_driver("fake_map_mod", sinks)
+    conf = OmegaConf.create(
+        {
+            "server": {"backend": "push"},
+            "push": {
+                "sinks": [
+                    {
+                        "name": "alpha",
+                        "driver": "fake_map_mod:create_sink",
+                        "prefix": "seed.alphaseed",
+                        "streams": ["metric"],
+                        "tags_from_env": [
+                            {"tag": "arnold_trial_id", "env": ["ARNOLD_TRIAL_ID"],
+                             "default": "0"}
+                        ],
+                        "metric_mapping": [
+                            {"source": "training_global_step", "name": "global_step"},
+                            {
+                                "source": "perf_mfu_actor",
+                                "name": "mfu.ratio",
+                                "op": "timer",
+                                "tags": {"stage": "actor"},
+                            },
+                            {
+                                "source": "timing_s_update_weight",
+                                "name": "timing.driver.duration",
+                                "op": "timer",
+                                "scale": 1_000_000.0,
+                                "tags": {"stage": "weight_sync_total"},
+                            },
+                        ],
+                    }
+                ]
+            },
+        }
+    )
+    client = create_push_monitor_client(conf)
+    assert client is not None
+
+    client.apply_event(
+        {"kind": "gauge", "name": "training_global_step", "value": 7, "labels": {}}
+    )
+    client.apply_event(
+        {"kind": "gauge", "name": "perf_mfu_actor", "value": 0.42, "labels": {}}
+    )
+    client.apply_event(
+        {"kind": "gauge", "name": "timing_s_update_weight", "value": 0.003,
+         "labels": {}}
+    )
+    client.apply_event(
+        {"kind": "gauge", "name": "critic_score_mean", "value": 1.0, "labels": {}}
+    )
+
+    alpha = sinks[0]
+    assert [c[0:2] for c in alpha.calls] == [
+        ("store", "seed.alphaseed.global_step"),
+        ("timer", "seed.alphaseed.mfu.ratio"),
+        ("timer", "seed.alphaseed.timing.driver.duration"),
+    ]
+    assert alpha.calls[0][2] == 7
+    assert alpha.calls[0][3]["arnold_trial_id"] == "303094623"
+    assert alpha.calls[1][2] == 0.42
+    assert alpha.calls[1][3]["stage"] == "actor"
+    assert alpha.calls[2][2] == 3000.0  # seconds -> microseconds
+    assert alpha.calls[2][3]["stage"] == "weight_sync_total"
+    client.close()
+
+
 def test_counter_and_histogram_event_mapping(monkeypatch: pytest.MonkeyPatch) -> None:
     sinks: list[RecordingSink] = []
     _install_driver("fake_push_sinks_mod", sinks)
