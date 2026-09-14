@@ -26,6 +26,8 @@ from omegaconf import OmegaConf
 
 from rl_insight.client.push import poller as poller_module
 from rl_insight.client.push.client import create_push_monitor_client
+from rl_insight.utils import prometheus_utils as prom_utils
+from rl_insight import api
 from rl_insight.client.push.sinks.base import PushSink
 
 
@@ -335,3 +337,79 @@ def test_factory_returns_none_when_all_drivers_fail(
         {"push": {"sinks": [{"driver": "missing_module_xyz:factory"}]}}
     )
     assert create_push_monitor_client(conf) is None
+
+
+def _reset_bootstrap() -> None:
+    api.finish()
+    poller_module.set_active_registry(None)
+    prom_utils._push_bootstrap_attempted = False
+
+
+def test_register_targets_bootstraps_push_client_in_uninitialized_process(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
+    # Simulate a Ray rollout actor process: rl_insight.init() was never called,
+    # but RL_INSIGHT_CONFIG points at a push config and the engine registers its
+    # scrape targets via update_prometheus_config().
+    sinks: list[RecordingSink] = []
+    _install_driver("fake_boot_mod", sinks)
+    conf_path = tmp_path / "push.yaml"
+    conf_path.write_text(
+        """
+server:
+  backend: push
+push:
+  sinks:
+    - name: xgpt
+      driver: fake_boot_mod:create_sink
+      prefix: xgpt.server.infer
+      streams: [rollout]
+      rollout_name_prefix: ""
+  rollout:
+    interval_seconds: 60
+    metrics:
+      - {source: "eng:ttft", type: summary_mean_us, name: TTFT}
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("RL_INSIGHT_CONFIG", str(conf_path))
+    monkeypatch.delenv("RL_INSIGHT_SERVER_URL", raising=False)
+    _reset_bootstrap()
+    try:
+        prom_utils.update_prometheus_config(
+            ["[fdbd::1]:1", "127.0.0.1:2"],
+            "vllm",
+            [{"replica": 0}, {"replica": 1}],
+        )
+        registry = poller_module.get_active_registry()
+        assert registry is not None
+        snap = {t.address: t.labels for t in registry.snapshot()}
+        assert snap == {
+            "[fdbd::1]:1": {"replica": "0"},
+            "127.0.0.1:2": {"replica": "1"},
+        }
+        assert len(sinks) == 1
+    finally:
+        _reset_bootstrap()
+        sys.modules.pop("fake_boot_mod", None)
+
+
+def test_register_targets_does_not_bootstrap_for_non_push_backend(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
+    conf_path = tmp_path / "ray.yaml"
+    conf_path.write_text(
+        """
+server:
+  backend: ray
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("RL_INSIGHT_CONFIG", str(conf_path))
+    monkeypatch.delenv("RL_INSIGHT_SERVER_URL", raising=False)
+    _reset_bootstrap()
+    try:
+        prom_utils.update_prometheus_config(["127.0.0.1:1"])
+        assert poller_module.get_active_registry() is None
+    finally:
+        _reset_bootstrap()

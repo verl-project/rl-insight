@@ -109,6 +109,11 @@ class PrometheusPoller:
         self._fetch = fetch or _http_fetch_metrics
         self.targets = TargetRegistry()
         self._states: dict[str, ScrapeState] = {}
+        # Per-target scrape-failure counts so network problems are surfaced a
+        # few times (default log level hides ``debug``) without spamming every
+        # interval for the whole training run.
+        self._scrape_failures: dict[str, int] = {}
+        self._empty_warned: set[str] = set()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -142,8 +147,23 @@ class PrometheusPoller:
             try:
                 text = self._fetch(target.address)
             except Exception as exc:  # noqa: BLE001 - network failures must not kill training
-                logger.debug("[rl-insight] rollout scrape %s failed: %s", target.address, exc)
+                failures = self._scrape_failures.get(target.address, 0) + 1
+                self._scrape_failures[target.address] = failures
+                # Debug-only hides a broken engine endpoint forever at WARNING
+                # level; warn for the first few failures per target.
+                if failures <= 3:
+                    logger.warning(
+                        "[rl-insight] rollout scrape %s failed (%d): %s",
+                        target.address,
+                        failures,
+                        exc,
+                    )
+                else:
+                    logger.debug(
+                        "[rl-insight] rollout scrape %s failed: %s", target.address, exc
+                    )
                 continue
+            self._scrape_failures.pop(target.address, None)
             state = self._states.setdefault(target.address, ScrapeState())
             try:
                 emissions = state.translate(text, self._rules)
@@ -152,6 +172,16 @@ class PrometheusPoller:
                     "[rl-insight] rollout translate %s failed: %s", target.address, exc
                 )
                 continue
+            if not emissions and target.address not in self._empty_warned:
+                # A reachable /metrics endpoint that yields no mapped family
+                # usually means a rule source-name mismatch (vLLM renamed the
+                # metric). Warn once per target instead of silently emitting 0.
+                self._empty_warned.add(target.address)
+                logger.warning(
+                    "[rl-insight] rollout scrape %s succeeded but no configured "
+                    "metric matched; check rollout.metrics source names",
+                    target.address,
+                )
             for emission in emissions:
                 tags = {**target.labels, **emission.tags}
                 try:

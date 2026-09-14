@@ -33,6 +33,7 @@ from prometheus_client import Counter, Gauge, Histogram, start_http_server
 
 from ..server.network import format_host_port, local_addresses
 from .constants import (
+    MonitorBackend,
     MonitorEnv,
     MonitorPaths,
     PrometheusScrape,
@@ -359,6 +360,46 @@ class MetricRegistry:
             histogram.observe(value)
 
 
+_push_bootstrap_lock = threading.Lock()
+_push_bootstrap_attempted = False
+
+
+def _bootstrap_push_registry():
+    """Start the push backend in a process without an explicit ``init()``.
+
+    Some integrations (e.g. Ray rollout actors in verl) call
+    :func:`update_prometheus_config` from a worker process that never ran
+    ``rl_insight.init()``. For the direct-emit push backend the client needs no
+    external server, so it is safe to construct it lazily here: building the
+    push client also creates its :class:`PrometheusPoller` and publishes the
+    process-wide scrape target registry. Returns that registry, or ``None``
+    when the configured backend is not ``push`` / bootstrap is unavailable.
+    """
+    global _push_bootstrap_attempted
+    with _push_bootstrap_lock:
+        from ..client.push.poller import get_active_registry
+
+        existing = get_active_registry()
+        if existing is not None:
+            return existing
+        if _push_bootstrap_attempted:
+            return None
+        _push_bootstrap_attempted = True
+        try:
+            from .. import api as _api
+            from .monitor_config_loader import load_monitor_config
+
+            conf = load_monitor_config(None)
+            backend = str(OmegaConf.select(conf, "server.backend") or "").strip()
+            if backend != MonitorBackend.PUSH:
+                return None
+            _api.init()
+        except Exception:  # noqa: BLE001 - monitoring must never break training
+            logger.exception("[rl-insight] push backend in-process bootstrap failed")
+            return None
+        return get_active_registry()
+
+
 def update_prometheus_config(
     server_addresses: list[str],
     job_name: str | None = None,
@@ -392,6 +433,12 @@ def update_prometheus_config(
     from ..client.push.poller import get_active_registry
 
     registry = get_active_registry()
+    if registry is None:
+        # Targets may be registered from a Ray actor process that never called
+        # rl_insight.init() (e.g. the verl colocated rollout actor). For the
+        # direct-emit push backend the client is self-contained, so lazily start
+        # it in this process once; its poller owns the scrape target registry.
+        registry = _bootstrap_push_registry()
     if registry is not None:
         registry.set_targets(server_addresses, labels)
         logger.info(
