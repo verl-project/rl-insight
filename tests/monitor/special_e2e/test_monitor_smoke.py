@@ -212,6 +212,11 @@ def test_agent_loop_dashboard_should_query_generated_protocol_data(
     session_id = f"session-{TEST_RUN_ID}"
     global_steps = 1
 
+    # Give this run its own identity so the agent-loop labels below match
+    # init(); the module fixture identity is a different experiment.
+    insight.finish()
+    insight.init(project=project, experiment_name=experiment_name)
+
     session = agent_loop_session(
         project=project,
         experiment_name=experiment_name,

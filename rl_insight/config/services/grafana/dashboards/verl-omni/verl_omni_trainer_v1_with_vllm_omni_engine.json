@@ -5031,7 +5031,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_controller_uptime_seconds",
+                        "expr": "tq_controller_uptime_seconds{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "",
                         "range": true
                       },
@@ -5113,7 +5113,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_controller_memory_rss_bytes",
+                        "expr": "tq_controller_memory_rss_bytes{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "",
                         "range": true
                       },
@@ -5203,7 +5203,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_partitions_total",
+                        "expr": "tq_partitions_total{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "",
                         "range": true
                       },
@@ -5284,7 +5284,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_global_index_allocated_total",
+                        "expr": "tq_global_index_allocated_total{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "",
                         "range": true
                       },
@@ -5365,7 +5365,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_global_index_reusable_total",
+                        "expr": "tq_global_index_reusable_total{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "",
                         "range": true
                       },
@@ -5446,7 +5446,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (op_type) (rate(tq_controller_request_total{op_type=~\"$op_type\"}[$__rate_interval]))",
+                        "expr": "sum by (op_type) (rate(tq_controller_request_total{op_type=~\"$op_type\", project=~\"$project\", experiment_name=~\"$experiment_name\"}[$__rate_interval]))",
                         "legendFormat": "{{ op_type }}",
                         "range": true
                       },
@@ -5564,7 +5564,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "histogram_quantile(0.50, sum by (op_type, le) (rate(tq_controller_request_duration_seconds_bucket{op_type=~\"$op_type\"}[$__rate_interval])))",
+                        "expr": "histogram_quantile(0.50, sum by (op_type, le) (rate(tq_controller_request_duration_seconds_bucket{op_type=~\"$op_type\", project=~\"$project\", experiment_name=~\"$experiment_name\"}[$__rate_interval])))",
                         "legendFormat": "p50 {{ op_type }}",
                         "range": true
                       },
@@ -5585,7 +5585,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "histogram_quantile(0.99, sum by (op_type, le) (rate(tq_controller_request_duration_seconds_bucket{op_type=~\"$op_type\"}[$__rate_interval])))",
+                        "expr": "histogram_quantile(0.99, sum by (op_type, le) (rate(tq_controller_request_duration_seconds_bucket{op_type=~\"$op_type\", project=~\"$project\", experiment_name=~\"$experiment_name\"}[$__rate_interval])))",
                         "legendFormat": "p99 {{ op_type }}",
                         "range": true
                       },
@@ -5715,7 +5715,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_partition_samples_total",
+                        "expr": "tq_partition_samples_total{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{ partition_id }}",
                         "range": true
                       },
@@ -5831,7 +5831,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_partition_production_progress{task_name=~\"$task_name\"}",
+                        "expr": "tq_partition_production_progress{task_name=~\"$task_name\", project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{ partition_id }} / {{ task_name }}",
                         "range": true
                       },
@@ -5950,7 +5950,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_partition_consumption_progress{task_name=~\"$task_name\"}",
+                        "expr": "tq_partition_consumption_progress{task_name=~\"$task_name\", project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{ partition_id }} / {{ task_name }}",
                         "range": true
                       },
@@ -6069,7 +6069,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_storage_utilization_ratio",
+                        "expr": "tq_storage_utilization_ratio{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{ storage_unit_id }}",
                         "range": true
                       },
@@ -6167,7 +6167,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_storage_active_keys_total",
+                        "expr": "tq_storage_active_keys_total{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{ storage_unit_id }}",
                         "range": true
                       },
@@ -6283,7 +6283,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_storage_capacity_total",
+                        "expr": "tq_storage_capacity_total{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "capacity {{ storage_unit_id }}",
                         "range": true
                       },
@@ -6304,7 +6304,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_storage_active_keys_total",
+                        "expr": "tq_storage_active_keys_total{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "active {{ storage_unit_id }}",
                         "range": true
                       },
@@ -6420,7 +6420,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_storage_memory_rss_bytes",
+                        "expr": "tq_storage_memory_rss_bytes{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{ storage_unit_id }}",
                         "range": true
                       },
@@ -6537,7 +6537,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (op_type) (rate(tq_storage_request_ops{op_type=~\"$op_type\"}[$__rate_interval]))",
+                        "expr": "sum by (op_type) (rate(tq_storage_request_ops{op_type=~\"$op_type\", project=~\"$project\", experiment_name=~\"$experiment_name\"}[$__rate_interval]))",
                         "legendFormat": "{{ op_type }}",
                         "range": true
                       },
@@ -6655,7 +6655,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_storage_request_latency_p50{op_type=~\"$op_type\"}",
+                        "expr": "tq_storage_request_latency_p50{op_type=~\"$op_type\", project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "p50 {{ op_type }} ({{ storage_unit_id }})",
                         "range": true
                       },
@@ -6676,7 +6676,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_storage_request_latency_p99{op_type=~\"$op_type\"}",
+                        "expr": "tq_storage_request_latency_p99{op_type=~\"$op_type\", project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "p99 {{ op_type }} ({{ storage_unit_id }})",
                         "range": true
                       },
@@ -6806,7 +6806,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum(rate(tq_controller_request_samples_total{op_type=\"NOTIFY_DATA_UPDATE\"}[$__rate_interval]))",
+                        "expr": "sum(rate(tq_controller_request_samples_total{op_type=\"NOTIFY_DATA_UPDATE\", project=~\"$project\", experiment_name=~\"$experiment_name\"}[$__rate_interval]))",
                         "legendFormat": "Produced samples/s",
                         "range": true
                       },
@@ -6827,7 +6827,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum(rate(tq_controller_request_samples_total{op_type=\"CLEAR_META\"}[$__rate_interval]))",
+                        "expr": "sum(rate(tq_controller_request_samples_total{op_type=\"CLEAR_META\", project=~\"$project\", experiment_name=~\"$experiment_name\"}[$__rate_interval]))",
                         "legendFormat": "Cleared samples/s",
                         "range": true
                       },
@@ -6945,7 +6945,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum(tq_storage_active_keys_total)",
+                        "expr": "su{project=~\"$project\", experiment_name=~\"$experiment_name\"}m(tq_storage_active_keys_total)",
                         "legendFormat": "Total Active Keys (all storage units)",
                         "range": true
                       },
@@ -8000,7 +8000,7 @@
                       "spec": {
                         "limit": 10000,
                         "metricsQueryType": "range",
-                        "query": "{span.state_lane_id!=\"\"}",
+                        "query": "{ span.project =~ \"${project}\" && span.experiment_name =~ \"${experiment_name}\" && span.state_lane_id!=\"\"}",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 100,
@@ -8265,7 +8265,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "100 - avg by (node, instance) (rate(node_cpu_seconds_total{job=\"node-exporter\", mode=\"idle\"}[$__rate_interval])) * 100",
+                        "expr": "100 - avg by (node, instance) (rate(node_cpu_seconds_total{job=\"node-exporter\", mode=\"idle\", project=~\"$project\", experiment_name=~\"$experiment_name\"}[$__rate_interval])) * 100",
                         "legendFormat": "{{node}} ({{instance}})",
                         "range": true
                       },
@@ -8385,7 +8385,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "node_memory_MemTotal_bytes{job=\"node-exporter\"} - node_memory_MemAvailable_bytes{job=\"node-exporter\"}",
+                        "expr": "node_memory_MemTotal_bytes{job=\"node-exporter\", project=~\"$project\", experiment_name=~\"$experiment_name\"} - node_memory_MemAvailable_bytes{job=\"node-exporter\", project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "{{node}} ({{instance}})",
                         "range": true
                       },
@@ -8504,7 +8504,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (node, instance) (rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo\"}[$__rate_interval]))",
+                        "expr": "sum by (node, instance) (rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo\", project=~\"$project\", experiment_name=~\"$experiment_name\"}[$__rate_interval]))",
                         "legendFormat": "{{node}} RX",
                         "range": true
                       },
@@ -8525,7 +8525,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (node, instance) (rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo\"}[$__rate_interval]))",
+                        "expr": "sum by (node, instance) (rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo\", project=~\"$project\", experiment_name=~\"$experiment_name\"}[$__rate_interval]))",
                         "legendFormat": "{{node}} TX",
                         "range": true
                       },
@@ -8644,7 +8644,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_utilization{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "expr": "npu_chip_info_utilization{job=\"npu-exporter\", instance=~\"$npu_instance\", project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "NPU {{id}}",
                         "range": true
                       },
@@ -8764,7 +8764,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_hbm_utilization{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "expr": "npu_chip_info_hbm_utilization{job=\"npu-exporter\", instance=~\"$npu_instance\", project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "NPU {{id}}",
                         "range": true
                       },
@@ -8884,7 +8884,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_hbm_used_memory{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "expr": "npu_chip_info_hbm_used_memory{job=\"npu-exporter\", instance=~\"$npu_instance\", project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "NPU {{id}}",
                         "range": true
                       },
@@ -9003,7 +9003,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_power{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "expr": "npu_chip_info_power{job=\"npu-exporter\", instance=~\"$npu_instance\", project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "NPU {{id}}",
                         "range": true
                       },
@@ -9122,7 +9122,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_temperature{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "expr": "npu_chip_info_temperature{job=\"npu-exporter\", instance=~\"$npu_instance\", project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "NPU {{id}}",
                         "range": true
                       },
@@ -9241,7 +9241,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_health_status{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "expr": "npu_chip_info_health_status{job=\"npu-exporter\", instance=~\"$npu_instance\", project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "NPU {{id}}",
                         "range": true
                       },
@@ -9360,7 +9360,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_hbm_bandwidth_utilization{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "expr": "npu_chip_info_hbm_bandwidth_utilization{job=\"npu-exporter\", instance=~\"$npu_instance\", project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "NPU {{id}}",
                         "range": true
                       },
@@ -9480,7 +9480,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_bandwidth_rx{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "expr": "npu_chip_info_bandwidth_rx{job=\"npu-exporter\", instance=~\"$npu_instance\", project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "NPU {{id}} RX",
                         "range": true
                       },
@@ -9501,7 +9501,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_bandwidth_tx{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "expr": "npu_chip_info_bandwidth_tx{job=\"npu-exporter\", instance=~\"$npu_instance\", project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "NPU {{id}} TX",
                         "range": true
                       },
@@ -17425,14 +17425,14 @@
               "name": "${datasource}"
             },
             "spec": {
-              "query": "label_values({__name__=~\"rl_insight_monitor_.*\"}, experiment_name)",
+              "query": "label_values({__name__=~\"rl_insight_monitor_.*\", project=~\"$project\"}, experiment_name)",
               "refId": "StandardVariableQuery"
             }
           },
           "regex": "",
           "regexApplyTo": "value",
           "sort": "alphabeticalAsc",
-          "definition": "label_values({__name__=~\"rl_insight_monitor_.*\"}, experiment_name)",
+          "definition": "label_values({__name__=~\"rl_insight_monitor_.*\", project=~\"$project\"}, experiment_name)",
           "options": [],
           "multi": true,
           "includeAll": true,

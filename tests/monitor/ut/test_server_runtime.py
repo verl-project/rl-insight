@@ -23,7 +23,7 @@ import yaml
 from omegaconf import OmegaConf
 
 from rl_insight.server import runtime as runtime_module
-
+from rl_insight.utils.constants import ExperimentTargets
 
 _render_prometheus_config = runtime_module._render_prometheus_config
 
@@ -71,13 +71,14 @@ def test_render_prometheus_config_should_reference_and_preserve_file_sd_targets(
     rendered_path = _render_prometheus_config(conf, runtime_dir)
     rendered = yaml.safe_load(rendered_path.read_text(encoding="utf-8"))
 
+    experiment_glob = str((tmp_path / "data" / "projects" / "*.active.yml").resolve())
     assert yaml.safe_load(targets_file.read_text(encoding="utf-8")) == existing_targets
     assert rendered["scrape_configs"] == [
         {
             "job_name": "rl-insight-dynamic",
             "file_sd_configs": [
                 {
-                    "files": [str(targets_file.resolve())],
+                    "files": [str(targets_file.resolve()), experiment_glob],
                     "refresh_interval": "5s",
                 }
             ],
@@ -90,6 +91,39 @@ def test_render_prometheus_config_should_reference_and_preserve_file_sd_targets(
             ],
         }
     ]
+
+
+def test_render_prometheus_config_should_not_watch_archived_experiment_files(
+    tmp_path,
+) -> None:
+    source = tmp_path / "source-prometheus.yml"
+    source.write_text(
+        yaml.safe_dump({"global": {"scrape_interval": "10s"}, "scrape_configs": []}),
+        encoding="utf-8",
+    )
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir()
+    conf = _prometheus_conf(source, tmp_path)
+
+    rendered_path = _render_prometheus_config(conf, runtime_dir)
+    rendered = yaml.safe_load(rendered_path.read_text(encoding="utf-8"))
+
+    watched_files = [
+        file
+        for job in rendered["scrape_configs"]
+        for config in job.get("file_sd_configs") or []
+        for file in config.get("files") or []
+    ]
+    assert any(file.endswith("projects/*.active.yml") for file in watched_files)
+    assert all(
+        not file.endswith(
+            (
+                ExperimentTargets.ARCHIVED_TARGETS_SUFFIX,
+                ExperimentTargets.MANIFEST_SUFFIX,
+            )
+        )
+        for file in watched_files
+    )
 
 
 def test_render_prometheus_config_should_migrate_existing_static_targets(
@@ -201,7 +235,10 @@ def test_render_prometheus_config_should_migrate_only_runtime_added_targets(
     assert profile_job["metrics_path"] == "/custom-metrics"
     assert profile_job["file_sd_configs"] == [
         {
-            "files": [str(_targets_file(tmp_path).resolve())],
+            "files": [
+                str(_targets_file(tmp_path).resolve()),
+                str((tmp_path / "data" / "projects" / "*.active.yml").resolve()),
+            ],
             "refresh_interval": "5s",
         }
     ]

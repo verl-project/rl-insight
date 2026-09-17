@@ -18,11 +18,11 @@ from __future__ import annotations
 
 import argparse
 import logging
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from . import __version__
-from .server.commands import ServerCommands
+from .server.commands import ServerCommands, add_experiments_parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -136,6 +136,8 @@ def _add_server_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     _add_common_config_args(add_targets)
     add_targets.set_defaults(func=commands.add_targets)
+
+    add_experiments_parser(server_subparsers, commands)
 
 
 def _add_common_config_args(parser: argparse.ArgumentParser) -> None:

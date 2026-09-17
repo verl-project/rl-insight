@@ -27,24 +27,27 @@ import signal
 import subprocess
 import sys
 import time
+from collections.abc import Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 import yaml
 from omegaconf import DictConfig, OmegaConf
 
-from .catalog import DEFAULT_STATE_ROOT, STATE_FILE
-from .network import format_host_port, local_addresses
 from ..utils.constants import (
+    ExperimentTargets,
     PrometheusScrape,
+    experiments_root_from_config,
     prometheus_targets_file_from_config,
 )
+from .catalog import DEFAULT_STATE_ROOT, STATE_FILE
 from .dependencies import (
-    MissingDependencyError,
     DependencyManager,
+    MissingDependencyError,
 )
+from .network import format_host_port, local_addresses
 
 
 @dataclass(frozen=True)
@@ -387,6 +390,11 @@ def _render_prometheus_config(conf: DictConfig, runtime_dir: Path) -> Path:
     target = runtime_dir / "prometheus.yml"
     targets_file = prometheus_targets_file_from_config(conf)
     legacy_targets_file = (runtime_dir / PrometheusScrape.TARGETS_FILE_NAME).resolve()
+    discovery_files = [
+        targets_file,
+        experiments_root_from_config(conf)
+        / f"*{ExperimentTargets.ACTIVE_TARGETS_SUFFIX}",
+    ]
     source = Path(str(OmegaConf.select(conf, "prometheus.config_file")))
     data = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
     scrape_configs = data.get("scrape_configs") or []
@@ -421,14 +429,14 @@ def _render_prometheus_config(conf: DictConfig, runtime_dir: Path) -> Path:
         profile_name = _available_prometheus_job_name([*scrape_configs, *managed_jobs])
         managed_jobs.append(
             _profiled_prometheus_job(
-                profile_name, source_job_name, source_job, targets_file
+                profile_name, source_job_name, source_job, discovery_files
             )
         )
 
     dynamic_job_name = _available_prometheus_job_name([*scrape_configs, *managed_jobs])
     managed_jobs.append(
         _managed_prometheus_job(
-            dynamic_job_name, targets_file, excluded_jobs=source_job_names
+            dynamic_job_name, discovery_files, excluded_jobs=source_job_names
         )
     )
     scrape_configs.extend(managed_jobs)
@@ -439,7 +447,7 @@ def _render_prometheus_config(conf: DictConfig, runtime_dir: Path) -> Path:
 
 def _managed_prometheus_job(
     job_name: str,
-    targets_file: Path,
+    discovery_files: Sequence[Path],
     *,
     excluded_jobs: Sequence[str] = (),
 ) -> dict[str, Any]:
@@ -468,7 +476,7 @@ def _managed_prometheus_job(
         "job_name": job_name,
         "file_sd_configs": [
             {
-                "files": [str(targets_file)],
+                "files": [str(path) for path in discovery_files],
                 "refresh_interval": PrometheusScrape.TARGETS_REFRESH_INTERVAL,
             }
         ],
@@ -480,7 +488,7 @@ def _profiled_prometheus_job(
     profile_name: str,
     source_job_name: str,
     source_job: dict[str, Any],
-    targets_file: Path,
+    discovery_files: Sequence[Path],
 ) -> dict[str, Any]:
     discovery_keys = {
         key
@@ -496,7 +504,7 @@ def _profiled_prometheus_job(
         },
         "file_sd_configs": [
             {
-                "files": [str(targets_file)],
+                "files": [str(path) for path in discovery_files],
                 "refresh_interval": PrometheusScrape.TARGETS_REFRESH_INTERVAL,
             }
         ],
@@ -528,7 +536,7 @@ def _is_managed_prometheus_job(item: Any, targets_file: Path) -> bool:
         return False
     file_sd_configs = item.get("file_sd_configs") or []
     if not any(
-        isinstance(config, dict) and config.get("files") == [str(targets_file)]
+        isinstance(config, dict) and str(targets_file) in (config.get("files") or [])
         for config in file_sd_configs
     ):
         return False

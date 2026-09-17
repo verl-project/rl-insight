@@ -78,7 +78,7 @@ class PrometheusTargetStore:
         self._lock = threading.Lock()
 
     @classmethod
-    def from_config(cls, conf: DictConfig) -> "PrometheusTargetStore":
+    def from_config(cls, conf: DictConfig) -> PrometheusTargetStore:
         runtime_dir = OmegaConf.select(conf, "server.runtime_dir")
         base = (
             Path(str(runtime_dir)).expanduser().resolve()
@@ -100,12 +100,12 @@ class PrometheusTargetStore:
             for item in targets
         }
 
-        with self._lock, self._file_lock():
-            target_map = self._read_targets()
+        with file_sd_lock(self.targets_file):
+            target_map = read_file_sd_target_map(self.targets_file)
             target_map.update(
                 {(str(job_name), target): labels for target, labels in incoming.items()}
             )
-            self._write_targets(target_map)
+            write_file_sd_target_map(self.targets_file, target_map)
 
         return {
             "job_name": job_name,
@@ -115,78 +115,6 @@ class PrometheusTargetStore:
             "config_file": str(self.config_file),
             "targets_file": str(self.targets_file),
         }
-
-    @contextmanager
-    def _file_lock(self):
-        """Serialize read-modify-write updates made by different processes."""
-        try:
-            import fcntl
-        except ImportError as exc:
-            raise RuntimeError(
-                "Prometheus target persistence requires a POSIX server"
-            ) from exc
-
-        self.targets_file.parent.mkdir(parents=True, exist_ok=True)
-        lock_file = self.targets_file.with_name(f".{self.targets_file.name}.lock")
-        with lock_file.open("a+", encoding="utf-8") as handle:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
-            try:
-                yield
-            finally:
-                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
-
-    def _write_targets(
-        self, target_map: Mapping[tuple[str, str], Mapping[str, str]]
-    ) -> None:
-        groups = [
-            {
-                "targets": [target],
-                "labels": {
-                    **labels,
-                    PrometheusScrape.DYNAMIC_JOB_LABEL: stored_job,
-                },
-            }
-            for (stored_job, target), labels in sorted(target_map.items())
-        ]
-        payload = yaml.safe_dump(groups, sort_keys=False)
-        tmp_path = self.targets_file.with_name(
-            f".{self.targets_file.name}.{os.getpid()}.{threading.get_ident()}.tmp"
-        )
-        try:
-            tmp_path.write_text(payload, encoding="utf-8")
-            os.replace(tmp_path, self.targets_file)
-        except BaseException:
-            try:
-                tmp_path.unlink()
-            except FileNotFoundError:
-                pass
-            raise
-
-    def _read_targets(self) -> dict[tuple[str, str], dict[str, str]]:
-        if not self.targets_file.exists():
-            return {}
-        groups = yaml.safe_load(self.targets_file.read_text(encoding="utf-8")) or []
-        if not isinstance(groups, list):
-            raise ValueError("Prometheus file_sd targets must be a list")
-
-        target_map: dict[tuple[str, str], dict[str, str]] = {}
-        for group in groups:
-            if not isinstance(group, Mapping):
-                raise ValueError(
-                    "Each Prometheus file_sd target group must be an object"
-                )
-            raw_labels = group.get("labels") or {}
-            if not isinstance(raw_labels, Mapping):
-                raise ValueError("Prometheus file_sd target labels must be an object")
-            labels = {str(key): str(value) for key, value in raw_labels.items()}
-            stored_job = labels.pop(PrometheusScrape.DYNAMIC_JOB_LABEL, "").strip()
-            if not stored_job:
-                raise ValueError(
-                    "Prometheus file_sd target group is missing managed job label"
-                )
-            for target in group.get("targets") or []:
-                target_map[(stored_job, str(target))] = dict(labels)
-        return target_map
 
     def reload(self) -> bool:
         url = (
@@ -202,6 +130,83 @@ class PrometheusTargetStore:
 
         response.raise_for_status()
         return True
+
+
+@contextmanager
+def file_sd_lock(targets_file: Path):
+    """Serialize read-modify-write updates to one file_sd file across processes."""
+    try:
+        import fcntl
+    except ImportError as exc:
+        raise RuntimeError(
+            "Prometheus target persistence requires a POSIX server"
+        ) from exc
+
+    targets_file.parent.mkdir(parents=True, exist_ok=True)
+    lock_file = targets_file.with_name(f".{targets_file.name}.lock")
+    with lock_file.open("a+", encoding="utf-8") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def write_file_sd_target_map(
+    targets_file: Path, target_map: Mapping[tuple[str, str], Mapping[str, str]]
+) -> None:
+    """Atomically write a ``(job_name, target) -> labels`` map as file_sd groups."""
+    groups = [
+        {
+            "targets": [target],
+            "labels": {
+                **labels,
+                PrometheusScrape.DYNAMIC_JOB_LABEL: stored_job,
+            },
+        }
+        for (stored_job, target), labels in sorted(target_map.items())
+    ]
+    payload = yaml.safe_dump(groups, sort_keys=False)
+    tmp_path = targets_file.with_name(
+        f".{targets_file.name}.{os.getpid()}.{threading.get_ident()}.tmp"
+    )
+    try:
+        tmp_path.write_text(payload, encoding="utf-8")
+        os.replace(tmp_path, targets_file)
+    except BaseException:
+        try:
+            tmp_path.unlink()
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def read_file_sd_target_map(
+    targets_file: Path,
+) -> dict[tuple[str, str], dict[str, str]]:
+    """Read a file_sd file into a ``(job_name, target) -> labels`` map."""
+    if not targets_file.exists():
+        return {}
+    groups = yaml.safe_load(targets_file.read_text(encoding="utf-8")) or []
+    if not isinstance(groups, list):
+        raise ValueError("Prometheus file_sd targets must be a list")
+
+    target_map: dict[tuple[str, str], dict[str, str]] = {}
+    for group in groups:
+        if not isinstance(group, Mapping):
+            raise ValueError("Each Prometheus file_sd target group must be an object")
+        raw_labels = group.get("labels") or {}
+        if not isinstance(raw_labels, Mapping):
+            raise ValueError("Prometheus file_sd target labels must be an object")
+        labels = {str(key): str(value) for key, value in raw_labels.items()}
+        stored_job = labels.pop(PrometheusScrape.DYNAMIC_JOB_LABEL, "").strip()
+        if not stored_job:
+            raise ValueError(
+                "Prometheus file_sd target group is missing managed job label"
+            )
+        for target in group.get("targets") or []:
+            target_map[(stored_job, str(target))] = dict(labels)
+    return target_map
 
 
 def _merge_labels(
@@ -357,6 +362,8 @@ def update_prometheus_config(
     server_addresses: list[str],
     job_name: str | None = None,
     labels: list[Mapping[str, Any] | None] | None = None,
+    project: str | None = None,
+    experiment_name: str | None = None,
 ) -> None:
     """Register trainer metrics endpoints with the RL-Insight server.
 
@@ -371,7 +378,21 @@ def update_prometheus_config(
             trainer metrics job.
         labels: Optional per-target labels. When provided, its length must match
             ``server_addresses``.
+        project: Optional project name; together with ``experiment_name`` it
+            scopes the targets to one experiment partition.
+        experiment_name: Optional experiment name; must be provided together
+            with ``project``.
+
+    Raises:
+        ArchivedExperimentError: When the server reports the experiment as
+            archived; callers must run an explicit ``restore`` first.
     """
+    from .experiment_targets import (
+        ArchivedExperimentError,
+        normalize_experiment_identity,
+    )
+
+    identity = normalize_experiment_identity(project, experiment_name)
     if not server_addresses:
         logger.warning("[rl-insight] No server addresses available to register")
         return
@@ -390,18 +411,31 @@ def update_prometheus_config(
         )
         return
 
-    payload = {
+    payload: dict[str, Any] = {
         "job_name": job_name or PrometheusScrape.TRAINER_METRICS_JOB,
         "targets": _build_target_payload(server_addresses, labels),
     }
+    if identity is not None:
+        payload["project"], payload["experiment_name"] = identity
     url = f"{base_url}/api/v1/prometheus/targets"
     try:
         response = requests.post(url, json=payload, timeout=10)
+        if response.status_code == 409:
+            scope = (
+                f" ({identity[0]!r}, {identity[1]!r})" if identity is not None else ""
+            )
+            raise ArchivedExperimentError(
+                f"Experiment{scope} is archived on the RL-Insight server; targets "
+                "are not re-registered. Run an explicit restore (e.g. `rl-insight "
+                "server experiments restore`) first."
+            )
         response.raise_for_status()
         print(
             f"[rl-insight] Registered {len(server_addresses)} Prometheus targets "
             f"with RL-Insight server (job_name={payload['job_name']})"
         )
+    except ArchivedExperimentError:
+        raise
     except requests.RequestException as exc:
         logger.error(
             "[rl-insight] Failed to register Prometheus targets at %s: %s", url, exc

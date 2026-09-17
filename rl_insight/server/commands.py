@@ -17,19 +17,20 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from collections.abc import Mapping
-from typing import Sequence
+from typing import Any
 
 import requests
 from omegaconf import DictConfig, OmegaConf
 
+from ..utils.constants import MonitorEnv, MonitorServer
 from ..utils.monitor_config_loader import load_server_config_file
-from ..utils.constants import MonitorEnv
 from ..utils.prometheus_utils import PrometheusTarget, PrometheusTargetStore
-from .dependencies import MissingDependencyError, ServiceStatus
 from .catalog import DEFAULT_STATE_ROOT
+from .dependencies import MissingDependencyError, ServiceStatus
 from .display import (
     active_state_rows,
     dependency_rows,
@@ -232,6 +233,168 @@ class ServerCommands:
             return 1
         return 0
 
+    def experiments_list(self, args: argparse.Namespace) -> int:
+        """List experiment target partitions known to the running server."""
+        try:
+            rows = self._experiments_get(
+                args,
+                "/experiments",
+                params={"project": getattr(args, "project", None)},
+            )
+        except requests.RequestException as exc:
+            print(
+                f"Failed to list experiments: {self._request_error(exc)}",
+                file=sys.stderr,
+            )
+            return 1
+        print(
+            format_table(
+                ["Project", "Experiment", "State", "Targets", "Updated"],
+                [
+                    [
+                        row.get("project"),
+                        row.get("experiment_name"),
+                        row.get("state"),
+                        row.get("target_count"),
+                        row.get("updated_at"),
+                    ]
+                    for row in rows
+                ],
+            )
+        )
+        print(
+            "Experiments are identified by (project, experiment_name); two runs "
+            "reusing the same name in one project are the same logical experiment."
+        )
+        return 0
+
+    def experiments_show(self, args: argparse.Namespace) -> int:
+        """Show the discovery records of one experiment partition."""
+        try:
+            data = self._experiments_get(
+                args,
+                "/experiments/targets",
+                params={
+                    "project": args.project,
+                    "experiment_name": args.experiment_name,
+                },
+            )
+        except requests.RequestException as exc:
+            print(
+                f"Failed to show experiment: {self._request_error(exc)}",
+                file=sys.stderr,
+            )
+            return 1
+        print(
+            f"Experiment {data.get('project')}/{data.get('experiment_name')} "
+            f"state={data.get('state')} targets={data.get('target_count')}"
+        )
+        print(
+            format_table(
+                ["Job", "Target", "Labels"],
+                [
+                    [
+                        item.get("job_name"),
+                        item.get("target"),
+                        ", ".join(
+                            f"{key}={value}"
+                            for key, value in (item.get("labels") or {}).items()
+                            if key not in ("project", "experiment_name")
+                        )
+                        or "-",
+                    ]
+                    for item in data.get("targets") or []
+                ],
+            )
+        )
+        return 0
+
+    def experiments_archive(self, args: argparse.Namespace) -> int:
+        """Stop Prometheus discovery for one experiment; history is kept."""
+        return self._experiments_lifecycle(args, "archive")
+
+    def experiments_restore(self, args: argparse.Namespace) -> int:
+        """Re-enable Prometheus discovery for one archived experiment."""
+        return self._experiments_lifecycle(args, "restore")
+
+    def _experiments_lifecycle(self, args: argparse.Namespace, action: str) -> int:
+        try:
+            data = self._experiments_post(
+                args,
+                f"/experiments/{action}",
+                {"project": args.project, "experiment_name": args.experiment_name},
+            )
+        except requests.RequestException as exc:
+            print(
+                f"Failed to {action} experiment: {self._request_error(exc)}",
+                file=sys.stderr,
+            )
+            return 1
+        print(
+            f"Experiment {data.get('project')}/{data.get('experiment_name')} is now "
+            f"{data.get('state')} ({data.get('target_count')} target(s) in the "
+            "partition snapshot)."
+        )
+        if action == "archive":
+            print(
+                "Note: runs reusing the same experiment name in the same project "
+                "share one logical experiment, so archiving stops discovery for all "
+                "of them. Metrics and traces already written stay queryable until "
+                "normal retention expires."
+            )
+        if data.get("prometheus_converged") is False:
+            print(
+                "Warning: Prometheus did not confirm the change "
+                f"({data.get('prometheus_message') or 'no confirmation'}); "
+                "file_sd will converge on its refresh interval.",
+                file=sys.stderr,
+            )
+        return 0
+
+    @staticmethod
+    def _server_base_url(args: argparse.Namespace) -> str:
+        url = (
+            getattr(args, "server_url", None)
+            or os.environ.get(MonitorEnv.SERVER_URL, "")
+            or "http://127.0.0.1:18080"
+        )
+        return str(url).strip().rstrip("/")
+
+    @classmethod
+    def _experiments_get(
+        cls,
+        args: argparse.Namespace,
+        path: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+    ) -> Any:
+        response = requests.get(
+            cls._server_base_url(args) + MonitorServer.API_PREFIX + path,
+            params=dict(params) if params else None,
+            timeout=10,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    @staticmethod
+    def _experiments_post(
+        args: argparse.Namespace, path: str, payload: Mapping[str, Any]
+    ) -> Any:
+        response = requests.post(
+            ServerCommands._server_base_url(args) + MonitorServer.API_PREFIX + path,
+            json=dict(payload),
+            timeout=10,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    @staticmethod
+    def _request_error(exc: requests.RequestException) -> str:
+        response = getattr(exc, "response", None)
+        detail = getattr(response, "text", "") if response is not None else ""
+        detail = (detail or "").strip()
+        return f"{exc}" + (f" ({detail})" if detail else "")
+
     @staticmethod
     def _load_config(args: argparse.Namespace) -> DictConfig:
         return load_server_config_file(config_path=args.config)
@@ -265,6 +428,75 @@ class ServerCommands:
             return False
 
         return True
+
+
+def add_experiments_parser(
+    server_subparsers: argparse._SubParsersAction, commands: ServerCommands
+) -> None:
+    """Attach the ``server experiments`` command group to the CLI."""
+    experiments = server_subparsers.add_parser(
+        "experiments",
+        help="List and manage experiment target partitions on a running server.",
+    )
+    experiments_subparsers = experiments.add_subparsers(
+        dest="experiments_command", required=True
+    )
+    _add_experiments_subcommands(experiments_subparsers, commands)
+
+
+def _add_experiments_subcommands(
+    subparsers: argparse._SubParsersAction, commands: ServerCommands
+) -> None:
+    def _add_server_url(parser: argparse.ArgumentParser) -> None:
+        parser.add_argument(
+            "--server-url",
+            default=None,
+            help="RL-Insight server base URL; defaults to $RL_INSIGHT_SERVER_URL "
+            "or http://127.0.0.1:18080.",
+        )
+
+    list_parser = subparsers.add_parser(
+        "list", help="List experiment partitions, states, and target counts."
+    )
+    list_parser.add_argument(
+        "--project", default=None, help="Only list experiments of this project."
+    )
+    _add_server_url(list_parser)
+    list_parser.set_defaults(func=commands.experiments_list)
+
+    for name, help_text, func in (
+        (
+            "show",
+            "Show the targets of one experiment partition.",
+            commands.experiments_show,
+        ),
+        (
+            "archive",
+            "Stop Prometheus discovery for one experiment (idempotent). Runs "
+            "reusing the same experiment name in one project share one logical "
+            "experiment, so archiving stops all of them.",
+            commands.experiments_archive,
+        ),
+        (
+            "restore",
+            "Re-enable discovery for one archived experiment (idempotent). All "
+            "runs sharing the same experiment name in one project resume together.",
+            commands.experiments_restore,
+        ),
+    ):
+        parser = subparsers.add_parser(name, help=help_text)
+        parser.add_argument("--project", required=True, help="Project name.")
+        parser.add_argument("--experiment-name", required=True, help="Experiment name.")
+        _add_server_url(parser)
+        parser.set_defaults(func=func)
+
+
+def _experiments_parser() -> argparse.ArgumentParser:
+    """Build a standalone ``server experiments`` parser (used by tests)."""
+    parser = argparse.ArgumentParser(prog="rl-insight server experiments")
+    subparsers = parser.add_subparsers(dest="experiments_command", required=True)
+    _add_experiments_subcommands(subparsers, ServerCommands())
+    return parser
 
 
 class ServerConfigValidator:

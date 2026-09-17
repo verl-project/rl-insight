@@ -61,7 +61,7 @@
                       "spec": {
                         "limit": 100,
                         "metricsQueryType": "range",
-                        "query": "{span.state_lane_id != \"\"}",
+                        "query": "{ span.project =~ \"${project}\" && span.experiment_name =~ \"${experiment_name}\" && span.state_lane_id != \"\"}",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 100,
@@ -254,7 +254,7 @@
                       },
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_train_step_total",
+                        "expr": "rl_insight_monitor_train_step_total{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "__auto",
                         "range": true
                       }
@@ -349,7 +349,7 @@
                       },
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_reward_mean",
+                        "expr": "rl_insight_monitor_reward_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "legendFormat": "__auto",
                         "range": true
                       }
@@ -467,7 +467,7 @@
                       },
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "rl_insight_monitor_step_latency_ms_bucket",
+                        "expr": "rl_insight_monitor_step_latency_ms_bucket{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
                         "instant": false,
                         "legendFormat": "__auto",
                         "range": true
@@ -670,6 +670,76 @@
           "hide": "hideVariable",
           "skipUrlSync": false,
           "description": "Filter queries of a specific Prometheus type.",
+          "allowCustomValue": true
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "project",
+          "current": {
+            "text": "All",
+            "value": "$__all"
+          },
+          "label": "training: Project",
+          "hide": "dontHide",
+          "refresh": "onDashboardLoad",
+          "skipUrlSync": false,
+          "query": {
+            "kind": "DataQuery",
+            "group": "prometheus",
+            "version": "v0",
+            "datasource": {
+              "name": "${datasource}"
+            },
+            "spec": {
+              "query": "label_values({__name__=~\"rl_insight_monitor_.*\"}, project)",
+              "refId": "StandardVariableQuery"
+            }
+          },
+          "regex": "",
+          "regexApplyTo": "value",
+          "sort": "alphabeticalAsc",
+          "definition": "label_values({__name__=~\"rl_insight_monitor_.*\"}, project)",
+          "options": [],
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*",
+          "allowCustomValue": true
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "experiment_name",
+          "current": {
+            "text": "All",
+            "value": "$__all"
+          },
+          "label": "training: Experiment Name",
+          "hide": "dontHide",
+          "refresh": "onDashboardLoad",
+          "skipUrlSync": false,
+          "query": {
+            "kind": "DataQuery",
+            "group": "prometheus",
+            "version": "v0",
+            "datasource": {
+              "name": "${datasource}"
+            },
+            "spec": {
+              "query": "label_values({__name__=~\"rl_insight_monitor_.*\", project=~\"$project\"}, experiment_name)",
+              "refId": "StandardVariableQuery"
+            }
+          },
+          "regex": "",
+          "regexApplyTo": "value",
+          "sort": "alphabeticalAsc",
+          "definition": "label_values({__name__=~\"rl_insight_monitor_.*\", project=~\"$project\"}, experiment_name)",
+          "options": [],
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*",
           "allowCustomValue": true
         }
       }

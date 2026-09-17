@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import warnings
 from collections.abc import Generator
 from typing import Any
 
@@ -39,8 +40,10 @@ class RecordingClient:
 
 @pytest.fixture(autouse=True)
 def reset_monitor_state() -> Generator[None, None, None]:
+    api._LEGACY_IDENTITY_WARNING_EMITTED = False
     api.finish()
     yield
+    api._LEGACY_IDENTITY_WARNING_EMITTED = False
     api.finish()
 
 
@@ -378,3 +381,108 @@ def test_trace_span_and_trace_op_should_produce_same_event_shape(
     # the one intended difference is the compat-only segment marker
     assert decorator_event["attributes"]["monitor.trace_segment"] == "duration"
     assert "monitor.trace_segment" not in direct_event["attributes"]
+
+
+def test_init_should_reject_identity_with_only_one_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with pytest.raises(ValueError, match="both"):
+        api.init(
+            project="project-a",
+            config={"server": {"url": "http://monitor:18080"}},
+        )
+
+
+def test_init_should_pass_normalized_identity_to_the_hub_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    received: dict[str, Any] = {}
+
+    def create_client(conf: Any) -> RecordingClient:
+        received["project"] = conf.server.get("project", None)
+        received["experiment_name"] = conf.server.get("experiment_name", None)
+        return RecordingClient()
+
+    monkeypatch.setattr(api, "create_monitor_client", create_client)
+    api.init(
+        project=" project-a ",
+        experiment_name=" exp-1 ",
+        config={"server": {"url": "http://monitor:18080"}},
+    )
+
+    assert received == {"project": "project-a", "experiment_name": "exp-1"}
+    assert api._STATE.labels == {"project": "project-a", "experiment_name": "exp-1"}
+
+
+def test_metric_labels_may_not_override_init_identity(
+    recording_client: RecordingClient,
+) -> None:
+    api.metric_count("steps", amount=1, project="project-a")
+
+    with pytest.raises(ValueError, match="reserved"):
+        api.metric_count("steps", amount=1, project="project-b")
+
+    with pytest.raises(ValueError, match="reserved"):
+        api.metric_gauge("reward", value=1.0, experiment_name="experiment-b")
+
+
+def test_trace_attributes_may_not_override_init_identity(
+    recording_client: RecordingClient,
+) -> None:
+    api.trace_span(
+        name="step",
+        start_time_ns=1,
+        end_time_ns=2,
+        attributes={"project": "project-a"},
+    )
+
+    with pytest.raises(ValueError, match="reserved"):
+        api.trace_span(
+            name="step",
+            start_time_ns=1,
+            end_time_ns=2,
+            attributes={"project": "project-b"},
+        )
+
+
+def _init_legacy_mode(client: RecordingClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(api, "create_monitor_client", lambda _conf: client)
+    api.init(config={"server": {"url": "http://monitor:18080"}})
+
+
+def test_legacy_mode_should_keep_identity_named_labels_and_warn_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = RecordingClient()
+    _init_legacy_mode(client, monkeypatch)
+
+    with pytest.warns(UserWarning, match="init"):
+        api.metric_count("steps", amount=1, project="project-old")
+    api.metric_count("steps", amount=1, experiment_name="exp-old")
+
+    assert [event["labels"] for event in client.events] == [
+        {"project": "project-old"},
+        {"experiment_name": "exp-old"},
+    ]
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        api.metric_count("steps", amount=1, project="project-other")
+    assert caught == []
+
+
+def test_legacy_mode_should_keep_identity_named_trace_attributes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = RecordingClient()
+    _init_legacy_mode(client, monkeypatch)
+
+    api.trace_span(
+        name="step",
+        start_time_ns=1,
+        end_time_ns=2,
+        attributes={"project": "project-old", "experiment_name": "exp-old"},
+    )
+
+    assert client.events[0]["attributes"]["project"] == "project-old"
+    assert client.events[0]["attributes"]["experiment_name"] == "exp-old"

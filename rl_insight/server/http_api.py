@@ -20,8 +20,9 @@ import argparse
 import logging
 import os
 import time
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 import requests
 import uvicorn
@@ -29,6 +30,13 @@ from fastapi import Body, FastAPI, HTTPException, status
 from omegaconf import DictConfig, OmegaConf
 
 from ..utils.constants import MonitorEnv, MonitorServer, PrometheusScrape
+from ..utils.experiment_targets import (
+    ArchivedExperimentError,
+    ExperimentIdentityError,
+    ExperimentNotFoundError,
+    ExperimentTargetStore,
+    normalize_experiment_identity,
+)
 from ..utils.monitor_config_loader import load_server_config_file
 from ..utils.prometheus_utils import PrometheusTarget, PrometheusTargetStore
 from .network import local_addresses
@@ -84,6 +92,35 @@ def create_app(conf: DictConfig) -> FastAPI:
     """Create the RL-Insight server application."""
     app = FastAPI(title="RL-Insight server", version="0.1.0")
     store = PrometheusTargetStore.from_config(conf)
+    experiments = ExperimentTargetStore.from_config(conf)
+    app.state.legacy_targets = store
+    app.state.experiments = experiments
+
+    try:
+        migration = experiments.migrate_legacy_targets(store.targets_file)
+    except Exception as exc:  # noqa: BLE001 - a broken legacy file must not take the server down
+        logger.error(
+            "[rl-insight] Legacy target migration failed (%s); keeping the global "
+            "file untouched and continuing startup. The next start retries the "
+            "migration, and legacy registration will surface the underlying error.",
+            exc,
+        )
+        migration = {"changed": False, "scanned": False}
+    if migration["changed"]:
+        logger.warning(
+            "[rl-insight] Migrated %d identified target record(s) from the legacy "
+            "global file into experiment partitions; kept %d legacy record(s). "
+            "Backup: %s",
+            migration["migrated"],
+            migration["kept_legacy"],
+            migration["backup_file"],
+        )
+    elif migration["scanned"]:
+        logger.info(
+            "[rl-insight] Legacy target file holds %d unidentified record(s); "
+            "they stay in the global partition until clients upgrade.",
+            migration["kept_legacy"],
+        )
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
@@ -160,7 +197,45 @@ def create_app(conf: DictConfig) -> FastAPI:
 
         job_name = str(payload.get("job_name") or PrometheusScrape.TRAINER_METRICS_JOB)
         try:
-            result = store.register(job_name, targets)
+            identity = normalize_experiment_identity(
+                payload.get("project"), payload.get("experiment_name")
+            )
+            if identity is None:
+                for item in targets:
+                    conflicting = [
+                        key
+                        for key in ("project", "experiment_name")
+                        if key in item.labels
+                    ]
+                    if conflicting:
+                        raise ExperimentIdentityError(
+                            "target labels "
+                            f"{', '.join(sorted(conflicting))} are reserved for the "
+                            "experiment identity; provide top-level project and "
+                            "experiment_name instead of per-target labels"
+                        )
+                result = store.register(job_name, targets)
+                logger.warning(
+                    "[rl-insight] Registered %d target(s) for job %r without "
+                    "experiment identity; kept in the legacy/global partition. "
+                    "Pass project and experiment_name to scope new targets.",
+                    len(targets),
+                    job_name,
+                )
+            else:
+                result = experiments.register(
+                    identity[0], identity[1], job_name, targets
+                )
+        except ExperimentIdentityError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
+        except ArchivedExperimentError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=str(exc),
+            ) from exc
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -176,6 +251,62 @@ def create_app(conf: DictConfig) -> FastAPI:
                 exc,
             )
         return {"status": "ok", "prometheus_reloaded": reloaded, **result}
+
+    @app.get(f"{MonitorServer.API_PREFIX}/experiments")
+    def list_experiments(project: str | None = None) -> list[dict[str, Any]]:
+        """List experiment partitions with state, composite key, and target count."""
+        return experiments.list_experiments(project)
+
+    @app.get(f"{MonitorServer.API_PREFIX}/experiments/targets")
+    def show_experiment_targets(
+        project: str | None = None, experiment_name: str | None = None
+    ) -> dict[str, Any]:
+        """Show the discovery records of one experiment partition."""
+        if not project or not experiment_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="project and experiment_name query parameters are required",
+            )
+        try:
+            return experiments.show_targets(project, experiment_name)
+        except ExperimentIdentityError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            ) from exc
+        except ExperimentNotFoundError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+            ) from exc
+
+    def _lifecycle(payload: dict[str, Any], action: str) -> dict[str, Any]:
+        try:
+            identity = normalize_experiment_identity(
+                payload.get("project"), payload.get("experiment_name")
+            )
+            if identity is None:
+                raise ExperimentIdentityError(
+                    "project and experiment_name are required in the request body"
+                )
+            operation = getattr(experiments, action)
+            return operation(*identity)
+        except ExperimentIdentityError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            ) from exc
+        except ExperimentNotFoundError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+            ) from exc
+
+    @app.post(f"{MonitorServer.API_PREFIX}/experiments/archive")
+    def archive_experiment(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        """Stop target discovery for one experiment; history is kept."""
+        return _lifecycle(payload, "archive")
+
+    @app.post(f"{MonitorServer.API_PREFIX}/experiments/restore")
+    def restore_experiment(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        """Re-enable target discovery for one archived experiment."""
+        return _lifecycle(payload, "restore")
 
     return app
 

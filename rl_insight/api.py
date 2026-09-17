@@ -23,15 +23,20 @@ import os
 import threading
 import time
 import warnings
+from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Callable, Generator, Mapping
+from typing import Any, Callable
 
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 from .client import create_monitor_client
-from .utils.monitor_config_loader import load_monitor_config
 from .utils import MonitorEventKind
+from .utils.experiment_targets import (
+    ExperimentIdentityError,
+    normalize_experiment_identity,
+)
+from .utils.monitor_config_loader import load_monitor_config
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
@@ -42,9 +47,9 @@ __all__ = [
     "metric_count",
     "metric_gauge",
     "metric_histogram",
+    "trace_op",
     "trace_span",
     "trace_state",
-    "trace_op",
 ]
 
 
@@ -70,6 +75,43 @@ class _MonitorState:
 
 
 _STATE = _MonitorState()
+
+_LEGACY_IDENTITY_WARNING_EMITTED = False
+
+
+def _reject_identity_override(labels: Mapping[str, Any]) -> None:
+    """Fail explicitly when call-level labels try to override the ``init`` identity.
+
+    ``project`` / ``experiment_name`` are reserved once ``init`` set them: a
+    conflicting value would silently split one experiment's metrics or traces
+    across label sets, so it is rejected instead of being merged over.
+    Without an ``init`` identity (legacy/global mode) the same names are plain
+    labels and pass through, with a one-time warning pointing at ``init()``.
+    """
+    global _LEGACY_IDENTITY_WARNING_EMITTED
+    identity_labels = _STATE.labels
+    if not identity_labels:
+        if (
+            any(key in labels for key in ("project", "experiment_name"))
+            and not _LEGACY_IDENTITY_WARNING_EMITTED
+        ):
+            _LEGACY_IDENTITY_WARNING_EMITTED = True
+            warnings.warn(
+                "[rl-insight] 'project'/'experiment_name' labels were passed per "
+                "call while init() has no experiment identity; they are kept as "
+                "plain labels. Call init(project=..., experiment_name=...) to "
+                "scope metrics and traces to one experiment.",
+                UserWarning,
+                stacklevel=2,
+            )
+        return
+    for key in ("project", "experiment_name"):
+        if key in labels and str(labels[key]) != str(identity_labels.get(key)):
+            raise ValueError(
+                f"Label {key!r} is reserved for the experiment identity set by "
+                f"init() ({identity_labels.get(key)!r}); got {labels[key]!r}. "
+                "Remove the label or re-init with the intended identity."
+            )
 
 
 def init(
@@ -105,15 +147,27 @@ def init(
             "or server.url in init config."
         )
         return
+    try:
+        identity = normalize_experiment_identity(project, experiment_name)
+    except ExperimentIdentityError as exc:
+        raise ValueError(
+            "[rl-insight] init() requires project and experiment_name together: "
+            "provide both to scope metrics and traces to one experiment, or neither "
+            f"for legacy/global monitoring. ({exc})"
+        ) from exc
+    if identity is not None:
+        # Forward the normalized identity so the monitor hub registers its
+        # scrape endpoint in the matching experiment partition.
+        OmegaConf.update(monitor_conf, "server.project", identity[0], force_add=True)
+        OmegaConf.update(
+            monitor_conf, "server.experiment_name", identity[1], force_add=True
+        )
     client = create_monitor_client(monitor_conf)
-    labels = {
-        key: value
-        for key, value in {
-            "project": project,
-            "experiment_name": experiment_name,
-        }.items()
-        if value is not None
-    }
+    labels = (
+        {"project": identity[0], "experiment_name": identity[1]}
+        if identity is not None
+        else {}
+    )
     _STATE = _MonitorState(
         enabled=client is not None,
         client=client,
@@ -458,6 +512,7 @@ def _emit(
     """
     if not _STATE.enabled or _STATE.client is None:
         return
+    _reject_identity_override(labels)
     event = {
         "kind": kind,
         "name": name,
@@ -490,6 +545,7 @@ def _emit_trace_span(
         "process_id": _STATE.process_id,
         **_STATE.labels,
     }
+    _reject_identity_override(attributes)
     merged_attributes.update(attributes)
 
     event = {

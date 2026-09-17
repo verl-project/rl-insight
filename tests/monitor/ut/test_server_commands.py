@@ -19,9 +19,9 @@ from __future__ import annotations
 import argparse
 from unittest.mock import MagicMock, call
 
-from omegaconf import OmegaConf
 import pytest
 import requests
+from omegaconf import OmegaConf
 
 from rl_insight import cli
 from rl_insight.server import commands as commands_module
@@ -153,3 +153,149 @@ def test_add_targets_should_fail_when_reload_raises(
 
     assert result == 1
     assert "Failed to add Prometheus targets" in capsys.readouterr().err
+
+
+def test_parser_should_accept_experiments_commands(tmp_path) -> None:
+    parser = cli._build_parser()
+
+    list_args = parser.parse_args(["server", "experiments", "list"])
+    show_args = parser.parse_args(
+        [
+            "server",
+            "experiments",
+            "show",
+            "--project",
+            "project-a",
+            "--experiment-name",
+            "exp-1",
+        ]
+    )
+    archive_args = parser.parse_args(
+        [
+            "server",
+            "experiments",
+            "archive",
+            "--project",
+            "project-a",
+            "--experiment-name",
+            "exp-1",
+            "--server-url",
+            "http://host:18080",
+        ]
+    )
+
+    assert list_args.func.__name__ == "experiments_list"
+    assert show_args.func.__name__ == "experiments_show"
+    assert archive_args.func.__name__ == "experiments_archive"
+    assert archive_args.server_url == "http://host:18080"
+
+
+def test_experiments_list_should_render_rows_from_the_server(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    response = MagicMock()
+    response.raise_for_status = MagicMock()
+    response.json.return_value = [
+        {
+            "project": "project-a",
+            "experiment_name": "exp-1",
+            "state": "active",
+            "target_count": 2,
+            "updated_at": "2026-01-01T00:00:00+00:00",
+        }
+    ]
+    get = MagicMock(return_value=response)
+    monkeypatch.setattr(commands_module.requests, "get", get)
+    args = commands_module._experiments_parser().parse_args(
+        ["list", "--server-url", "http://host:18080/"]
+    )
+
+    code = commands_module.ServerCommands().experiments_list(args)
+
+    assert code == 0
+    get.assert_called_once_with(
+        "http://host:18080/api/v1/experiments",
+        params={"project": None},
+        timeout=10,
+    )
+    assert "project-a" in capsys.readouterr().out
+
+
+def test_experiments_archive_should_post_identity_and_warn_when_not_converged(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    response = MagicMock()
+    response.raise_for_status = MagicMock()
+    response.json.return_value = {
+        "project": "project-a",
+        "experiment_name": "exp-1",
+        "state": "archived",
+        "target_count": 1,
+        "prometheus_converged": False,
+    }
+    post = MagicMock(return_value=response)
+    monkeypatch.setattr(commands_module.requests, "post", post)
+    args = commands_module._experiments_parser().parse_args(
+        [
+            "archive",
+            "--project",
+            "project-a",
+            "--experiment-name",
+            "exp-1",
+            "--server-url",
+            "http://host:18080",
+        ]
+    )
+
+    code = commands_module.ServerCommands().experiments_archive(args)
+
+    assert code == 0
+    post.assert_called_once_with(
+        "http://host:18080/api/v1/experiments/archive",
+        json={"project": "project-a", "experiment_name": "exp-1"},
+        timeout=10,
+    )
+    captured = capsys.readouterr()
+    out = captured.out + captured.err
+    assert "archived" in out
+    assert "did not confirm" in out
+
+
+def test_experiments_archive_should_fail_on_http_error(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    response = MagicMock()
+    error_response = MagicMock()
+    error_response.text = "experiment is archived"
+    response.raise_for_status.side_effect = requests.HTTPError(
+        "409 Client Error", response=error_response
+    )
+    post = MagicMock(return_value=response)
+    monkeypatch.setattr(commands_module.requests, "post", post)
+    args = commands_module._experiments_parser().parse_args(
+        [
+            "archive",
+            "--project",
+            "project-a",
+            "--experiment-name",
+            "exp-1",
+            "--server-url",
+            "http://host:18080",
+        ]
+    )
+
+    code = commands_module.ServerCommands().experiments_archive(args)
+
+    assert code == 1
+    assert "experiment is archived" in capsys.readouterr().err
+
+
+def test_experiments_archive_and_restore_help_should_note_same_name_limitation(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    parser = commands_module._experiments_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--help"])
+    flattened = " ".join(capsys.readouterr().out.split())
+    assert "same experiment name" in flattened

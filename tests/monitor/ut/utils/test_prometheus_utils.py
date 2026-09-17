@@ -195,3 +195,63 @@ def test_update_prometheus_config_should_reject_mismatched_labels_when_lengths_d
         prometheus_module.update_prometheus_config(
             ["host-a:9000", "host-b:9000"], labels=[{"rank": 0}]
         )
+
+
+def test_update_prometheus_config_should_send_experiment_identity_when_both_names_given(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    response = MagicMock()
+    response.status_code = 200
+    post = MagicMock(return_value=response)
+    monkeypatch.setenv("RL_INSIGHT_SERVER_URL", "http://server:18080")
+    monkeypatch.setattr(prometheus_module.requests, "post", post)
+
+    prometheus_module.update_prometheus_config(
+        ["host-a:9000"], project=" project-a ", experiment_name="exp-1"
+    )
+
+    assert post.call_args.kwargs["json"]["project"] == "project-a"
+    assert post.call_args.kwargs["json"]["experiment_name"] == "exp-1"
+
+
+def test_update_prometheus_config_should_reject_identity_with_only_one_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RL_INSIGHT_SERVER_URL", "http://server:18080")
+    with pytest.raises(ValueError, match="both"):
+        prometheus_module.update_prometheus_config(["host-a:9000"], project="project-a")
+
+
+def test_update_prometheus_config_should_raise_archived_error_on_409(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from rl_insight.utils.experiment_targets import ArchivedExperimentError
+
+    response = MagicMock()
+    response.status_code = 409
+    monkeypatch.setenv("RL_INSIGHT_SERVER_URL", "http://server:18080")
+    monkeypatch.setattr(
+        prometheus_module.requests, "post", MagicMock(return_value=response)
+    )
+
+    with pytest.raises(ArchivedExperimentError, match="restore"):
+        prometheus_module.update_prometheus_config(
+            ["host-a:9000"], project="project-a", experiment_name="exp-1"
+        )
+
+
+def test_update_prometheus_config_should_swallow_other_http_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import requests as requests_module
+
+    response = MagicMock()
+    response.status_code = 500
+    response.raise_for_status.side_effect = requests_module.HTTPError("boom")
+    post = MagicMock(return_value=response)
+    monkeypatch.setenv("RL_INSIGHT_SERVER_URL", "http://server:18080")
+    monkeypatch.setattr(prometheus_module.requests, "post", post)
+
+    prometheus_module.update_prometheus_config(
+        ["host-a:9000"], project="project-a", experiment_name="exp-1"
+    )

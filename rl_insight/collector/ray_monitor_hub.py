@@ -20,10 +20,8 @@ import logging
 from typing import Any
 
 import ray
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
-from ..utils.constants import MonitorRayActor
-from .base import MonitorCollector
 from ..server.http_api import get_server_services
 from ..server.network import format_host_port, service_url_from_server_url
 from ..utils import (
@@ -33,6 +31,8 @@ from ..utils import (
     start_metrics_http_server,
     update_prometheus_config,
 )
+from ..utils.constants import MonitorRayActor
+from .base import MonitorCollector
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
@@ -80,7 +80,7 @@ class MonitorHubActor(MonitorCollector):
         }
 
         start_metrics_http_server(self._metrics_port, addr=self._node_ip)
-        update_prometheus_config([format_host_port(self._node_ip, self._metrics_port)])
+        self._register_scrape_target()
         logger.info(
             "[rl-insight] MonitorHubActor HTTP bind %s:%s, "
             "Prometheus scrape target %s:%s",
@@ -89,6 +89,22 @@ class MonitorHubActor(MonitorCollector):
             self._node_ip,
             self._metrics_port,
         )
+
+    def _register_scrape_target(self) -> None:
+        """Register the hub's metrics endpoint, scoped to the experiment identity when present."""
+        from ..utils.experiment_targets import normalize_experiment_identity
+
+        address = format_host_port(self._node_ip, self._metrics_port)
+        identity = normalize_experiment_identity(
+            OmegaConf.select(self._conf, "server.project"),
+            OmegaConf.select(self._conf, "server.experiment_name"),
+        )
+        if identity is not None:
+            update_prometheus_config(
+                [address], project=identity[0], experiment_name=identity[1]
+            )
+        else:
+            update_prometheus_config([address])
 
     def apply_event(self, event: dict[str, Any]) -> None:
         """Dispatch one event by ``kind``: counter/gauge/histogram update Prometheus registry, trace exports OTLP.

@@ -148,7 +148,14 @@ To add a dashboard, put the JSON in an existing subdirectory, or add a new subdi
 
 Prometheus metrics and Tempo traces are persisted under `~/.rl-insight/data` by default. Stopping the server does not delete collected data.
 
-Prometheus scrape targets registered by trainers or `rl-insight server targets add` are stored separately in `~/.rl-insight/data/targets/prometheus-targets.yml`. The generated `prometheus.yml` references this persistent file through Prometheus file-based service discovery, so restarting the server stack does not clear registered targets. Target updates are written atomically under a cross-process lock. Existing registration paths continue to reload Prometheus for API compatibility, while file-based service discovery also refreshes the target file every five seconds.
+Prometheus scrape targets registered by trainers or `rl-insight server targets add` are stored separately: targets registered with an experiment identity live under `~/.rl-insight/data/projects/...`, all others in `~/.rl-insight/data/targets/prometheus-targets.yml`. The generated `prometheus.yml` references this persistent file through Prometheus file-based service discovery, so restarting the server stack does not clear registered targets. Target updates are written atomically under a cross-process lock. Existing registration paths continue to reload Prometheus for API compatibility, while file-based service discovery also refreshes the target file every five seconds.
+
+### Experiment Isolation & Archiving
+
+- After `insight.init(project=..., experiment_name=...)`, scrape targets are registered per experiment. `project` and `experiment_name` are reserved labels: custom labels must not override them, and conflicting calls raise an error. Code that never passes an identity through `init()` keeps the legacy global behavior.
+- Known limitation: two runs reusing the same `(project, experiment_name)` are one logical experiment — targets merge and their history cannot be told apart. Renaming either value starts a new experiment.
+- `rl-insight server experiments archive` stops target discovery for an experiment; already-collected metrics and traces stay queryable by label. Registering against an archived experiment returns 409 until you run `restore`.
+- On upgrade, the server auto-migrates the legacy global targets file at startup (backup under `<data_dir>/backups/`), no manual steps needed.
 
 ## 6. Stop Services
 

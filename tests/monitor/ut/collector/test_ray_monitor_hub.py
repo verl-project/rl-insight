@@ -25,7 +25,6 @@ from omegaconf import OmegaConf
 from rl_insight.collector import ray_monitor_hub as hub_module
 from rl_insight.utils.constants import MonitorEventKind, MonitorRayActor
 
-
 HubImplementation = cast(
     Any, hub_module.MonitorHubActor
 ).__ray_metadata__.modified_class
@@ -162,3 +161,56 @@ def test_get_status_should_describe_endpoint_when_hub_is_initialized(hub: Any) -
         "otel_traces_enabled": True,
         "events_applied": 4,
     }
+
+
+def test_init_should_pass_experiment_identity_to_target_registration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    update_config = MagicMock()
+    monkeypatch.setattr(hub_module, "get_server_services", dict)
+    monkeypatch.setattr(hub_module, "MetricRegistry", MagicMock())
+    monkeypatch.setattr(hub_module, "OpenTelemetryTraceCollector", MagicMock())
+    monkeypatch.setattr(hub_module, "start_metrics_http_server", MagicMock())
+    monkeypatch.setattr(hub_module, "update_prometheus_config", update_config)
+    monkeypatch.setattr(hub_module.ray.util, "get_node_ip_address", lambda: "10.0.0.8")
+    conf = OmegaConf.create(
+        {
+            "server": {
+                "namespace": "trainer",
+                "url": "http://host:18080",
+                "project": " project-a ",
+                "experiment_name": "exp-1",
+            },
+            "prometheus": {"metrics_report_port": 9092},
+        }
+    )
+
+    instance = HubImplementation.__new__(HubImplementation)
+    instance.__init__(conf)
+
+    update_config.assert_called_once_with(
+        ["10.0.0.8:9092"], project="project-a", experiment_name="exp-1"
+    )
+
+
+def test_init_should_register_without_identity_when_conf_has_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    update_config = MagicMock()
+    monkeypatch.setattr(hub_module, "get_server_services", dict)
+    monkeypatch.setattr(hub_module, "MetricRegistry", MagicMock())
+    monkeypatch.setattr(hub_module, "OpenTelemetryTraceCollector", MagicMock())
+    monkeypatch.setattr(hub_module, "start_metrics_http_server", MagicMock())
+    monkeypatch.setattr(hub_module, "update_prometheus_config", update_config)
+    monkeypatch.setattr(hub_module.ray.util, "get_node_ip_address", lambda: "10.0.0.8")
+    conf = OmegaConf.create(
+        {
+            "server": {"namespace": "trainer", "url": "http://host:18080"},
+            "prometheus": {"metrics_report_port": 9092},
+        }
+    )
+
+    instance = HubImplementation.__new__(HubImplementation)
+    instance.__init__(conf)
+
+    update_config.assert_called_once_with(["10.0.0.8:9092"])

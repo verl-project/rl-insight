@@ -91,15 +91,46 @@ class PrometheusScrape:
     TARGETS_REFRESH_INTERVAL = "5s"
 
 
-def prometheus_targets_file_from_config(conf: DictConfig) -> Path:
-    """Return the persistent file_sd target store configured for the server."""
-    # TODO: Partition file_sd targets by experiment once stable experiment
-    # identity and lifecycle management are available, then have Prometheus
-    # watch all experiment target files collectively.
+class ExperimentTargets:
+    """Layout, states, and reserved labels for experiment-scoped target partitions.
+
+    Partition files live flat under ``<data_dir>/projects/`` as
+    ``<sha256(project)>__<sha256(experiment_name)>.active.yml`` with
+    ``.archived.yml`` and ``.manifest.yaml`` siblings. Prometheus file_sd only
+    accepts wildcards in the base file name (``discovery/file``
+    ``patFileSDName``), so the single static glob ``projects/*.active.yml``
+    watches every experiment and the archive rename atomically moves a file
+    out of the watch set.
+    """
+
+    PROJECTS_DIR_NAME = "projects"
+    PROJECT_KEY_SEPARATOR = "__"
+    ACTIVE_TARGETS_SUFFIX = ".active.yml"
+    ARCHIVED_TARGETS_SUFFIX = ".archived.yml"
+    MANIFEST_SUFFIX = ".manifest.yaml"
+    BACKUPS_DIR_NAME = "backups"
+    SCHEMA_VERSION = 1
+    STATE_ACTIVE = "active"
+    STATE_ARCHIVED = "archived"
+    RESERVED_LABELS = ("project", "experiment_name")
+    CONVERGENCE_TIMEOUT_SECONDS = 15.0
+
+
+def _data_dir_from_config(conf: DictConfig) -> Path:
+    """Return the resolved server data directory."""
     raw_data_dir = OmegaConf.select(conf, "server.data_dir")
-    data_dir = (
-        Path(str(raw_data_dir)).expanduser().resolve()
-        if raw_data_dir
-        else (MonitorPaths.STATE_ROOT / "data").resolve()
-    )
-    return (data_dir / "targets" / PrometheusScrape.TARGETS_FILE_NAME).resolve()
+    if raw_data_dir:
+        return Path(str(raw_data_dir)).expanduser().resolve()
+    return (MonitorPaths.STATE_ROOT / "data").resolve()
+
+
+def prometheus_targets_file_from_config(conf: DictConfig) -> Path:
+    """Return the persistent legacy/global file_sd target store configured for the server."""
+    return (
+        _data_dir_from_config(conf) / "targets" / PrometheusScrape.TARGETS_FILE_NAME
+    ).resolve()
+
+
+def experiments_root_from_config(conf: DictConfig) -> Path:
+    """Return the root directory holding per-experiment target partitions."""
+    return (_data_dir_from_config(conf) / ExperimentTargets.PROJECTS_DIR_NAME).resolve()
