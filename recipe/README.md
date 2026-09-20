@@ -69,23 +69,9 @@ timeline.visualizer.type=html    # interactive timeline (default)
 timeline.visualizer.type=png     # static PNG export
 ```
 
-Convenience scripts are available in `examples/recipe/`:
-
-```bash
-bash examples/recipe/mstx_exec.sh
-bash examples/recipe/torch_profiler_exec.sh
-bash examples/recipe/nvtx_exec.sh
-```
-
 ### MoE Expert Load Heatmap
 
 Visualize expert load distribution in Mixture-of-Experts models:
-
-```bash
-bash examples/recipe/gmm_exec.sh
-```
-
-Or with full CLI control:
 
 ```bash
 python -m recipe.main \
@@ -101,7 +87,7 @@ python -m recipe.main \
 - [Architecture & Design](../docs/recipe/overview/architecture.md)
 - [Offline Timeline Quickstart](../docs/recipe/overview/RL_Timeline_quickstart.md)
 - [GMM Heatmap Quickstart](../docs/recipe/overview/gmm_heatmap_quickstart.md)
-- [Memory Parser Guide](../docs/recipe/developer_guides/memory_parser_guide.md)
+- [Memory Guide](../docs/recipe/developer_guides/memory_guide.md)
 - [Extension Guide](../docs/recipe/developer_guides/extending_guide.md)
 
 ## Contribution Guide

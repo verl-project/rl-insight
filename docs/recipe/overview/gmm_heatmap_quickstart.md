@@ -85,12 +85,6 @@ python -m recipe.main \
     output.path=<output_path>
 ```
 
-或修改并直接使用 `examples/gmm_exec.sh` 脚本:
-
-```bash
-bash examples/recipe/gmm_exec.sh
-```
-
 ## 三、命令行参数
 
 以下说明与 `python -m recipe.main -h` 保持一致；若有出入以命令行帮助为准。

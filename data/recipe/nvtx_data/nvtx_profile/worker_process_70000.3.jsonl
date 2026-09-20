@@ -1,4 +1,0 @@
-{"id":115,"table":"StringIds","value":"update_critic"}
-{"duration":12424952934,"globalVid":281474976710656,"startTime":6589138945808667,"stopTime":6589151370761601,"table":"ANALYSIS_DETAILS"}
-{"color":4294951115,"domainId":0,"end":12331877384,"eventType":60,"globalTid":282747880941798,"rangeId":3,"start":21584466,"table":"NVTX_EVENTS","textId":115}
-{"name":"PROCESS_0:ENVIRONMENT_VARIABLE","table":"META_DATA_CAPTURE","value":"RANK=\"0\""}

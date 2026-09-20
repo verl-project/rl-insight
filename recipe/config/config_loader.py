@@ -60,13 +60,13 @@ class _HelpRenderer:
         return (
             "\n"
             "Examples:\n"
-            "  python -m recipe.main input.path=./data/recipe/mstx_data/mstx_profile\n"
-            "  python -m recipe.main preset=heatmap input.path=./data/recipe/gmm_data\n"
+            "  python -m recipe.main input.path=./mstx_profile\n"
+            "  python -m recipe.main preset=heatmap input.path=./gmm_dump\n"
             "  python -m recipe.main config_path=my_config.yaml heatmap.visualizer.dpi=300\n"
             "  python -m recipe.main preset=timeline timeline.visualizer.type=png\n"
             "  python -m recipe.main preset=timeline timeline.parser.type=torch\n"
-            "  python -m recipe.main preset=memory input.path=./data/recipe/memory_data\n"
-            "  python -m recipe.main memory.parser.type=memory memory.visualizer.type=memory_html input.path=./data/recipe/memory_data\n"
+            "  python -m recipe.main preset=memory input.path=./memory_profile\n"
+            "  python -m recipe.main memory.parser.type=memory memory.visualizer.type=memory_html input.path=./memory_profile\n"
         )
 
     @staticmethod

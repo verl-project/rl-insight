@@ -16,7 +16,6 @@ orphan: true
 └── <role>/
     └── prof_*.json.gz
 ```
-参考：[`./data/recipe/torch_data`](../../../data/recipe/torch_data)
 
 ### 1.2 文件内容要点
 
@@ -68,7 +67,6 @@ orphan: true
         └── ASCEND_PROFILER_OUTPUT/
             └── trace_view.json
 ```
-参考：[`./data/recipe/mstx_data`](../../../data/recipe/mstx_data)
 
 ### 2.2 trace_view.json 要点
 
@@ -144,11 +142,10 @@ MSTX 输入当前包含三类检查：
 
 ```
 <summary-event-data-path>/
-└── summary_event_dataframe_sample.json
+└── summary_event_data.json
 ```
-参考：[`./data/recipe/summary_event_data`](../../../data/recipe/summary_event_data)
 
-解析后汇总生成的数据文件 summary_event_dataframe_sample.json，内容必须包含"role", "name", "rank_id", "start_time_ms", "end_time_ms"字段，文件内容示例：
+解析后汇总生成的 summary_event 数据需为 JSON 数组，每条记录必须包含 `role`、`name`、`rank_id`、`start_time_ms`、`end_time_ms` 字段，文件内容示例：
 
 ```
 [
@@ -193,7 +190,7 @@ MSTX 输入当前包含三类检查：
 
 ## 5. VeRL 训练日志（可选校验）
 
-`DataEnum.VERL_LOG` 对 **单个** VeRL 训练 `.log` 文件做存在性与关键指标子串校验（例如 `DataChecker` 或 [`tests/recipe/data/check_verl_log.py`](../../../tests/recipe/data/check_verl_log.py)）。路径必须是文件，不能是目录。
+`DataEnum.VERL_LOG` 对 **单个** VeRL 训练 `.log` 文件做存在性与关键指标子串校验，规则见 [`recipe/data/verl_log_rules.py`](../../../recipe/data/verl_log_rules.py)，由 `DataChecker` 统一执行。路径必须是文件，不能是目录。
 
 ### 5.1 校验规则（以代码为准）
 
@@ -214,29 +211,19 @@ MSTX 输入当前包含三类检查：
 
    若仅存在 `step:` 而日志未打印 `training/global_step` / `training/epoch` 字面量，将不通过。可按业务在代码中传入自定义 `required_keywords` 放宽或收紧。
 
-### 5.2 `data/recipe/verl_data/` 示例数据
+### 5.2 校验示例
 
-仓库 [`data/recipe/verl_data/`](../../../data/recipe/verl_data/) 下提供：
+仓库不再内置 VeRL 日志样例，请使用自己的训练日志，日志需覆盖 5.1 节中列出的全部必填子串：
 
-- **`good_minimal_verl.log`**：体量很小的合成日志，覆盖当前必填子串，**推荐**用于脚本/文档中的快速校验示例。
-- **负面样例**（用于手工跑 `check_verl_log.py` 或自测规则；说明文字已避免误包含上述关键字）：
+```python
+from pathlib import Path
 
-| 文件 | 典型失败原因 |
-| --- | --- |
-| `bad_exist_empty_verl.log` | 空文件 |
-| `bad_exist_unbranded.log` | 无 VeRL 标识（文件名与正文均不含 `verl`） |
-| `bad_keys_startup_only_verl.log` | 仅启动信息，缺指标类关键字 |
-| `bad_keys_five_legacy_metrics_verl.log` | 仅有部分指标，缺全局步进/epoch/lr/entropy 等 |
-| `bad_keys_no_training_step_tokens_verl.log` | 有 `step=` 但未出现 `training/global_step`、`training/epoch` 子串 |
-| `bad_keys_no_entropy_verl.log` | 缺 `actor/entropy` |
+from recipe.data import DataChecker, DataEnum
 
-`*.log` 若被根目录 `.gitignore` 忽略，需本地自备或使用 `git add -f` 将约定路径纳入版本库。
-
-### 5.3 命令示例
-
-```bash
-python tests/recipe/data/check_verl_log.py data/recipe/verl_data/good_minimal_verl.log
+DataChecker(DataEnum.VERL_LOG, str(Path("path/to/your_verl_train.log"))).run()
 ```
+
+校验通过时会输出确认日志；任一规则不通过时会抛出 `recipe.data.rules.DataValidationError`，异常信息中列出失败原因。`*.log` 若被根目录 `.gitignore` 忽略，需本地自备或使用 `git add -f` 将约定路径纳入版本库。
 
 ## 5. GMM 专家负载dump数据
 
@@ -263,8 +250,6 @@ GMM 热力图输入类型为 `DataEnum.GMM_DATA`。**路径约定、参数与示
 ├── step_2/
 └── ...
 ```
-
-参考（仓库内**最小可解析**示例，体量极小，便于测试与文档对照）：[`../../../data/recipe/gmm_data`](../../../data/recipe/gmm_data)
 
 ### 5.2 `group_list.pt` 文件内容
 
@@ -296,8 +281,6 @@ Memory 模块输入类型为 `DataEnum.ASCEND_MEMORY`（CLI：`timeline.parser.t
             ├── operator_memory.csv
             └── trace_view.json
 ```
-
-参考：[`./data/recipe/memory_data`](../../../data/recipe/memory_data)
 
 ### 6.2 operator_memory.csv 要点
 
@@ -347,4 +330,19 @@ Memory 模块输出类型为 `DataEnum.MEMORY_SUMMARY`，为 `pd.DataFrame`，�
 
 ### 6.5 输入数据校验
 
-`DataEnum.ASCEND_MEMORY` 当前未注册校验规则（`DataChecker.rules` 中为空列表），输入校验由 `MemoryClusterParser.parse_analysis_data()` 内部的文件存在性检查承担。如需增加校验规则，参考 [DataRule 扩展说明](../developer_guides/rule_extending_guide.md)。
+`DataEnum.ASCEND_MEMORY` 已注册三条规则，Pipeline 在解析前对输入路径依次执行：
+
+| 规则 | 校验内容 |
+|------|----------|
+| `PathExistsRule` | 输入路径存在且为目录 |
+| `AscendMemoryFileExistsRule` | 至少存在一个 `*_ascend_pt/` 目录，且每个该目录下都有 `profiler_info_*.json`、`profiler_metadata.json`、`ASCEND_PROFILER_OUTPUT/operator_memory.csv`、`ASCEND_PROFILER_OUTPUT/trace_view.json` |
+| `AscendMemoryFieldValidRule` | 各文件的字段级校验，见下方 |
+
+`AscendMemoryFieldValidRule` 逐项校验：
+
+- `profiler_info_*.json`：非空、合法 JSON 对象，且含 `rank_id`
+- `profiler_metadata.json`：非空、合法 JSON 对象；`role` 可选，缺省时 Parser 以父目录名兜底
+- `operator_memory.csv`：非空，表头包含 6.2 节所列字段，至少一行数据，且首行 `Size(KB)`、`Allocation Time(us)`、`Duration(us)` 在非空时可转 float
+- `trace_view.json`：非空；安装 `ijson` 时可解析为非空 JSON 数组
+
+如需增加校验规则，参考 [DataRule 扩展说明](../developer_guides/rule_extending_guide.md)。

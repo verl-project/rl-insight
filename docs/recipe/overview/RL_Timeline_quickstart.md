@@ -57,12 +57,6 @@ python -m recipe.main \
    output.path=<output_path>
 ```
 
-或修改并直接使用 `examples/mstx_exec.sh` 脚本:
-
-```bash
-bash examples/recipe/mstx_exec.sh
-```
-
 #### 3.2.2 Torch Profiler 解析示例
 
 工具支持解析 PyTorch Profiler 采集的性能数据（`torch` 类型）。
@@ -74,12 +68,6 @@ python -m recipe.main \
     output.path=<output_path>
 ```
 
-或修改并直接使用 `examples/torch_profiler_exec.sh` 脚本:
-
-```bash
-bash examples/recipe/torch_profiler_exec.sh
-```
-
 #### Nvtx Profiler 解析示例
 
 工具支持解析 Nvtx Profiler 采集的性能数据（'nvtx' 类型）。
@@ -89,12 +77,6 @@ python -m recipe.main \
     input.path=<nvtx_profiling_data_path> \
     timeline.parser.type=nvtx \
     output.path=<output_path>
-```
-
-或修改并直接使用 `examples/nvtx_exec.sh` 脚本:
-
-```bash
-bash examples/recipe/nvtx_exec.sh
 ```
 
 ## 4. 命令行参数

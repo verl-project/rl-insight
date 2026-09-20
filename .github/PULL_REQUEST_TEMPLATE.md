@@ -8,7 +8,7 @@
 - [ ] Format the PR title as `[{modules}] {type}: {description}` (This will be checked by the CI)
   - `{modules}` include:
     - `monitor-api`, `monitor-cli`, `monitor-collector`, `monitor-server`, `monitor-config` for online monitor changes
-    - `recipe` for offline analysis changes, including pipeline, parser, visualizer, data checker, recipe config, examples, and sample data
+    - `recipe` for offline analysis changes, including pipeline, parser, visualizer, data checker, recipe config, and examples
     - `doc`, `ci`, `perf`, `deployment`, `misc` for cross-cutting changes
   - If this PR involves multiple modules, separate them with `,` like `[recipe, ci]` or `[monitor-server, monitor-config]`
   - `{type}` is in `feat`, `fix`, `refactor`, `chore`, `test`

@@ -381,11 +381,19 @@ Memory Visualizer 已完成实现，代码位于 `recipe/visualizer/memory_visua
 
 **Visualizer**：无额外依赖（`numpy`、`pandas`、`loguru`、`omegaconf` 均为项目公共依赖；Plotly.js 通过 HTML 模板 CDN 加载）。
 
-## 5. 测试
+## 5. 校验
 
-测试文件：
+Pipeline 会在 Parser 输入与 Visualizer 输入两侧分别执行 `DataChecker` 校验：
 
-| 测试文件 | 覆盖范围 |
-|----------|----------|
-| `tests/recipe/parser/test_memory_parser.py` | Parser 单元测试：注册、`_build_call_stack_index`、`_match_call_stack`、`_parse_operator_memory`、`allocate_prof_data` |
-| `tests/recipe/special_e2e/test_memory_e2e.py` | E2E：完整 Pipeline（Parser + DataChecker + Visualizer），使用 `data/recipe/memory_data/` 样本数据 |
+- 输入：`DataEnum.ASCEND_MEMORY`（`PathExistsRule`、`AscendMemoryFileExistsRule`、`AscendMemoryFieldValidRule`）
+- 输出：`DataEnum.MEMORY_SUMMARY`（`ParserOutputValidatorRule`、`MemoryContentRule`）
+
+需要单独校验一个已产出的 summary DataFrame 时：
+
+```python
+from recipe.data import DataChecker, DataEnum
+
+DataChecker(DataEnum.MEMORY_SUMMARY, summary_df).run()
+```
+
+目录结构、字段清单与校验规则见[数据规格说明](../data/data_specification.md)。
