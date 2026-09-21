@@ -35,7 +35,7 @@ from .translate import ScrapeState
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
-EmitCallback = Callable[[str, str, float, Mapping[str, str]], None]
+EmitCallback = Callable[[str, str, float, Mapping[str, str], str], None]
 FetchCallback = Callable[[str], str]
 
 
@@ -185,7 +185,13 @@ class PrometheusPoller:
             for emission in emissions:
                 tags = {**target.labels, **emission.tags}
                 try:
-                    self._emit(emission.name, emission.op, emission.value, tags)
+                    self._emit(
+                        emission.name,
+                        emission.op,
+                        emission.value,
+                        tags,
+                        emission.group,
+                    )
                 except Exception as exc:  # noqa: BLE001 - emit failures are non-fatal
                     logger.debug("[rl-insight] rollout emit failed: %s", exc)
 

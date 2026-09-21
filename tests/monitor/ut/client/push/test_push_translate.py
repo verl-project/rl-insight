@@ -188,3 +188,26 @@ b 0.0
         [{"numerator": "a", "denominator": "b", "type": "ratio", "name": "r"}]
     )
     assert state.translate(text, rules) == []
+
+
+def test_explicit_group_is_stamped_on_emissions() -> None:
+    state = ScrapeState()
+    rules = OmegaConf.create(
+        [
+            {
+                "source": "vllm:num_requests_running",
+                "type": "gauge",
+                "name": "running",
+                "group": "vllm",
+            },
+            {
+                "source": "absent_metric",
+                "type": "gauge",
+                "name": "x",
+                "group": "vllm",
+            },
+        ]
+    )
+    out = state.translate(_SCRAPE_1, rules)
+    assert len(out) == 1
+    assert out[0].group == "vllm"

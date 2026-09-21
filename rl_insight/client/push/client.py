@@ -19,6 +19,7 @@ from __future__ import annotations
 import atexit
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from omegaconf import DictConfig, OmegaConf
@@ -61,6 +62,9 @@ class _BoundSink:
     rollout_prefix: str
     tags: dict[str, str]
     metric_rules: dict[str, _MetricRule] | None = None
+    # When set, this sink receives only rollout emissions whose group is listed;
+    # None = subscribe to every group (default, backward compatible).
+    rollout_groups: frozenset[str] | None = None
     alive: bool = True
 
 
@@ -152,7 +156,7 @@ class PushMonitorClient(MonitorClient):
             self._safe(bound, "emit_timer", suffix, float(duration_us), tags)
 
     def emit_rollout(
-        self, name: str, op: str, value: float, tags: dict[str, str]
+        self, name: str, op: str, value: float, tags: dict[str, str], group: str = ""
     ) -> None:
         """Sink callback used by the rollout poller for translated engine metrics."""
         method = {
@@ -163,6 +167,8 @@ class PushMonitorClient(MonitorClient):
         for bound in list(self._bound):
             if not bound.alive or STREAM_ROLLOUT not in bound.streams:
                 continue
+            if bound.rollout_groups is not None and group not in bound.rollout_groups:
+                continue  # group-routed sink: not subscribed to this engine's group
             suffix = f"{bound.rollout_prefix}{name}"
             merged = {**bound.tags, **dict(tags or {})}
             self._safe(bound, method, suffix, float(value), merged)
@@ -234,6 +240,49 @@ def _metric_mapping(sink_conf: Any) -> dict[str, _MetricRule] | None:
     return rules
 
 
+def _rollout_groups(sink_conf: Any) -> frozenset[str] | None:
+    """Parse a sink's ``rollout_groups`` selector; None = subscribe all groups."""
+    raw = OmegaConf.select(sink_conf, "rollout_groups")
+    if raw is None:
+        return None
+    return frozenset(str(item) for item in raw)
+
+
+# Built-in standard rule packs, keyed by pack name (= default rule group).
+_PACKS_DIR = Path(__file__).parent / "packs"
+
+
+def _load_pack(name: str) -> list[Any]:
+    """Load one built-in pack, default-tagging every rule with group=name."""
+    path = _PACKS_DIR / f"{name}.yaml"
+    loaded = OmegaConf.load(path)  # ListConfig of DictConfig
+    out: list[Any] = []
+    for rule in loaded:
+        if OmegaConf.select(rule, "group") is None:
+            rule = OmegaConf.merge(rule, {"group": str(name)})
+        out.append(rule)
+    return out
+
+
+def _load_rollout_rules(rollout_conf: Any) -> Any:
+    """Merge built-in ``packs`` with inline ``metrics`` into one rule list."""
+    rules: list[Any] = []
+    packs = (
+        OmegaConf.select(rollout_conf, "packs") if rollout_conf is not None else None
+    )
+    for pack in packs or []:
+        try:
+            rules.extend(_load_pack(str(pack)))
+        except Exception as exc:  # noqa: BLE001 - a bad pack must not break training
+            logger.warning("[rl-insight] rollout pack %r unavailable: %s", pack, exc)
+    inline = (
+        OmegaConf.select(rollout_conf, "metrics") if rollout_conf is not None else None
+    )
+    if inline:
+        rules.extend(list(inline))
+    return rules or None
+
+
 def create_push_monitor_client(conf: DictConfig) -> PushMonitorClient | None:
     """Build the push client from ``push`` config; return ``None`` when disabled.
 
@@ -260,6 +309,7 @@ def create_push_monitor_client(conf: DictConfig) -> PushMonitorClient | None:
                 ),
                 tags=collect_env_tags(OmegaConf.select(sink_conf, "tags_from_env")),
                 metric_rules=_metric_mapping(sink_conf),
+                rollout_groups=_rollout_groups(sink_conf),
             )
         )
 
@@ -270,7 +320,7 @@ def create_push_monitor_client(conf: DictConfig) -> PushMonitorClient | None:
     metric_prefix = _select_or(push_conf, "metric_prefix", DEFAULT_METRIC_PREFIX)
     trace_prefix = _select_or(push_conf, "trace_prefix", DEFAULT_TRACE_PREFIX)
 
-    rules = OmegaConf.select(push_conf, "rollout.metrics")
+    rules = _load_rollout_rules(OmegaConf.select(push_conf, "rollout"))
     interval_raw = OmegaConf.select(push_conf, "rollout.interval_seconds")
     interval = (
         float(interval_raw) if interval_raw is not None else DEFAULT_ROLLOUT_INTERVAL
@@ -280,8 +330,8 @@ def create_push_monitor_client(conf: DictConfig) -> PushMonitorClient | None:
         poller = PrometheusPoller(
             rules=rules,
             interval_seconds=interval,
-            emit=lambda name, op, value, tags: client.emit_rollout(
-                name, op, value, dict(tags)
+            emit=lambda name, op, value, tags, group: client.emit_rollout(
+                name, op, value, dict(tags), group
             ),
         )
         set_active_registry(poller.targets)

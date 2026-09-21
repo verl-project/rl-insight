@@ -1,0 +1,35 @@
+# Standard rollout scrape rules for a vLLM engine.
+#
+# Load with `push.rollout.packs: [vllm]`. The pack loader tags every rule with
+# `group: vllm` (a rule may still set its own `group` to override), so a sink
+# subscribes via `rollout_groups: [vllm]`.
+#
+# `source` is the raw engine metric (vLLM multiproc/collector mode exposes the
+# `vllm:` prefix). `name` is the emitted metric with the engine namespace
+# stripped; the sink's rollout_name_prefix restores a namespace (e.g. `vllm.`).
+# Token-distribution histograms (request_prompt_tokens, request_generation_tokens,
+# request_max_num_generation_tokens) are intentionally omitted: the push layer
+# exposes only scalar ops, not histogram_quantile distributions.
+
+# -- concurrency / occupancy gauges --
+- {source: "vllm:num_requests_running", type: gauge, name: num_requests_running}
+- {source: "vllm:num_requests_waiting", type: gauge, name: num_requests_waiting}
+- {source: "vllm:num_requests_swapped", type: gauge, name: num_requests_swapped}
+- {source: "vllm:kv_cache_usage_perc", type: gauge, name: kv_cache_usage_perc}
+
+# -- token / request counters (emitted as inter-scrape delta) --
+- {source: "vllm:generation_tokens_total", type: counter_delta, name: generation_tokens_total}
+- {source: "vllm:request_success_total", type: counter_delta, name: request_success_total}
+- {source: "vllm:prefix_cache_hits_total", type: counter_delta, name: prefix_cache_hits_total}
+- {source: "vllm:prefix_cache_queries_total", type: counter_delta, name: prefix_cache_queries_total}
+- {source: "vllm:spec_decode_num_accepted_tokens_total", type: counter_delta, name: spec_decode_num_accepted_tokens_total}
+- {source: "vllm:spec_decode_num_draft_tokens_total", type: counter_delta, name: spec_decode_num_draft_tokens_total}
+- {source: "vllm:spec_decode_num_drafts_total", type: counter_delta, name: spec_decode_num_drafts_total}
+
+# -- latency summaries (emitted as window mean in microseconds) --
+- {source: "vllm:time_to_first_token_seconds", type: summary_mean_us, name: time_to_first_token_seconds}
+- {source: "vllm:e2e_request_latency_seconds", type: summary_mean_us, name: e2e_request_latency_seconds}
+- {source: "vllm:request_time_per_output_token_seconds", type: summary_mean_us, name: request_time_per_output_token_seconds}
+- {source: "vllm:request_prefill_time_seconds", type: summary_mean_us, name: request_prefill_time_seconds}
+- {source: "vllm:request_decode_time_seconds", type: summary_mean_us, name: request_decode_time_seconds}
+- {source: "vllm:request_queue_time_seconds", type: summary_mean_us, name: request_queue_time_seconds}

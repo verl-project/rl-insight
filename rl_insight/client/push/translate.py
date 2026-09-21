@@ -22,7 +22,7 @@ values can be reported as mean latency in microseconds
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from omegaconf import OmegaConf
@@ -51,6 +51,9 @@ class Emission:
     op: str
     value: float
     tags: dict[str, str] = field(default_factory=dict)
+    # Routing group (e.g. vllm/tq); used by the client to pick subscribing
+    # sinks and never written into the emitted metric tags.
+    group: str = ""
 
 
 def build_family_map(text: str) -> dict[str, Any]:
@@ -127,16 +130,21 @@ class ScrapeState:
         emissions: list[Emission] = []
         for rule in rules or []:
             rtype = str(_rule(rule, "type"))
+            group = str(_rule(rule, "group", "") or "")
+            produced: list[Emission] = []
             if rtype == RULE_COUNTER_DELTA:
-                emissions.extend(self._counter_delta(families, rule))
+                produced.extend(self._counter_delta(families, rule))
             elif rtype == RULE_SUMMARY_MEAN_US:
-                emissions.extend(self._summary_mean_us(families, rule))
+                produced.extend(self._summary_mean_us(families, rule))
             elif rtype == RULE_GAUGE:
-                emissions.extend(self._gauge(families, rule))
+                produced.extend(self._gauge(families, rule))
             elif rtype == RULE_GAUGE_TIMER:
-                emissions.extend(self._gauge(families, rule, OP_TIMER))
+                produced.extend(self._gauge(families, rule, OP_TIMER))
             elif rtype == RULE_RATIO:
-                emissions.extend(self._ratio(families, rule))
+                produced.extend(self._ratio(families, rule))
+            if group:
+                produced = [replace(e, group=group) for e in produced]
+            emissions.extend(produced)
         return emissions
 
     def _tags(self, rule: Any, sample_labels: dict[str, str] | None) -> dict[str, str]:

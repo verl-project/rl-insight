@@ -291,6 +291,60 @@ def test_rollout_emit_fans_out_with_per_sink_prefix(
     client.close()
 
 
+def test_rollout_group_routing_delivers_only_to_subscribed_sinks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sinks: list[RecordingSink] = []
+    _install_driver("fake_route_mod", sinks)
+    conf = OmegaConf.create(
+        {
+            "server": {"backend": "push"},
+            "push": {
+                "sinks": [
+                    {
+                        "name": "vllm-only",
+                        "driver": "fake_route_mod:create_sink",
+                        "prefix": "v",
+                        "streams": ["rollout"],
+                        "rollout_name_prefix": "",
+                        "rollout_groups": ["vllm"],
+                    },
+                    {
+                        "name": "tq-only",
+                        "driver": "fake_route_mod:create_sink",
+                        "prefix": "q",
+                        "streams": ["rollout"],
+                        "rollout_name_prefix": "",
+                        "rollout_groups": ["tq"],
+                    },
+                    {
+                        "name": "all-groups",
+                        "driver": "fake_route_mod:create_sink",
+                        "prefix": "a",
+                        "streams": ["rollout"],
+                        "rollout_name_prefix": "",
+                    },
+                ],
+                "rollout": {"interval_seconds": 0},
+            },
+        }
+    )
+    client = create_push_monitor_client(conf)
+    assert client is not None
+
+    client.emit_rollout("num_requests_running", "store", 1.0, {}, group="vllm")
+    client.emit_rollout("partition_progress", "store", 2.0, {}, group="tq")
+
+    vllm_only, tq_only, all_groups = sinks
+    assert [c[1] for c in vllm_only.calls] == ["v.num_requests_running"]
+    assert [c[1] for c in tq_only.calls] == ["q.partition_progress"]
+    assert [c[1] for c in all_groups.calls] == [
+        "a.num_requests_running",
+        "a.partition_progress",
+    ]
+    client.close()
+
+
 def test_failing_sink_is_removed_but_others_keep_working(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

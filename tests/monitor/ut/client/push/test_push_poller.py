@@ -82,7 +82,7 @@ def test_poller_second_scrape_emits_delta_and_merges_target_labels() -> None:
     poller.poll_once()
 
     by_name: dict[str, list[tuple[str, float, dict[str, str]]]] = {}
-    for name, op, value, tags in emitted:
+    for name, op, value, tags, _group in emitted:
         by_name.setdefault(name, []).append((op, value, tags))
 
     # First scrape baselines the counter; gauge emitted each scrape.
