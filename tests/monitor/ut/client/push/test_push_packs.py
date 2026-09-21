@@ -47,9 +47,7 @@ def test_load_rollout_rules_merges_packs_and_inline() -> None:
     rollout_conf = OmegaConf.create(
         {
             "packs": ["vllm", "tq"],
-            "metrics": [
-                {"source": "eng:custom", "type": "gauge", "name": "custom"}
-            ],
+            "metrics": [{"source": "eng:custom", "type": "gauge", "name": "custom"}],
         }
     )
     rules = _load_rollout_rules(rollout_conf)
