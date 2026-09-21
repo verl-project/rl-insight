@@ -34,7 +34,7 @@ except ImportError as exc:  # pragma: no cover - exercised only in slim installs
     _logging.getLogger(__name__).debug(
         "[rl-insight] OpenTelemetry trace collector is unavailable: %s", exc
     )
-    OpenTelemetryTraceCollector = None
+    OpenTelemetryTraceCollector = None  # type: ignore[misc,assignment]
 
 from .prometheus_utils import (
     MetricRegistry,

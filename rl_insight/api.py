@@ -99,15 +99,10 @@ def init(
         return
 
     monitor_conf = load_monitor_config(config)
-    backend = str(
-        OmegaConf.select(monitor_conf, "server.backend") or ""
-    ).strip()
+    backend = str(OmegaConf.select(monitor_conf, "server.backend") or "").strip()
     # Only the Ray backend talks to the external RL-Insight server; direct-emit
     # backends (e.g. push) intentionally run without a server URL.
-    if (
-        backend == MonitorBackend.RAY
-        and not str(monitor_conf.server.url).strip()
-    ):
+    if backend == MonitorBackend.RAY and not str(monitor_conf.server.url).strip():
         logger.error(
             "[rl-insight] RL-Insight server URL is required; set RL_INSIGHT_SERVER_URL "
             "or server.url in init config."

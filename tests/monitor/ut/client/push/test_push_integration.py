@@ -40,7 +40,9 @@ def reset_monitor_state() -> Generator[None, None, None]:
     poller_module.set_active_registry(None)
 
 
-def test_init_push_without_server_url_is_enabled(caplog: pytest.LogCaptureFixture) -> None:
+def test_init_push_without_server_url_is_enabled(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     api.init(
         project="p",
         experiment_name="e",
@@ -92,7 +94,7 @@ def test_init_push_registers_rollout_targets_and_finish_releases(
     def factory(conf: Any) -> RecordingSink:
         return RecordingSink(str(OmegaConf.select(conf, "prefix") or ""))
 
-    module.create_sink = factory
+    setattr(module, "create_sink", factory)
     sys.modules["fake_e2e_sink_mod"] = module
 
     api.init(
@@ -108,8 +110,11 @@ def test_init_push_registers_rollout_targets_and_finish_releases(
                 "rollout": {
                     "interval_seconds": 0,
                     "metrics": [
-                        {"source": "eng:ttft", "type": "summary_mean_us",
-                         "name": "TTFT"}
+                        {
+                            "source": "eng:ttft",
+                            "type": "summary_mean_us",
+                            "name": "TTFT",
+                        }
                     ],
                 },
             },

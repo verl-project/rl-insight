@@ -74,8 +74,8 @@ def _install_driver(name: str, sinks: list[RecordingSink], factory="create_sink"
         sink.emit_store = boom  # type: ignore[method-assign]
         return sink
 
-    module.create_sink = create_sink
-    module.create_raising_sink = create_raising_sink
+    setattr(module, "create_sink", create_sink)
+    setattr(module, "create_raising_sink", create_raising_sink)
     sys.modules[name] = module
     return module
 
@@ -104,9 +104,16 @@ def _dual_conf(monkeypatch: pytest.MonkeyPatch) -> Any:
                         "rollout_name_prefix": "",
                     },
                 ],
-                "rollout": {"interval_seconds": 0, "metrics": [
-                    {"source": "eng:ttft", "type": "summary_mean_us", "name": "TTFT"}
-                ]},
+                "rollout": {
+                    "interval_seconds": 0,
+                    "metrics": [
+                        {
+                            "source": "eng:ttft",
+                            "type": "summary_mean_us",
+                            "name": "TTFT",
+                        }
+                    ],
+                },
             },
         }
     )
@@ -121,8 +128,7 @@ def test_gauge_routes_to_metric_sink_as_store_with_prefix_and_tags(
     assert client is not None
 
     client.apply_event(
-        {"kind": "gauge", "name": "reward/mean", "value": 1.25,
-         "labels": {"step": "3"}}
+        {"kind": "gauge", "name": "reward/mean", "value": 1.25, "labels": {"step": "3"}}
     )
 
     alpha, xgpt = sinks
@@ -156,8 +162,11 @@ def test_metric_mapping_renames_retags_scales_and_whitelists(
                         "prefix": "seed.alphaseed",
                         "streams": ["metric"],
                         "tags_from_env": [
-                            {"tag": "arnold_trial_id", "env": ["ARNOLD_TRIAL_ID"],
-                             "default": "0"}
+                            {
+                                "tag": "arnold_trial_id",
+                                "env": ["ARNOLD_TRIAL_ID"],
+                                "default": "0",
+                            }
                         ],
                         "metric_mapping": [
                             {"source": "training_global_step", "name": "global_step"},
@@ -190,8 +199,12 @@ def test_metric_mapping_renames_retags_scales_and_whitelists(
         {"kind": "gauge", "name": "perf_mfu_actor", "value": 0.42, "labels": {}}
     )
     client.apply_event(
-        {"kind": "gauge", "name": "timing_s_update_weight", "value": 0.003,
-         "labels": {}}
+        {
+            "kind": "gauge",
+            "name": "timing_s_update_weight",
+            "value": 0.003,
+            "labels": {},
+        }
     )
     client.apply_event(
         {"kind": "gauge", "name": "critic_score_mean", "value": 1.0, "labels": {}}
@@ -219,9 +232,7 @@ def test_counter_and_histogram_event_mapping(monkeypatch: pytest.MonkeyPatch) ->
     assert client is not None
 
     client.apply_event({"kind": "counter", "name": "steps", "value": 2, "labels": {}})
-    client.apply_event(
-        {"kind": "histogram", "name": "lat", "value": 900, "labels": {}}
-    )
+    client.apply_event({"kind": "histogram", "name": "lat", "value": 900, "labels": {}})
 
     ops = [(c[0], c[1], c[2]) for c in sinks[0].calls]
     assert ("counter", "seed.alphaseed.trainer.steps", 2) in ops
@@ -295,7 +306,7 @@ def test_failing_sink_is_removed_but_others_keep_working(
         sink.emit_store = boom  # type: ignore[method-assign]
         return sink
 
-    bad_mod.create_sink = make_bad
+    setattr(bad_mod, "create_sink", make_bad)
     sys.modules["fake_bad_mod"] = bad_mod
     good_mod = _install_driver("fake_good_mod", good)
 
@@ -303,10 +314,18 @@ def test_failing_sink_is_removed_but_others_keep_working(
         {
             "push": {
                 "sinks": [
-                    {"name": "bad", "driver": "fake_bad_mod:create_sink",
-                     "prefix": "bad", "streams": ["metric"]},
-                    {"name": "good", "driver": "fake_good_mod:create_sink",
-                     "prefix": "good", "streams": ["metric"]},
+                    {
+                        "name": "bad",
+                        "driver": "fake_bad_mod:create_sink",
+                        "prefix": "bad",
+                        "streams": ["metric"],
+                    },
+                    {
+                        "name": "good",
+                        "driver": "fake_good_mod:create_sink",
+                        "prefix": "good",
+                        "streams": ["metric"],
+                    },
                 ]
             }
         }

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import atexit
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from omegaconf import DictConfig, OmegaConf
@@ -123,9 +123,7 @@ class PushMonitorClient(MonitorClient):
             if not bound.alive or STREAM_METRIC not in bound.streams:
                 continue
             rule = (
-                None
-                if bound.metric_rules is None
-                else bound.metric_rules.get(raw_name)
+                None if bound.metric_rules is None else bound.metric_rules.get(raw_name)
             )
             if bound.metric_rules is not None and rule is None:
                 continue  # whitelist sink: unmapped trainer metrics are dropped
@@ -283,7 +281,7 @@ def create_push_monitor_client(conf: DictConfig) -> PushMonitorClient | None:
             rules=rules,
             interval_seconds=interval,
             emit=lambda name, op, value, tags: client.emit_rollout(
-                name, op, value, tags
+                name, op, value, dict(tags)
             ),
         )
         set_active_registry(poller.targets)

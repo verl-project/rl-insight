@@ -32,7 +32,9 @@ def _select(rule: Any, key: str) -> Any:
     return OmegaConf.select(rule, key, default=MISSING)
 
 
-def collect_env_tags(rules: Any, environ: Mapping[str, str] | None = None) -> dict[str, str]:
+def collect_env_tags(
+    rules: Any, environ: Mapping[str, str] | None = None
+) -> dict[str, str]:
     """Build a tag map from a list of ``tags_from_env`` rule objects.
 
     Each rule supports:

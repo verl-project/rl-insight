@@ -90,7 +90,9 @@ def build_sink(sink_conf: Any) -> PushSink | None:
         return None
 
     if sink is None:
-        logger.info("[rl-insight] push sink %r disabled itself (factory returned None).", name)
+        logger.info(
+            "[rl-insight] push sink %r disabled itself (factory returned None).", name
+        )
         return None
     if not isinstance(sink, PushSink):
         logger.warning(

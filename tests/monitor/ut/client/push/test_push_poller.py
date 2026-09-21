@@ -67,7 +67,9 @@ def _recording_poller(texts):
         return next(seq)
 
     poller = PrometheusPoller(
-        _RULES, interval_seconds=0, emit=lambda *args: emitted.append(tuple(args)),
+        _RULES,
+        interval_seconds=0,
+        emit=lambda *args: emitted.append(tuple(args)),
         fetch=fetch,
     )
     poller.targets.set_targets(["127.0.0.1:8000"], [{"replica": "0"}])
@@ -79,7 +81,7 @@ def test_poller_second_scrape_emits_delta_and_merges_target_labels() -> None:
     poller.poll_once()
     poller.poll_once()
 
-    by_name = {}
+    by_name: dict[str, list[tuple[str, float, dict[str, str]]]] = {}
     for name, op, value, tags in emitted:
         by_name.setdefault(name, []).append((op, value, tags))
 
@@ -106,7 +108,9 @@ def test_poller_should_swallow_emitter_failure() -> None:
     def boom(*_args: Any) -> None:
         raise RuntimeError("sink down")
 
-    poller = PrometheusPoller(_RULES, interval_seconds=0, emit=boom, fetch=lambda a: _TEXT_2)
+    poller = PrometheusPoller(
+        _RULES, interval_seconds=0, emit=boom, fetch=lambda a: _TEXT_2
+    )
     poller.targets.set_targets(["127.0.0.1:8000"])
     poller.poll_once()  # emitter raises inside; poll must survive
 
