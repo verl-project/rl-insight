@@ -45,29 +45,67 @@ __all__ = [
 ]
 
 
+def _copy_defaults() -> DictConfig:
+    """Return a fresh copy of the built-in training defaults."""
+    return OmegaConf.create(
+        OmegaConf.to_container(_TRAINING_MONITOR_DEFAULTS, resolve=True)
+    )
+
+
+def _merge_external_config(base: DictConfig) -> DictConfig:
+    """Merge the YAML file pointed to by ``RL_INSIGHT_CONFIG`` (if any) onto ``base``.
+
+    A missing/unreadable file only logs a warning; monitoring must never crash
+    training because of a bad config path.
+    """
+    raw_path = os.environ.get(MonitorEnv.CONFIG_PATH, "").strip()
+    if not raw_path:
+        return base
+    path = Path(raw_path).expanduser()
+    if not path.is_file():
+        logger.warning(
+            "[rl-insight] %s points to %s, but no such file exists; ignoring.",
+            MonitorEnv.CONFIG_PATH,
+            path,
+        )
+        return base
+    try:
+        external = OmegaConf.load(str(path))
+    except Exception as exc:  # noqa: BLE001 - config errors must not break training
+        logger.warning(
+            "[rl-insight] Failed to load %s (%s); ignoring external config.",
+            path,
+            exc,
+        )
+        return base
+    return OmegaConf.merge(base, external)
+
+
 def load_monitor_config(
     config: Mapping[str, Any] | DictConfig | None = None,
 ) -> DictConfig:
-    """Merge trainer monitor defaults with optional user config.
+    """Load monitor config with layered overrides.
+
+    Precedence (lowest to highest): built-in defaults, the external YAML named
+    by ``RL_INSIGHT_CONFIG``, the explicit ``config`` argument (``init(config)``),
+    and finally ``RL_INSIGHT_SERVER_URL`` for ``server.url``.
 
     Args:
-        config: Partial mapping or ``DictConfig`` merged on top of built-in training defaults; may be ``None``.
+        config: Partial mapping or ``DictConfig`` merged on top of defaults and
+            external file config; may be ``None``.
 
     Returns:
         Fully merged config with environment variable overrides applied.
     """
-    base = OmegaConf.create(
-        OmegaConf.to_container(_TRAINING_MONITOR_DEFAULTS, resolve=True)
-    )
-    if config is None:
-        merged = OmegaConf.create(OmegaConf.to_container(base, resolve=True))
-    else:
+    merged = _merge_external_config(_copy_defaults())
+
+    if config is not None:
         user = (
             OmegaConf.create(OmegaConf.to_container(config, resolve=True))
             if OmegaConf.is_config(config)
             else OmegaConf.create(dict(config))
         )
-        merged = OmegaConf.merge(base, user)
+        merged = OmegaConf.merge(merged, user)
 
     if url := os.environ.get(MonitorEnv.SERVER_URL):
         merged.server.url = str(url).strip()

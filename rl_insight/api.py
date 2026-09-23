@@ -27,11 +27,11 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any, Callable, Generator, Mapping
 
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 from .client import create_monitor_client
 from .utils.monitor_config_loader import load_monitor_config
-from .utils import MonitorEventKind
+from .utils import MonitorBackend, MonitorEventKind
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
@@ -99,7 +99,10 @@ def init(
         return
 
     monitor_conf = load_monitor_config(config)
-    if not str(monitor_conf.server.url).strip():
+    backend = str(OmegaConf.select(monitor_conf, "server.backend") or "").strip()
+    # Only the Ray backend talks to the external RL-Insight server; direct-emit
+    # backends (e.g. push) intentionally run without a server URL.
+    if backend == MonitorBackend.RAY and not str(monitor_conf.server.url).strip():
         logger.error(
             "[rl-insight] RL-Insight server URL is required; set RL_INSIGHT_SERVER_URL "
             "or server.url in init config."
@@ -126,9 +129,17 @@ def init(
 def finish() -> None:
     """Clear in-process monitor state so further emits are no-ops.
 
-    Does not stop the hub HTTP server or kill the detached Ray actor.
+    Asks the active client to release resources (stop pollers, flush sinks)
+    when it supports ``close``. Does not stop the hub HTTP server or kill the
+    detached Ray actor.
     """
     global _STATE
+    client = _STATE.client
+    if client is not None and hasattr(client, "close"):
+        try:
+            client.close()
+        except Exception:  # noqa: BLE001 - shutdown must never raise
+            logger.debug("[rl-insight] client.close() failed", exc_info=True)
     _STATE = _MonitorState()
     _LANES.clear()
 

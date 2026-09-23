@@ -195,3 +195,27 @@ def test_update_prometheus_config_should_reject_mismatched_labels_when_lengths_d
         prometheus_module.update_prometheus_config(
             ["host-a:9000", "host-b:9000"], labels=[{"rank": 0}]
         )
+
+
+def test_update_prometheus_config_should_register_in_process_when_push_active(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from rl_insight.client.push import poller as poller_module
+
+    registry = poller_module.TargetRegistry()
+    poller_module.set_active_registry(registry)
+    post = MagicMock(side_effect=AssertionError("push backend must not POST"))
+    monkeypatch.delenv("RL_INSIGHT_SERVER_URL", raising=False)
+    monkeypatch.setattr(prometheus_module.requests, "post", post)
+    try:
+        prometheus_module.update_prometheus_config(
+            ["host-a:9000", "host-b:9000"], labels=[{"rank": 0}, None]
+        )
+    finally:
+        poller_module.set_active_registry(None)
+
+    assert [(t.address, t.labels) for t in registry.snapshot()] == [
+        ("host-a:9000", {"rank": "0"}),
+        ("host-b:9000", {}),
+    ]
+    post.assert_not_called()
