@@ -1,0 +1,35 @@
+# Standard rollout scrape rules for an Ascend TransferQueue controller/storage.
+#
+# Load with `push.rollout.packs: [tq]`. The pack loader tags every rule with
+# `group: tq`, so a sink subscribes via `rollout_groups: [tq]`.
+#
+# `source` is the raw TransferQueue metric; `name` drops the `tq_` namespace.
+# The sink's rollout_name_prefix restores it (e.g. `tq.`).
+
+# -- partition progress / current counts (gauges) --
+- {source: "tq_partition_production_progress", type: gauge, name: partition_production_progress}
+- {source: "tq_partition_consumption_progress", type: gauge, name: partition_consumption_progress}
+- {source: "tq_partitions_total", type: gauge, name: partitions_total}
+- {source: "tq_storage_active_keys_total", type: gauge, name: storage_active_keys_total}
+- {source: "tq_storage_capacity_total", type: gauge, name: storage_capacity_total}
+- {source: "tq_storage_utilization_ratio", type: gauge, name: storage_utilization_ratio}
+
+# -- pre-computed latency quantile gauges (seconds) --
+- {source: "tq_storage_request_latency_p50", type: gauge, name: storage_request_latency_p50}
+- {source: "tq_storage_request_latency_p99", type: gauge, name: storage_request_latency_p99}
+
+# -- memory / uptime gauges --
+- {source: "tq_controller_memory_rss_bytes", type: gauge, name: controller_memory_rss_bytes}
+- {source: "tq_storage_memory_rss_bytes", type: gauge, name: storage_memory_rss_bytes}
+- {source: "tq_controller_uptime_seconds", type: gauge, name: controller_uptime_seconds}
+
+# -- monotonic counters (emitted as inter-scrape delta) --
+- {source: "tq_controller_request_total", type: counter_delta, name: controller_request_total}
+- {source: "tq_controller_request_samples_total", type: counter_delta, name: controller_request_samples_total}
+- {source: "tq_partition_samples_total", type: counter_delta, name: partition_samples_total}
+- {source: "tq_storage_request_ops", type: counter_delta, name: storage_request_ops}
+- {source: "tq_global_index_allocated_total", type: counter_delta, name: global_index_allocated_total}
+- {source: "tq_global_index_reusable_total", type: counter_delta, name: global_index_reusable_total}
+
+# -- request-duration histogram (window mean in microseconds) --
+- {source: "tq_controller_request_duration_seconds", type: summary_mean_us, name: controller_request_duration_seconds}

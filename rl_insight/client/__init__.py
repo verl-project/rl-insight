@@ -33,3 +33,10 @@ try:
     register_monitor_client(MonitorBackend.RAY, create_ray_monitor_client)
 except ImportError as exc:
     logger.debug("[rl-insight] Ray monitor client is unavailable: %s", exc)
+
+try:
+    from .push.client import create_push_monitor_client
+
+    register_monitor_client(MonitorBackend.PUSH, create_push_monitor_client)
+except ImportError as exc:  # pragma: no cover - push only needs lightweight deps
+    logger.debug("[rl-insight] Push monitor client is unavailable: %s", exc)

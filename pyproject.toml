@@ -55,6 +55,7 @@ include = ["rl_insight", "rl_insight.*", "recipe", "recipe.*"]
 rl_insight = [
   "config/*.yaml",
   "config/*.yml",
+  "client/push/packs/*.yaml",
   "config/services/prometheus/*.yml",
   "config/services/prometheus/*.yaml",
   "config/services/tempo/*.yml",
