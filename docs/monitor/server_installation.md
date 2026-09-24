@@ -176,6 +176,14 @@ Multi-architecture (amd64/arm64) images are also published to the GitHub Contain
 docker pull ghcr.io/verl-project/rl-insight:latest
 ```
 
+A rolling `nightly` image is additionally rebuilt from `main` (daily schedule and pushes), so you can try the latest unreleased changes without waiting for a version tag:
+
+```bash
+docker pull ghcr.io/verl-project/rl-insight:nightly
+```
+
+Every nightly build also pushes an immutable `nightly-<date>-<sha>` tag (e.g. `nightly-20260925-3c92f22`), and the same name exists as a git tag in the repository, so a given build can be pinned and reproduced exactly. `latest` always tracks the most recent stable release and is never updated by nightly builds.
+
 Start the full stack on Linux:
 
 ```bash

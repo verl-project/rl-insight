@@ -6,23 +6,76 @@ on:
       - .dockerignore
       - docker/**
       - rl_insight/**
+      - recipe/**
       - pyproject.toml
-      - tests/monitor/special_e2e/**
+      - README.md
+      - LICENSE
+      - tests/monitor/special_e2e/docker_smoke_test.sh
       - .github/workflows/docker.yml
   push:
+    branches:
+      - main
     tags:
       - "v*" # Release tags must be semver, e.g. v0.3.0.
+  schedule:
+    - cron: "30 18 * * *" # Daily at 02:30 CST (18:30 UTC).
   workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Validation runs (PRs) and mainline pushes supersede older runs; scheduled and
+  # manual runs must not cancel an in-flight publish, they queue behind it instead.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
 
 permissions:
   contents: read
 
 jobs:
+  # Cheap gate that decides whether the expensive jobs are needed at all.
+  # Scheduled runs rebuild only when main moved since the last nightly build, or
+  # when that build has gone stale, so the rolling image keeps tracking upstream
+  # (base image updates) even while main is quiet.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      build: ${{ steps.check.outputs.build }}
+    steps:
+      - name: Decide whether a build is needed
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          STALE_DAYS: 7
+        run: |
+          build=true
+          if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
+            tags=$(gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/nightly-" \
+                     --paginate --jq '.[].ref' 2>/dev/null || true)
+            short_sha=${GITHUB_SHA:0:7}
+            newest_tag=$(printf '%s\n' "$tags" | grep -E '^refs/tags/nightly-[0-9]{8}-[0-9a-f]{7,40}$' | sort | tail -1)
+            # Skip only if the newest nightly tag still points at this exact
+            # commit and is fresh; anything else means build (or retry).
+            # Matching the newest tag only (not any historical tag) also
+            # recovers when a force-push moves main onto an older commit
+            # that was itself published before.
+            if [ -n "$newest_tag" ] && [[ "$newest_tag" == *"-${short_sha}" ]]; then
+              newest=${newest_tag#refs/tags/nightly-}
+              newest=${newest%%-*}
+              age_days=$(( ( $(date -u +%s) - $(date -u -d "$newest" +%s) ) / 86400 ))
+              if [ "$age_days" -lt "${STALE_DAYS}" ]; then
+                echo "Commit published ${age_days}d ago (< ${STALE_DAYS}d): skipping"
+                build=false
+              fi
+            fi
+          fi
+          echo "build=${build}" >> "$GITHUB_OUTPUT"
+
   smoke:
+    # Fail-closed: an empty output (gate skipped or broken) keeps the build from running.
+    if: needs.changes.outputs.build == 'true'
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -37,7 +90,8 @@ jobs:
 
   # Publish on version tags only, gated by the smoke test.
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Event allow-list: a manual dispatch on a `v*` tag must not republish.
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs: smoke
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -82,3 +136,67 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # Publish a rolling `nightly` image from main, gated by the smoke test.
+  # `latest` stays reserved for stable releases.
+  nightly:
+    # Event allow-list: a new trigger must be added here explicitly, so publishing
+    # can never be enabled by accident. Manual dispatch only validates.
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')
+    needs: smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: write # Push the immutable nightly-<date>-<sha> tag.
+      packages: write # Push to ghcr.io with GITHUB_TOKEN.
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Computed once and shared by the image tag and the git marker below so
+      # they cannot diverge if the build spans a UTC midnight.
+      - name: Record nightly date
+        id: date
+        run: echo "date=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Extract image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=nightly
+            # Immutable tag so a build can be pinned and reproduced later.
+            type=raw,value=nightly-${{ steps.date.outputs.date }}-{{sha}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Same name as the immutable image tag; it doubles as the marker the gate
+      # reads, so publishing and bookkeeping can never diverge.
+      - name: Tag the published commit
+        run: |
+          tag="nightly-${{ steps.date.outputs.date }}-${GITHUB_SHA:0:7}"
+          git push origin "${GITHUB_SHA}:refs/tags/${tag}"
