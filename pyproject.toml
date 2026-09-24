@@ -27,6 +27,8 @@ dependencies = [
 [project.optional-dependencies]
 recipe = [
   "numpy",
+  "scikit-learn",
+  "scipy",
   "pandas",
   "plotly",
   "matplotlib",
