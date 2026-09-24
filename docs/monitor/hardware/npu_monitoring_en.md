@@ -106,4 +106,4 @@ rl-insight server targets add npu_targets.yaml
 
 `targets add` only registers targets and reloads Prometheus; it does not manage NPU Exporter. After registration, view NPU utilization, memory, power, temperature, and network throughput in the RL-Insight Grafana dashboards.
 
-![RL-Insight NPU hardware metrics](https://raw.githubusercontent.com/verl-project/rl-insight/main/assets/monitor/hardware/npu_metrics.png)
+![RL-Insight NPU hardware metrics](https://raw.githubusercontent.com/verl-project/rl-insight/v0.3.x/assets/monitor/hardware/npu_metrics.png)

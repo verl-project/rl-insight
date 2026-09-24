@@ -4,14 +4,14 @@
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/verl-project/rl-insight)
 [![GitHub Repo stars](https://img.shields.io/github/stars/verl-project/rl-insight)](https://github.com/verl-project/rl-insight/stargazers)
 [![Twitter](https://img.shields.io/twitter/follow/verl_project)](https://twitter.com/verl_project)
-[![Documentation](https://img.shields.io/badge/documentation-blue)](https://rl-insight.readthedocs.io/en/latest/)
+[![Documentation](https://img.shields.io/badge/documentation-blue)](https://rl-insight.readthedocs.io/en/v0.3.0/)
 
 </div>
 
 RL-Insight Recipe provides offline performance insight capabilities for RL training frameworks. It defines a general pipeline for parsing profiling data and rendering timeline, heatmap, and memory-analysis views.
 
 <div align="center">
- <img src="https://raw.githubusercontent.com/verl-project/rl-insight/main/assets/recipe/rl_insight_framework.svg" width="600" alt="rl-insight-arch">
+ <img src="https://raw.githubusercontent.com/verl-project/rl-insight/v0.3.x/assets/recipe/rl_insight_framework.svg" width="600" alt="rl-insight-arch">
 </div>
 
 ## Key Features
