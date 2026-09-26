@@ -22,6 +22,10 @@ dependencies = [
   "opentelemetry-exporter-otlp-proto-http",
   "pyyaml",
   "psutil",
+  # In-process Jsonnet evaluator used by rl_insight.grafana.renderer. rjsonnet
+  # publishes CPython ABI3 wheels for Windows, macOS and Linux, so no Jsonnet
+  # CLI, Go toolchain or compiler is required at install time.
+  "rjsonnet>=0.5.6",
 ]
 
 [project.optional-dependencies]
@@ -64,6 +68,7 @@ rl_insight = [
   "config/services/grafana/provisioning/dashboards/*.yml",
   "config/services/grafana/dashboards/*.json",
   "config/services/grafana/dashboards/*/*.json",
+  "config/services/grafana/jsonnet/framework/*.libsonnet",
 ]
 recipe = [
   "config/*.yaml",
