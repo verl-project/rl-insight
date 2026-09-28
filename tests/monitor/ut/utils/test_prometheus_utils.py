@@ -17,11 +17,13 @@
 from __future__ import annotations
 
 import multiprocessing
+from functools import partial
 from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 import yaml
+from prometheus_client import CollectorRegistry, Gauge, make_wsgi_app
 
 from rl_insight.utils import prometheus_utils as prometheus_module
 
@@ -67,6 +69,45 @@ def test_metric_registry_should_store_real_samples_when_all_metric_types_are_rec
     assert gauge["monitor_ut_reward"].value == 1.5
     assert histogram["monitor_ut_latency_count"].value == 1
     assert histogram["monitor_ut_latency_sum"].value == 12
+
+
+@pytest.mark.parametrize(
+    "accept",
+    [
+        "text/plain; version=0.0.4",
+        "application/openmetrics-text; version=1.0.0",
+    ],
+)
+def test_metric_registry_should_escape_names_for_legacy_scrapers(
+    monkeypatch: pytest.MonkeyPatch, accept: str
+) -> None:
+    collectors = CollectorRegistry()
+    monkeypatch.setattr(prometheus_module, "Gauge", partial(Gauge, registry=collectors))
+    registry = prometheus_module.MetricRegistry()
+    registry.value("train_loss", "Training loss", 0.5)
+    registry.value(
+        "val-aux_openai_gsm8k_reward_mean@1",
+        "Validation reward",
+        0.17,
+        labels={"dataset": "openai/gsm8k"},
+    )
+
+    start_response = MagicMock()
+    body = b"".join(
+        make_wsgi_app(collectors)(
+            {
+                "REQUEST_METHOD": "GET",
+                "PATH_INFO": "/metrics",
+                "QUERY_STRING": "",
+                "HTTP_ACCEPT": accept,
+            },
+            start_response,
+        )
+    ).decode()
+
+    assert start_response.call_args.args[0] == "200 OK"
+    assert "train_loss 0.5\n" in body
+    assert 'val_aux_openai_gsm8k_reward_mean_1{dataset="openai/gsm8k"} 0.17\n' in body
 
 
 def test_register_should_write_file_sd_targets_without_changing_main_config(

@@ -4,7 +4,7 @@ omegaconf
 fastapi
 uvicorn
 requests
-prometheus_client
+prometheus_client>=0.23.1
 opentelemetry-sdk
 opentelemetry-exporter-otlp-proto-http
 pyyaml
