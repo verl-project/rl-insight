@@ -48,6 +48,7 @@ class MonitorEnv:
     """Environment variable names used by trainer-side monitor config overrides."""
 
     SERVER_URL = "RL_INSIGHT_SERVER_URL"
+    SERVER_BACKEND = "RL_INSIGHT_SERVER_BACKEND"
 
 
 class MonitorDefaults:

@@ -378,3 +378,22 @@ def test_trace_span_and_trace_op_should_produce_same_event_shape(
     # the one intended difference is the compat-only segment marker
     assert decorator_event["attributes"]["monitor.trace_segment"] == "duration"
     assert "monitor.trace_segment" not in direct_event["attributes"]
+
+
+def test_init_without_config_should_use_backend_from_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    selected_backends: list[str] = []
+
+    def create_client(conf: Any) -> RecordingClient:
+        selected_backends.append(conf.server.backend)
+        return RecordingClient()
+
+    monkeypatch.setenv("RL_INSIGHT_SERVER_URL", "http://monitor:18080")
+    monkeypatch.setenv("RL_INSIGHT_SERVER_BACKEND", "custom")
+    monkeypatch.setattr(api, "create_monitor_client", create_client)
+
+    api.init()
+
+    assert selected_backends == ["custom"]
+    assert api._STATE.enabled is True

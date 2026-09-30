@@ -71,6 +71,8 @@ def load_monitor_config(
 
     if url := os.environ.get(MonitorEnv.SERVER_URL):
         merged.server.url = str(url).strip()
+    if backend := os.environ.get(MonitorEnv.SERVER_BACKEND, "").strip():
+        merged.server.backend = backend
     return merged
 
 

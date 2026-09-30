@@ -125,6 +125,7 @@ Useful environment variables:
 | Variable | Purpose |
 |---|---|
 | `RL_INSIGHT_SERVER_URL` | RL-Insight server URL, for example `http://<server-ip>:18080`. |
+| `RL_INSIGHT_SERVER_BACKEND` | Trainer-side monitor client backend (`server.backend`), for example `ray`. Also applies to worker processes that call `rl_insight.init()` without a config. |
 
 ## Recipe Offline Analysis
 
