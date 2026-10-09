@@ -20,6 +20,7 @@ For offline Recipe utilities, see the
 
    Quick Start <monitor/quick_start>
    Agent Loop Protocol <monitor/agent_loop_protocol>
+   Inference Trace RFC <monitor/inference_trace_rfc>
    Server Installation <monitor/server_installation>
    Data Directory Migration <monitor/data_migration>
    Hardware Monitoring <monitor/hardware/index>
