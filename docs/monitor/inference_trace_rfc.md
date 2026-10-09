@@ -1,189 +1,130 @@
-# RFC: Sentence-Level Inference Traces and Dashboard for verl
+# RFC: Sentence-Level Inference Tracing for RL Workloads
 
-- **Status:** Draft
-- **Owner:** RL-Insight maintainers
-- **Target release:** RL-Insight 0.3
-- **Related change:** [verl #8158](https://github.com/verl-project/verl/pull/8158)
+- Status: Draft
+- Scope: RL-Insight and its verl integration
+- Related implementation: https://github.com/verl-project/verl/pull/8158
 
-## Summary
+## Why this is needed
 
-verl #8158 adds the `actor_rollout_ref.rollout.trace.enable_otel` switch. When enabled, a rollout worker discovers the OTLP/HTTP endpoint from RL-Insight `GET /services` and exports vLLM (and, later, SGLang) request traces to Tempo. This answers which replica handled a request and how long it took, but it does not show what the model reasoned about in each sentence or which sentence caused a bad result.
+RL training dashboards show aggregate reward, throughput, token counts, and engine latency. Those aggregates are insufficient when a trajectory receives a bad reward or becomes unusually slow: an engineer cannot identify the turn, reasoning step, tool call, or answer sentence that caused the outcome.
 
-This RFC keeps the #8158 request-level trace compatible and adds **sentence-level inference traces**. Each generation is represented by a request span, with child spans for displayable sentences. RL-Insight defines the common attributes, sampling and redaction rules, and a Grafana dashboard that filters by project, experiment, step, replica, sample, session, trajectory, and turn. A user can drill down from a training step to one trajectory and expand every turn into reasoning, tool calls, and answer text.
+RL-Insight already stores OpenTelemetry traces and has an Agent Loop protocol, but the current integration does not provide a consistent sentence-level view for rollout inference. The missing capability is a shared identity and trace contract, a way to carry sentence text and timing safely, and a dashboard that connects a training step to the exact sentence.
 
-## Motivation and goals
+This is an RL-Insight observability RFC. verl #8158 is one implementation work item in the rollout-engine integration, not the motivation for the RFC.
 
-The current integration cannot reliably locate an anomalous sentence when reward, latency, length, or failure rate changes. Reasoning, tool calls, and the final answer are often captured as one text field, so they cannot be compared by turn or sentence.
+## Goals
 
-This RFC aims to:
+- Trace every displayable inference sentence under its request and turn.
+- Correlate a sentence with project, experiment, trainer step, replica, sample, session, trajectory, and turn.
+- Distinguish reasoning, tool call, tool result, and answer sentences.
+- Let users move from step to trajectory to turn to sentence in Grafana and Tempo.
+- Preserve training behavior when tracing is disabled, sampled, or unavailable.
+- Make text collection explicitly configurable and safe by default.
 
-- preserve the #8158 `enable_otel`, OTLP/HTTP, and resource-attribute behavior;
-- show sentence index, text, reasoning/answer type, timing, token counts, finish reason, and errors;
-- support drill-down from training step → sample/session → trajectory → turn → sentence;
-- use the same schema for streaming and non-streaming generation and for completions with or without `</think>`;
-- keep trace collection safe by default through text limits, redaction, and sampling.
+## Non-goals
 
-Token-level events, tokenizer implementation, reward calculation, and changes to the existing Prometheus or Agent Loop protocols are out of scope.
+- Token-level tracing or replacing engine profilers.
+- Reimplementing tokenization, reward computation, or agent semantics in RL-Insight.
+- Putting trace text into Prometheus labels.
+- Requiring all rollout engines to expose the same streaming API.
 
-## Compatibility with verl #8158
+## Proposed design
 
-The existing path is:
+### Trace hierarchy
 
-```text
-rollout worker
-  └─ RLInsightLogger.otlp_traces_endpoint()
-       └─ GET /services → otlp_port
-            └─ OTLP/HTTP /v1/traces → Tempo
-```
+Each generation has one request span and may have one turn span. The runtime emits one child span for each sentence or tool event:
 
-The worker sets `OTEL_RESOURCE_ATTRIBUTES=project=...,experiment_name=...,replica=...` and `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/protobuf`. This RFC does not change that path. Sentence spans use the same tracer, endpoint, and resource attributes and are children of the request span.
+    inference_request
+    +-- inference_turn
+        +-- inference_sentence (reasoning)
+        +-- inference_sentence (tool_call/tool_result)
+        +-- inference_sentence (answer)
 
-## Trace data protocol
+The spans use the existing OTLP/HTTP path and trace_span/OpenTelemetry plumbing. If parent context cannot cross an engine boundary, the same correlation attributes are copied to each span.
 
-### Span hierarchy
+### Identity and attributes
 
-```text
-inference_request                  # engine request; compatible with #8158
-└── inference_turn                 # one prompt → completion (optional)
-    ├── inference_sentence        # reasoning sentence
-    ├── inference_sentence        # tool call or result (optional)
-    └── inference_sentence        # answer sentence
-```
+Required attributes on sentence spans:
 
-If an engine cannot propagate a parent span, it must still emit request and sentence spans with the same correlation attributes.
+| Attribute | Meaning |
+| --- | --- |
+| monitor.trace_source | inference_sentence |
+| project, experiment_name, replica | Run and rollout identity |
+| global_steps | Numeric trainer step |
+| sample, session, traj, state_lane_id | Agent-loop correlation |
+| turn, sentence_index | Position within the trajectory |
+| sentence_type | reasoning, tool_call, tool_result, or answer |
+| status | success, failure, empty, or error |
 
-### Required attributes
+Optional attributes include text, text_hash, token counts and offsets, finish_reason, tool_name, tool_args, request_id, and error. global_steps remains numeric so exact dashboard filters work.
 
-| Attribute | Type | Description |
-| --- | --- | --- |
-| `monitor.trace_source` | string | `inference_request`, `inference_turn`, or `inference_sentence` |
-| `project`, `experiment_name`, `replica` | string | Same values as the #8158 resource attributes |
-| `global_steps` | int | Trainer step; omit when unavailable, never stringify it |
-| `sample`, `session`, `traj`, `state_lane_id` | string/int | Correlation keys aligned with `agent_loop_session` |
-| `turn` | int | Model turn, starting at 0 |
-| `sentence_index` | int | Sentence index within a turn, starting at 0 |
-| `sentence_type` | string | `reasoning`, `tool_call`, `tool_result`, or `answer` |
-| `status` | string | `success`, `failure`, `empty`, or `error` |
+For models using <think>, split at </think> before truncating or sentence segmentation. Without a closing tag, the completion is reasoning. The publisher must not emit a bare closing tag for an empty tool call. Sentence boundaries are supplied by the runtime: streaming runtimes can emit completed sentences, while non-streaming runtimes segment the completed output.
 
-### Optional attributes
+### Text policy
 
-`text`, `text_hash`, `prompt_tokens`, `completion_tokens`, `token_start`, `token_end`, `finish_reason`, `tool_name`, `tool_args`, `error`, `request_id`, `model`, and `temperature` are optional. Text attributes are capped by configuration. Reasoning and answer must be split before truncation.
+Add a process-level policy with three modes:
 
-The runtime owns sentence boundaries. A streaming runtime may commit a sentence when punctuation or a completion event arrives; a non-streaming runtime splits the completed output. For templates that prefill `<think>`, split at `</think>` before sentence segmentation. If the tag is missing, the entire completion is reasoning. An empty tool call must not be represented by a bare `</think>`.
+- off (default): keep timing, identity, status, and token metadata; optionally keep a hash.
+- redacted: collect text after removing configured secret and credential patterns.
+- full: collect text subject to a byte limit.
 
-Example:
+A per-worker and per-step span budget controls volume. Failed spans and a representative sample remain when the budget is exceeded. Truncated text carries text_truncated=true and text_hash. Export failure is a warning and never fails rollout.
 
-```json
-{
-  "name": "inference_sentence",
-  "parent": "inference_turn",
-  "attributes": {
-    "monitor.trace_source": "inference_sentence",
-    "project": "verl",
-    "experiment_name": "ppo_math",
-    "replica": "3",
-    "global_steps": 128,
-    "sample": "42",
-    "session": "0",
-    "traj": 1,
-    "state_lane_id": "experiment=ppo_math/sample=42/session=0/traj=1",
-    "turn": 2,
-    "sentence_index": 0,
-    "sentence_type": "reasoning",
-    "text": "First check the constraints.",
-    "completion_tokens": 8,
-    "status": "success"
-  }
-}
-```
+### Grafana dashboard
 
-## Dashboard design
+Add an inference_trace dashboard folder with variables for project, experiment, global step, replica, sample, session, trajectory, and turn. The dashboard contains:
 
-Add `rl_insight/config/services/grafana/dashboards/inference_trace/inference_trace.json` in a dedicated `inference_trace` folder. This avoids changing the existing verl dashboard UIDs and layouts.
+1. Step overview: request/sentence count, success rate, P50/P95 latency, and completion tokens.
+2. Sentence-type latency: reasoning, tool, and answer latency and token distributions.
+3. Trajectory table: reward, turn count, failed sentence count, and total duration.
+4. Turn timeline: sentence order and duration, colored by sentence type.
+5. Sentence details: text (when allowed), token counts, finish reason, tool arguments, error, and a Tempo link.
+6. Raw trace: the request/turn/sentence parent-child view in Tempo.
 
-Dashboard variables are `Project`, `Experiment`, `Global Step`, `Replica`, `Sample`, `Session`, `Traj`, and `Turn`. The default time range is the last 15 minutes; step and lane filters use exact matching.
+The queries use exact numeric step matching and state_lane_id for drill-down. Text is never a Prometheus label.
 
-Panels:
+## Work breakdown
 
-1. **Step Overview:** request count, sentence count, success rate, P50/P95 request latency, and average completion tokens.
-2. **Latency by sentence type:** P50/P95 latency and token distributions for reasoning, tool calls, and answers.
-3. **Trajectory table:** reward, turn count, failed sentence count, and total duration per trajectory; clicking a row sets `state_lane_id`.
-4. **Turn timeline:** sentences ordered by `turn` and `sentence_index`, colored by `sentence_type`, with failed spans highlighted.
-5. **Sentence detail:** text, duration, tokens, finish reason, tool arguments, and error, with a link to the Tempo trace.
-6. **Raw trace:** Grafana Tempo panel showing the request and sentence parent/child relationship.
+### 1. Protocol and API
 
-Recommended TraceQL shape:
+- Define span names, required attributes, sentence splitting rules, text policy, and limits in monitor documentation.
+- Add small helpers or validation around the existing trace_span path.
+- Define how missing identity fields and engine context are represented.
 
-```traceql
-{ span.monitor.trace_source = "inference_sentence"
-  && span.project = "${Project}"
-  && span.experiment_name = "${Experiment}"
-  && span.global_steps = ${GlobalStep}
-  && span.state_lane_id =~ "${Lane}" }
-| select(span.turn, span.sentence_index, span.sentence_type,
-         span.text, span.status, span.completion_tokens)
-```
+### 2. verl integration
 
-## Implementation plan
+- Use the rollout trace switch and OTLP endpoint discovery from verl #8158.
+- Create request/turn spans and sentence child spans in the rollout aggregation path.
+- Pass sample/session/trajectory/turn identity from the agent runtime.
+- Cover vLLM first, then SGLang and other engines.
+- Ensure tracing remains opt-in and never blocks generation.
 
-### RL-Insight
+### 3. RL-Insight backend and dashboard
 
-1. Keep this protocol in `docs/monitor` and provide the `inference_trace` dashboard JSON.
-2. Add validation, lane generation, and text truncation helpers for `inference_sentence` in `rl_insight.agent_loop`; reuse `trace_span` rather than adding a transport protocol.
-3. Add `RL_INSIGHT_TRACE_TEXT`: `off` (default, statistics and hash only), `redacted` (redacted text), and `full` (text within the configured limit).
-4. Add `RL_INSIGHT_TRACE_SAMPLE_RATE` and per-step/per-replica caps. Preserve failed sentences and random samples after the cap, and emit `trace.sampled_out=true` for dropped data.
-5. Add unit tests for attributes and Tempo queries, plus a monitor smoke test that emits one request and two sentence spans and verifies the parent relationship, numeric step, and TraceQL queryability.
+- Ship the Grafana dashboard JSON and provisioning entry.
+- Add Tempo query fixtures and dashboard variables.
+- Add text redaction, truncation, sampling, and rate-limit configuration.
+- Document storage impact and operational controls.
 
-### verl
+### 4. Testing and validation
 
-1. Keep `TraceConfig.enable_otel` defaulting to `false`.
-2. Create request and turn spans in the rollout engine adapter and pass sample/session/trajectory/turn identity into the common attributes.
-3. Split `</think>` and segment sentences in the completion aggregation layer. Streaming engines may send completed sentences early; non-streaming engines send them when the request finishes.
-4. Use OTEL span context for parent/child relationships; if context cannot be propagated, copy the correlation attributes.
-5. Document the switch, text policy, capacity estimate, and troubleshooting. Missing RL-Insight or an unavailable endpoint must never block rollout.
-
-### Failure and degradation
-
-- Export failures only produce a rate-limited warning and never fail generation.
-- A sentence export is not retried as a business request; `BatchSpanProcessor` flushes during process shutdown.
-- Missing sample/session/trajectory fields do not prevent request spans; the dashboard groups them as `unattributed`.
-- When text exceeds the limit, retain `text_hash`, `text_truncated=true`, token counts, and timing.
-
-## Performance and capacity
-
-The approximate span count is:
-
-```text
-steps × samples_per_step × trajectories × turns × sentences_per_turn
-```
-
-The initial recommendation is at most 32 sentence spans per turn, 2 KiB per text attribute, and 256 sentence spans per worker per step. Test exporter CPU, network bandwidth, Tempo WAL, and dashboard latency at 1k, 10k, and 100k spans per minute. When the budget is exceeded, lower sampling or disable `text` while retaining structured attributes.
-
-## Security and privacy
-
-Prompts, reasoning, tool arguments, and answers may contain user data, secrets, or training-set content. The default is `off`; the dashboard must still show timing and token statistics without body text. `redacted` must at least filter common token/key/password/header fields. Grafana and Tempo access continues to use deployment authentication and network isolation. Raw text must never be placed in Prometheus labels because of cardinality and data-spread risks.
+- Unit-test think-tag splitting, sentence indexing, missing identity, truncation, redaction, sampling, and numeric step typing.
+- Add an OTLP/Tempo integration test with one request, multiple sentence spans, and a verified parent relationship.
+- Add dashboard smoke coverage for step, lane, trajectory, and sentence queries.
+- Test streaming and non-streaming output, tool calls, empty output, missing closing tags, engine errors, OTLP failure, and process shutdown flush.
+- Run a volume test at 1k, 10k, and 100k spans per minute and record exporter, network, Tempo WAL, and query latency.
 
 ## Rollout and acceptance
 
-### Phase 1: protocol and minimal dashboard
+1. Merge the protocol and a fixture-backed dashboard.
+2. Integrate vLLM through the #8158 rollout trace path.
+3. Add production sampling/redaction and then other engines.
 
-- Merge this RFC, schema helpers, and the dashboard skeleton.
-- Use static `trace_span` fixtures to verify dashboard variables, trajectory drill-down, and Tempo detail.
-
-### Phase 2: vLLM integration
-
-- Build request/turn/sentence spans on top of #8158.
-- Cover streaming, non-streaming, tool calls, missing `</think>`, and failed requests.
-
-### Phase 3: productionization
-
-- Add SGLang and other engines, then complete sampling, redaction, capacity testing, and operational documentation.
-
-Acceptance criteria: with `enable_otel=true`, one training step appears in the dashboard within 30 seconds; a user can locate a turn and sentence from a trajectory; Tempo shows the sentence under its request parent; training completes when OTEL is disabled or Tempo is unavailable; and the default configuration does not upload body text.
+The feature is accepted when a trace-enabled step appears in the dashboard within 30 seconds, a user can drill from trajectory to sentence, Tempo shows the correct parent chain, sentence text follows the selected policy, and training completes when tracing is disabled or the endpoint is unavailable.
 
 ## Open questions
 
-1. Should the default move from `off` to `redacted` after data-governance review?
-2. Should sentence splitting use each engine's streaming punctuation rules or a replaceable splitter interface supplied by verl?
-3. When sample/session/trajectory fields are missing, should the rollout worker generate a request-scoped fallback ID?
+1. Should redacted become the default after a data-governance review?
+2. Should sentence segmentation be an engine-provided callback or a replaceable verl interface?
+3. Should missing sample/session/trajectory identity receive a request-scoped fallback ID?
 
