@@ -1,130 +1,71 @@
-# RFC: Sentence-Level Inference Tracing for RL Workloads
+# RFC: Inference-Engine Tracing for verl Rollouts
 
 - Status: Draft
-- Scope: RL-Insight and its verl integration
-- Related implementation: https://github.com/verl-project/verl/pull/8158
+- Scope: RL-Insight dashboards and the verl integration
+- Related implementation: verl PR #8158
 
-## Why this is needed
+## Why
 
-RL training dashboards show aggregate reward, throughput, token counts, and engine latency. Those aggregates are insufficient when a trajectory receives a bad reward or becomes unusually slow: an engineer cannot identify the turn, reasoning step, tool call, or answer sentence that caused the outcome.
+RL-Insight currently shows rollout throughput and aggregate training metrics, but an engineer cannot inspect the latency of one inference in a trajectory. For reasoning workloads, the useful unit is the model turn/sentence: which request waited in the scheduler, how long prefill took, when the first token arrived, how expensive decode was, and whether the request failed.
 
-RL-Insight already stores OpenTelemetry traces and has an Agent Loop protocol, but the current integration does not provide a consistent sentence-level view for rollout inference. The missing capability is a shared identity and trace contract, a way to carry sentence text and timing safely, and a dashboard that connects a training step to the exact sentence.
+The rollout engine already measures most of this. We should export and visualize the engine trace instead of adding a second tracing implementation in RL-Insight.
 
-This is an RL-Insight observability RFC. verl #8158 is one implementation work item in the rollout-engine integration, not the motivation for the RFC.
+## What the engine can trace
 
-## Goals
+With vLLM OpenTelemetry tracing, a request can expose the following timings and request fields:
 
-- Trace every displayable inference sentence under its request and turn.
-- Correlate a sentence with project, experiment, trainer step, replica, sample, session, trajectory, and turn.
-- Distinguish reasoning, tool call, tool result, and answer sentences.
-- Let users move from step to trajectory to turn to sentence in Grafana and Tempo.
-- Preserve training behavior when tracing is disabled, sampled, or unavailable.
-- Make text collection explicitly configurable and safe by default.
-
-## Non-goals
-
-- Token-level tracing or replacing engine profilers.
-- Reimplementing tokenization, reward computation, or agent semantics in RL-Insight.
-- Putting trace text into Prometheus labels.
-- Requiring all rollout engines to expose the same streaming API.
-
-## Proposed design
-
-### Trace hierarchy
-
-Each generation has one request span and may have one turn span. The runtime emits one child span for each sentence or tool event:
-
-    inference_request
-    +-- inference_turn
-        +-- inference_sentence (reasoning)
-        +-- inference_sentence (tool_call/tool_result)
-        +-- inference_sentence (answer)
-
-The spans use the existing OTLP/HTTP path and trace_span/OpenTelemetry plumbing. If parent context cannot cross an engine boundary, the same correlation attributes are copied to each span.
-
-### Identity and attributes
-
-Required attributes on sentence spans:
-
-| Attribute | Meaning |
+| Timing | Meaning |
 | --- | --- |
-| monitor.trace_source | inference_sentence |
-| project, experiment_name, replica | Run and rollout identity |
-| global_steps | Numeric trainer step |
-| sample, session, traj, state_lane_id | Agent-loop correlation |
-| turn, sentence_index | Position within the trajectory |
-| sentence_type | reasoning, tool_call, tool_result, or answer |
-| status | success, failure, empty, or error |
+| request duration | End-to-end request time |
+| time in scheduler | Time waiting/being scheduled |
+| time to first token (TTFT) | Request start to first generated token |
+| time in model forward | Model forward-pass time while the request is batched |
+| time in model execute | Forward, worker synchronization, CPU/GPU synchronization, and sampling |
+| decode time / time per output token | Generation/decode phase and its per-token cost |
+| queue or waiting time | Time before execution begins, when provided by the engine version |
 
-Optional attributes include text, text_hash, token counts and offsets, finish_reason, tool_name, tool_args, request_id, and error. global_steps remains numeric so exact dashboard filters work.
+The trace also carries request id, model, prompt/completion token counts, finish reason, and replica resource attributes. Detailed model/worker timings are enabled by the engine's detailed-trace option and have measurable overhead. The exact fields vary by vLLM/SGLang version; RL-Insight must preserve unknown attributes rather than rename or reinterpret them.
 
-For models using <think>, split at </think> before truncating or sentence segmentation. Without a closing tag, the completion is reasoning. The publisher must not emit a bare closing tag for an empty tool call. Sentence boundaries are supplied by the runtime: streaming runtimes can emit completed sentences, while non-streaming runtimes segment the completed output.
+These are request/turn timings. The engine does not natively create one OpenTelemetry span for every natural-language sentence. Sentence-level display therefore uses the rollout runtime's turn/sentence metadata to group an engine request, while the timing remains the engine's request or token timing. If streaming token timestamps are available, RL-Insight can derive sentence start/end at punctuation boundaries; otherwise the dashboard shows turn-level engine timing and sentence text without inventing sentence latency.
 
-### Text policy
+## Proposal
 
-Add a process-level policy with three modes:
+1. **Enable the engine trace.** Keep the existing opt-in switch in verl, discover RL-Insight's OTLP/HTTP endpoint from GET /services, and pass the endpoint and resource attributes to each rollout replica. This is the integration work in PR #8158.
+2. **Preserve engine data.** RL-Insight accepts the engine span and stores its native timing attributes in Tempo. Common correlation attributes are added by the rollout adapter: project, experiment, global step, replica, sample, session, trajectory, turn, and request id.
+3. **Attach turn/sentence context.** The rollout adapter attaches the generated turn and sentence index/type as attributes or span events. It does not create a synthetic timing span. Text collection is configurable and capped; the default can keep metadata and token counts without storing text.
+4. **Add a dashboard.** Grafana filters by project, experiment, step, replica, sample, session, trajectory, and turn. It shows request duration, scheduler wait, TTFT, prefill/model-forward, model-execute, decode, tokens, finish reason, and error. A trajectory table links each turn/sentence row to its Tempo trace.
+5. **Version compatibility.** Use an allowlist only for dashboard calculations; display other native attributes in the raw trace. Add adapters when vLLM/SGLang names or units differ.
 
-- off (default): keep timing, identity, status, and token metadata; optionally keep a hash.
-- redacted: collect text after removing configured secret and credential patterns.
-- full: collect text subject to a byte limit.
+## Work items
 
-A per-worker and per-step span budget controls volume. Failed spans and a representative sample remain when the budget is exceeded. Truncated text carries text_truncated=true and text_hash. Export failure is a warning and never fails rollout.
+### verl integration
 
-### Grafana dashboard
+- Land the OTLP endpoint discovery and enable_otel configuration from PR #8158.
+- Pass RL identity and turn/sentence context into the engine request.
+- Enable detailed engine timing only through an explicit configuration because of overhead.
+- Verify vLLM first, then add the equivalent SGLang mapping.
 
-Add an inference_trace dashboard folder with variables for project, experiment, global step, replica, sample, session, trajectory, and turn. The dashboard contains:
+### RL-Insight
 
-1. Step overview: request/sentence count, success rate, P50/P95 latency, and completion tokens.
-2. Sentence-type latency: reasoning, tool, and answer latency and token distributions.
-3. Trajectory table: reward, turn count, failed sentence count, and total duration.
-4. Turn timeline: sentence order and duration, colored by sentence type.
-5. Sentence details: text (when allowed), token counts, finish reason, tool arguments, error, and a Tempo link.
-6. Raw trace: the request/turn/sentence parent-child view in Tempo.
+- Define the minimal correlation schema and unit conventions.
+- Keep native engine attributes in Tempo and avoid copying them into Prometheus labels.
+- Add the inference-trace Grafana dashboard and Tempo links.
+- Add text policy, length limits, sampling, and redaction controls.
+- Document which fields are available for each engine/version.
 
-The queries use exact numeric step matching and state_lane_id for drill-down. Text is never a Prometheus label.
+### Testing
 
-## Work breakdown
+- Unit-test correlation attributes, numeric global step, missing identity, text limits, and unit conversion.
+- Send a fixture request span containing scheduler, TTFT, forward, execute, and decode timings; verify Tempo search and raw attribute preservation.
+- Add an end-to-end test with a real or mocked vLLM OTLP exporter and one rollout trajectory; verify replica/step/turn filters and the Tempo link.
+- Test detailed tracing on/off, streaming and non-streaming generation, tool calls, failed requests, missing timing fields, exporter failure, and shutdown flush.
+- Run an overhead test comparing throughput and latency with detailed tracing disabled and enabled.
 
-### 1. Protocol and API
+## Acceptance criteria
 
-- Define span names, required attributes, sentence splitting rules, text policy, and limits in monitor documentation.
-- Add small helpers or validation around the existing trace_span path.
-- Define how missing identity fields and engine context are represented.
-
-### 2. verl integration
-
-- Use the rollout trace switch and OTLP endpoint discovery from verl #8158.
-- Create request/turn spans and sentence child spans in the rollout aggregation path.
-- Pass sample/session/trajectory/turn identity from the agent runtime.
-- Cover vLLM first, then SGLang and other engines.
-- Ensure tracing remains opt-in and never blocks generation.
-
-### 3. RL-Insight backend and dashboard
-
-- Ship the Grafana dashboard JSON and provisioning entry.
-- Add Tempo query fixtures and dashboard variables.
-- Add text redaction, truncation, sampling, and rate-limit configuration.
-- Document storage impact and operational controls.
-
-### 4. Testing and validation
-
-- Unit-test think-tag splitting, sentence indexing, missing identity, truncation, redaction, sampling, and numeric step typing.
-- Add an OTLP/Tempo integration test with one request, multiple sentence spans, and a verified parent relationship.
-- Add dashboard smoke coverage for step, lane, trajectory, and sentence queries.
-- Test streaming and non-streaming output, tool calls, empty output, missing closing tags, engine errors, OTLP failure, and process shutdown flush.
-- Run a volume test at 1k, 10k, and 100k spans per minute and record exporter, network, Tempo WAL, and query latency.
-
-## Rollout and acceptance
-
-1. Merge the protocol and a fixture-backed dashboard.
-2. Integrate vLLM through the #8158 rollout trace path.
-3. Add production sampling/redaction and then other engines.
-
-The feature is accepted when a trace-enabled step appears in the dashboard within 30 seconds, a user can drill from trajectory to sentence, Tempo shows the correct parent chain, sentence text follows the selected policy, and training completes when tracing is disabled or the endpoint is unavailable.
-
-## Open questions
-
-1. Should redacted become the default after a data-governance review?
-2. Should sentence segmentation be an engine-provided callback or a replaceable verl interface?
-3. Should missing sample/session/trajectory identity receive a request-scoped fallback ID?
+- With enable_otel enabled, an inference request appears in Tempo with its native timing fields and RL correlation attributes.
+- The dashboard can locate a turn from step, replica, and trajectory filters and links to the raw trace.
+- Scheduler wait, TTFT, prefill/forward, execute, decode, end-to-end latency, token counts, and finish reason are visible when the engine supplies them.
+- Missing fields are shown as unavailable; no value is fabricated as a sentence latency.
+- Tracing is opt-in and a missing or unavailable OTLP endpoint never blocks rollout.
 
