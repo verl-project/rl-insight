@@ -35,6 +35,18 @@ class MonitorPaths:
     GRAFANA_CONFIG_FILE = SERVICES_DIR / "grafana" / "grafana.ini"
     GRAFANA_PROVISIONING_DIR = SERVICES_DIR / "grafana" / "provisioning"
     GRAFANA_DASHBOARDS_DIR = SERVICES_DIR / "grafana" / "dashboards"
+    #: Production Jsonnet sources shipped inside the installed package. The
+    #: runtime renders :data:`GRAFANA_JSONNET_ENTRYPOINT` at startup and adds
+    #: the rendered dashboards beside the committed static JSON under
+    #: :data:`GRAFANA_DASHBOARDS_DIR`, so a Grafana folder holds both a bundled
+    #: static dashboard and its startup-generated ``_jsonnet`` counterpart.
+    GRAFANA_JSONNET_DIR = SERVICES_DIR / "grafana" / "jsonnet"
+    GRAFANA_JSONNET_ENTRYPOINT = GRAFANA_JSONNET_DIR / "dashboards.jsonnet"
+    #: Grafana folder the rendered compositions are written into. The runtime
+    #: renders into the same folder the bundled static dashboards have always
+    #: used, so the folder structure Grafana shows does not change.
+    GRAFANA_JSONNET_OUTPUT_SUBDIR = "verl"
+    GRAFANA_JSONNET_OUTPUT_DIR = GRAFANA_DASHBOARDS_DIR / GRAFANA_JSONNET_OUTPUT_SUBDIR
 
 
 class MonitorRayActor:
