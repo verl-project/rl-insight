@@ -42,6 +42,12 @@ grafana:
   port: 3000
   config_file: ${service_root}/services/grafana/grafana.ini
   provisioning_dir: ${service_root}/services/grafana/provisioning
+  # Explicit Jsonnet composition config rendered at startup. Empty (the
+  # default) renders the Jsonnet entrypoint bundled in the installed package.
+  # An unreadable path or a Jsonnet error stops startup before Grafana runs.
+  dashboard_config: ""
+  # Legacy static directory. Copying it is only used when it points somewhere
+  # other than the bundled defaults, and then it replaces the built-in render.
   dashboards_dir: ${service_root}/services/grafana/dashboards
 
 
