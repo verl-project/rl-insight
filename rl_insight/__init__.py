@@ -53,6 +53,8 @@ __version__ = _get_version()
 _EXPORTS = {
     "agent_loop_session": ".agent_loop",
     "finish": ".api",
+    "get_context": ".api",
+    "RunContext": ".protocol",
     "init": ".api",
     "metric_count": ".api",
     "metric_gauge": ".api",
@@ -61,6 +63,9 @@ _EXPORTS = {
     "trace_span": ".api",
     "trace_state": ".api",
     "update_prometheus_config": ".utils",
+    "metrics_wsgi_app": ".utils.prometheus_utils",
+    "metrics_asgi_app": ".utils.prometheus_utils",
+    "publish_metrics_endpoint": ".utils.prometheus_utils",
 }
 
 __all__ = list(_EXPORTS) + ["__version__"]

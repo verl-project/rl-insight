@@ -67,8 +67,10 @@ def test_init_push_without_server_url_is_enabled(
     assert "store root.trainer.reward_mean=0.9" in caplog.text
 
 
+@pytest.mark.parametrize("flush_fails", [False, True])
 def test_init_push_registers_rollout_targets_and_finish_releases(
     monkeypatch: pytest.MonkeyPatch,
+    flush_fails: bool,
 ) -> None:
     sinks: list[Any] = []
     module = types.ModuleType("fake_e2e_sink_mod")
@@ -123,6 +125,13 @@ def test_init_push_registers_rollout_targets_and_finish_releases(
 
     assert api._STATE.enabled is True
     assert poller_module.get_active_registry() is not None
+
+    if flush_fails:
+
+        def fail_flush():
+            raise RuntimeError("flush unavailable")
+
+        monkeypatch.setattr(api._STATE.client, "flush", fail_flush)
 
     api.finish()
 

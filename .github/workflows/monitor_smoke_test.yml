@@ -140,6 +140,10 @@ jobs:
           pytest -s -v \
             tests/monitor/special_e2e/test_external_dashboard.py::test_removed_external_dashboard_should_disappear
 
+      - name: Show server log on failure
+        if: failure()
+        run: tail -n 150 ~/.rl-insight/services/logs/rl-insight-server.log || true
+
       - name: Stop server stack
         if: always()
         run: |

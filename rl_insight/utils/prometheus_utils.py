@@ -20,11 +20,14 @@ import logging
 import os
 import sys
 import threading
+import time
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
+from ..protocol import RunContext, proof_headers, endpoint_description
 
 import requests
 import yaml
@@ -43,6 +46,39 @@ from .constants import (
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.WARNING)
 
+_pending_targets: list[
+    tuple[list[str], str | None, list[Mapping[str, Any] | None] | None]
+] = []
+_pending_lock = threading.Lock()
+_pending_probe: threading.Thread | None = None
+
+
+def _wait_for_context() -> None:
+    """One bounded probe for native-only workers whose logger starts later."""
+    from ..client.ray_monitor_client import current_job_context
+
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        with _pending_lock:
+            if not _pending_targets:
+                return
+        context = current_job_context()
+        if context:
+            flush_pending_targets(context)
+            return
+        time.sleep(0.1)
+    logger.warning(
+        "Native metric targets remain unbound: Run initialization was not observed"
+    )
+
+
+def flush_pending_targets(context: RunContext | None) -> None:
+    with _pending_lock:
+        pending = list(_pending_targets)
+        _pending_targets.clear()
+    for addresses, job, labels in pending:
+        update_prometheus_config(addresses, job, labels, context=context)
+
 
 __all__ = [
     "MetricRegistry",
@@ -50,6 +86,9 @@ __all__ = [
     "PrometheusTargetStore",
     "start_metrics_http_server",
     "update_prometheus_config",
+    "metrics_wsgi_app",
+    "metrics_asgi_app",
+    "publish_metrics_endpoint",
 ]
 
 
@@ -195,6 +234,35 @@ class PrometheusTargetStore:
                 target_map[(stored_job, str(target))] = dict(labels)
         return target_map
 
+    def project_runs(self, endpoints, server_address, ended_runs=()):
+        """Project active Runs and remove their managed direct targets under one lock."""
+        from urllib.parse import urlsplit
+
+        with self._lock, self._file_lock():
+            direct = self._read_targets()
+            addresses = {urlsplit(item["metrics_url"]).netloc for item in endpoints}
+            direct = {
+                key: labels
+                for key, labels in direct.items()
+                if key[1] not in addresses and labels.get("run_id") not in ended_runs
+            }
+            self._write_targets(direct)
+            runs = sorted({item["run_id"] for item in endpoints})
+            path = self.targets_file.with_name("run-targets.yml")
+            temporary = path.with_suffix(".yml.tmp")
+            payload = [
+                {
+                    "targets": [server_address],
+                    "labels": {
+                        "run_id": run_id,
+                        "__metrics_path__": "/api/v1/runs/" + run_id + "/metrics",
+                    },
+                }
+                for run_id in runs
+            ]
+            temporary.write_text(yaml.safe_dump(payload), encoding="utf-8")
+            os.replace(temporary, path)
+
     def reload(self) -> bool:
         url = (
             "http://"
@@ -228,15 +296,162 @@ def _merge_labels(
     return out
 
 
-def start_metrics_http_server(port: int, addr: str = "") -> None:
-    """Start a background thread serving ``/metrics`` via ``prometheus_client``.
+def metrics_wsgi_app(app, context: RunContext, incarnation: str):
+    """Wrap a standard WSGI application with a stable exporter response identity."""
+    headers = proof_headers(context, incarnation)
 
-    Args:
-        port: TCP port to listen on.
-        addr: Bind address; empty may mean all interfaces depending on library defaults.
-    """
+    def wrapped(environ, start_response):
+        def respond(status, supplied, exc_info=None):
+            clean = [
+                (k, v)
+                for k, v in supplied
+                if k.lower() not in {key.lower() for key in headers}
+            ]
+            return start_response(status, clean + list(headers.items()), exc_info)
+
+        return app(environ, respond)
+
+    return wrapped
+
+
+def metrics_asgi_app(app, context: RunContext, incarnation: str):
+    """Wrap the public ASGI response boundary; no framework objects are inspected."""
+    headers = [
+        (key.lower().encode(), value.encode())
+        for key, value in proof_headers(context, incarnation).items()
+    ]
+
+    async def wrapped(scope, receive, send):
+        async def respond(message):
+            if message["type"] == "http.response.start":
+                message = dict(message)
+                message["headers"] = [
+                    (k, v)
+                    for k, v in message.get("headers", [])
+                    if k.lower() not in {key for key, _ in headers}
+                ] + headers
+            await send(message)
+
+        await app(scope, receive, respond)
+
+    return wrapped
+
+
+class EndpointPublisher:
+    """Own one endpoint lease and re-register it after server recovery."""
+
+    def __init__(self, context, description, *, alive=None):
+        self.context = context
+        self.description = endpoint_description(context, description)
+        self._root = (
+            context.server_url + "/api/v1/runs/" + context.run_id + "/endpoints"
+        )
+        self._alive = alive or (lambda: True)
+        self._stop = threading.Event()
+        self._session = requests.Session()
+        self._session.trust_env = False
+        self._lease = None
+        try:
+            self._register()
+        except Exception:
+            self._session.close()
+            raise
+        self._thread = threading.Thread(
+            target=self._renew, name="insight-endpoint", daemon=True
+        )
+        self._thread.start()
+
+    def _register(self):
+        response = self._session.post(self._root, json=self.description, timeout=(2, 4))
+        response.raise_for_status()
+        lease = response.json()
+        self._lease = lease["lease_id"]
+        self._interval = max(0.25, lease["ttl"] / 3)
+        self.description["labels"] = lease["labels"]
+
+    def _renew(self):
+        while not self._stop.wait(self._interval) and self._alive():
+            try:
+                response = self._session.post(
+                    self._root + "/" + self._lease, timeout=(2, 4)
+                )
+                if response.status_code == 409:
+                    self._register()
+                else:
+                    response.raise_for_status()
+                    self.description["labels"] = response.json()["labels"]
+            except requests.RequestException as exc:
+                if getattr(exc.response, "status_code", None) == 409:
+                    logger.warning("Endpoint publication stopped: %s", exc)
+                    break
+                logger.warning("Endpoint renewal failed; will retry: %s", exc)
+
+    def close(self):
+        self._stop.set()
+        self._thread.join(7)
+        if self._thread.is_alive():
+            logger.warning("Endpoint renewal did not stop within its budget")
+            return
+        try:
+            if self._lease:
+                response = self._session.delete(
+                    self._root + "/" + self._lease, timeout=(2, 3)
+                )
+                response.raise_for_status()
+        except requests.RequestException:
+            logger.warning("Endpoint revocation failed; lease will expire")
+        finally:
+            self._session.close()
+
+
+def publish_metrics_endpoint(
+    context: RunContext,
+    metrics_url: str,
+    *,
+    component: str,
+    instance: str,
+    incarnation: str,
+    labels=None,
+    alive=None,
+):
+    """Publish a bound, proof-wrapped endpoint; retain the handle until shutdown."""
+    return EndpointPublisher(
+        context,
+        {
+            "metrics_url": metrics_url,
+            "component": component,
+            "instance": instance,
+            "incarnation": incarnation,
+            "labels": labels or {},
+        },
+        alive=alive,
+    )
+
+
+def start_metrics_http_server(
+    port: int, addr: str = "", *, context: RunContext | None = None
+):
+    """Bind once and return the actual HTTP server/thread; port 0 allocates a port."""
     addr = addr.strip("[]") if addr else addr
-    start_http_server(port, addr=addr)
+    server, thread = start_http_server(port, addr=addr)
+    if context:
+        incarnation = uuid4().hex
+        server.set_app(metrics_wsgi_app(server.get_app(), context, incarnation))
+        try:
+            server.publisher = publish_metrics_endpoint(
+                context,
+                "http://" + format_host_port(addr, server.server_port) + "/metrics",
+                component="hub",
+                instance="hub",
+                incarnation=incarnation,
+                labels={"job": PrometheusScrape.TRAINER_METRICS_JOB},
+                alive=thread.is_alive,
+            )
+        except Exception:
+            server.shutdown()
+            server.server_close()
+            raise
+    return server, thread
 
 
 class MetricRegistry:
@@ -404,6 +619,9 @@ def update_prometheus_config(
     server_addresses: list[str],
     job_name: str | None = None,
     labels: list[Mapping[str, Any] | None] | None = None,
+    *,
+    context: RunContext | None = None,
+    identity_in_metrics: bool = False,
 ) -> None:
     """Register trainer metrics endpoints with the RL-Insight server.
 
@@ -419,6 +637,7 @@ def update_prometheus_config(
         labels: Optional per-target labels. When provided, its length must match
             ``server_addresses``.
     """
+    global _pending_probe
     if not server_addresses:
         logger.warning("[rl-insight] No server addresses available to register")
         return
@@ -428,16 +647,11 @@ def update_prometheus_config(
             f"{len(labels)} != {len(server_addresses)}"
         )
 
-    # Push backend: no external RL-Insight server is involved. Register targets
-    # in-process so the local rollout poller scrapes them directly.
+    # Push targets stay local and do not require a server or RunContext.
     from ..client.push.poller import get_active_registry
 
     registry = get_active_registry()
     if registry is None:
-        # Targets may be registered from a Ray actor process that never called
-        # rl_insight.init() (e.g. the verl colocated rollout actor). For the
-        # direct-emit push backend the client is self-contained, so lazily start
-        # it in this process once; its poller owns the scrape target registry.
         registry = _bootstrap_push_registry()
     if registry is not None:
         registry.set_targets(server_addresses, labels)
@@ -447,7 +661,17 @@ def update_prometheus_config(
         )
         return
 
-    base_url = str(os.environ.get(MonitorEnv.SERVER_URL, "")).strip().rstrip("/")
+    initialized = True
+    if context is None:
+        from ..api import get_context, _client_initialized
+
+        context = get_context()
+        initialized = _client_initialized()
+    base_url = (
+        context.server_url
+        if context
+        else str(os.environ.get(MonitorEnv.SERVER_URL, "")).strip().rstrip("/")
+    )
     if not base_url:
         logger.error(
             "[rl-insight] RL-Insight server URL is required; "
@@ -456,10 +680,47 @@ def update_prometheus_config(
         )
         return
 
-    payload = {
+    if context is None:
+        if not initialized:
+            from ..server.http_api import get_server_services
+
+            if get_server_services().get("run_context_version") == 1:
+                # Wait for logger initialization; never create a Run from an address.
+                from ..client.ray_monitor_client import current_job_context
+
+                context = current_job_context()
+                item: tuple[
+                    list[str], str | None, list[Mapping[str, Any] | None] | None
+                ] = (
+                    list(server_addresses),
+                    job_name,
+                    [dict(x) if x else None for x in labels] if labels else None,
+                )
+                if context is None:
+                    with _pending_lock:
+                        if item not in _pending_targets:
+                            if len(_pending_targets) >= 64:
+                                raise ValueError(
+                                    "Too many targets waiting for Run initialization"
+                                )
+                            _pending_targets.append(item)
+                        if _pending_probe is None or not _pending_probe.is_alive():
+                            _pending_probe = threading.Thread(
+                                target=_wait_for_context,
+                                name="insight-context",
+                                daemon=True,
+                            )
+                            _pending_probe.start()
+                    return
+
+    payload: dict[str, Any] = {
         "job_name": job_name or PrometheusScrape.TRAINER_METRICS_JOB,
         "targets": _build_target_payload(server_addresses, labels),
     }
+    if context:
+        base_url = context.server_url
+        payload["run_context"] = context.to_dict()
+        payload["identity_in_metrics"] = identity_in_metrics
     url = f"{base_url}/api/v1/prometheus/targets"
     try:
         response = requests.post(url, json=payload, timeout=10)

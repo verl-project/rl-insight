@@ -162,3 +162,18 @@ def test_get_status_should_describe_endpoint_when_hub_is_initialized(hub: Any) -
         "otel_traces_enabled": True,
         "events_applied": 4,
     }
+
+
+def test_end_run_releases_local_endpoint_even_when_server_is_unavailable(hub):
+    hub._owner_token = "owner"
+    hub._closed = False
+    hub._owner_request = MagicMock(side_effect=RuntimeError("server offline"))
+    hub._metrics_server = MagicMock()
+    with pytest.raises(RuntimeError, match="server offline"):
+        hub.end_run("owner")
+    assert hub._closed and hub._closing
+    hub._metrics_server.publisher.close.assert_called_once()
+    hub._metrics_server.shutdown.assert_called_once()
+    hub._metrics_server.server_close.assert_called_once()
+    with pytest.raises(ValueError, match="closing"):
+        hub.apply_event({"kind": "gauge"})
