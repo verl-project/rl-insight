@@ -30,6 +30,7 @@ from typing import Any, Callable, Generator, Mapping
 from omegaconf import DictConfig, OmegaConf
 
 from .client import create_monitor_client
+from .protocol import RunContext, RunError
 from .utils.monitor_config_loader import load_monitor_config
 from .utils import MonitorBackend, MonitorEventKind
 
@@ -38,6 +39,7 @@ logger.setLevel(logging.WARNING)
 
 __all__ = [
     "finish",
+    "get_context",
     "init",
     "metric_count",
     "metric_gauge",
@@ -67,6 +69,7 @@ class _MonitorState:
     namespace: str = ""
     process_id: str = field(default_factory=lambda: str(os.getpid()))
     labels: dict[str, Any] = field(default_factory=dict)
+    context: RunContext | None = None
 
 
 _STATE = _MonitorState()
@@ -108,7 +111,22 @@ def init(
             "or server.url in init config."
         )
         return
+    OmegaConf.update(
+        monitor_conf,
+        "run_metadata",
+        {
+            "project": project or "uncategorized",
+            "experiment_name": experiment_name or "unnamed",
+        },
+        force_add=True,
+    )
     client = create_monitor_client(monitor_conf)
+    context = getattr(client, "get_context", lambda: None)() if client else None
+    if context and (
+        (project and project != context.project)
+        or (experiment_name and experiment_name != context.experiment_name)
+    ):
+        raise RunError("Experiment metadata conflicts with the existing Run")
     labels = {
         key: value
         for key, value in {
@@ -123,25 +141,41 @@ def init(
         conf=monitor_conf,
         namespace=str(monitor_conf.server.namespace),
         labels=labels,
+        context=context,
     )
+    if client:
+        from .utils.prometheus_utils import flush_pending_targets
+
+        flush_pending_targets(context)
+
+
+def get_context() -> RunContext | None:
+    """Return the current immutable identity, if supported by the client."""
+    return _STATE.context
+
+
+def _client_initialized() -> bool:
+    return _STATE.enabled
 
 
 def finish() -> None:
-    """Clear in-process monitor state so further emits are no-ops.
-
-    Asks the active client to release resources (stop pollers, flush sinks)
-    when it supports ``close``. Does not stop the hub HTTP server or kill the
-    detached Ray actor.
-    """
+    """Flush pending data, release client resources, then disable local emits."""
     global _STATE
     client = _STATE.client
-    if client is not None and hasattr(client, "close"):
-        try:
-            client.close()
-        except Exception:  # noqa: BLE001 - shutdown must never raise
-            logger.debug("[rl-insight] client.close() failed", exc_info=True)
-    _STATE = _MonitorState()
-    _LANES.clear()
+    try:
+        flush = getattr(client, "flush", None)
+        if flush is not None:
+            flush()
+    except Exception:
+        logger.exception("[rl-insight] Could not flush monitor data before finish")
+    finally:
+        if client is not None and hasattr(client, "close"):
+            try:
+                client.close()
+            except Exception:  # noqa: BLE001 - shutdown must never raise
+                logger.debug("[rl-insight] client.close() failed", exc_info=True)
+        _STATE = _MonitorState()
+        _LANES.clear()
 
 
 def metric_count(
@@ -474,7 +508,11 @@ def _emit(
         "name": name,
         "documentation": documentation,
         "value": value,
-        "labels": {**_STATE.labels, **labels},
+        "labels": (
+            _STATE.context.labels({**_STATE.labels, **labels})
+            if _STATE.context
+            else {**_STATE.labels, **labels}
+        ),
     }
     _STATE.client.apply_event(event)
 
@@ -502,6 +540,9 @@ def _emit_trace_span(
         **_STATE.labels,
     }
     merged_attributes.update(attributes)
+    if _STATE.context:
+        _STATE.context.labels(merged_attributes)  # Validate reserved identity aliases.
+        merged_attributes["rl_insight.run_id"] = _STATE.context.run_id
 
     event = {
         "kind": MonitorEventKind.TRACE,

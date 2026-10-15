@@ -20,11 +20,13 @@ import logging
 import os
 import sys
 import threading
+import time
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from ..protocol import RunContext
 
 import requests
 import yaml
@@ -42,6 +44,40 @@ from .constants import (
 
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.WARNING)
+
+_pending_targets: list[
+    tuple[list[str], str | None, list[Mapping[str, Any] | None] | None]
+] = []
+_pending_lock = threading.Lock()
+_pending_probe: threading.Thread | None = None
+
+
+def _wait_for_context() -> None:
+    """Retry pending native targets for the lifetime of their worker process."""
+    global _pending_probe
+    from ..client.ray_monitor_client import current_job_context
+
+    delay = 0.1
+    while True:
+        with _pending_lock:
+            if not _pending_targets:
+                _pending_probe = None
+                return
+        context = current_job_context()
+        if context:
+            flush_pending_targets(context)
+        time.sleep(delay)
+        delay = min(delay * 2, 2)
+
+
+def flush_pending_targets(context: RunContext | None) -> None:
+    with _pending_lock:
+        pending = list(_pending_targets)
+    for item in pending:
+        if _register_targets(*item, context):
+            with _pending_lock:
+                if item in _pending_targets:
+                    _pending_targets.remove(item)
 
 
 __all__ = [
@@ -404,6 +440,9 @@ def update_prometheus_config(
     server_addresses: list[str],
     job_name: str | None = None,
     labels: list[Mapping[str, Any] | None] | None = None,
+    *,
+    context: RunContext | None = None,
+    identity_in_metrics: bool = False,
 ) -> None:
     """Register trainer metrics endpoints with the RL-Insight server.
 
@@ -419,6 +458,7 @@ def update_prometheus_config(
         labels: Optional per-target labels. When provided, its length must match
             ``server_addresses``.
     """
+    global _pending_probe
     if not server_addresses:
         logger.warning("[rl-insight] No server addresses available to register")
         return
@@ -428,16 +468,11 @@ def update_prometheus_config(
             f"{len(labels)} != {len(server_addresses)}"
         )
 
-    # Push backend: no external RL-Insight server is involved. Register targets
-    # in-process so the local rollout poller scrapes them directly.
+    # Push targets stay local and do not require a server or RunContext.
     from ..client.push.poller import get_active_registry
 
     registry = get_active_registry()
     if registry is None:
-        # Targets may be registered from a Ray actor process that never called
-        # rl_insight.init() (e.g. the verl colocated rollout actor). For the
-        # direct-emit push backend the client is self-contained, so lazily start
-        # it in this process once; its poller owns the scrape target registry.
         registry = _bootstrap_push_registry()
     if registry is not None:
         registry.set_targets(server_addresses, labels)
@@ -447,7 +482,17 @@ def update_prometheus_config(
         )
         return
 
-    base_url = str(os.environ.get(MonitorEnv.SERVER_URL, "")).strip().rstrip("/")
+    initialized = True
+    if context is None:
+        from ..api import get_context, _client_initialized
+
+        context = get_context()
+        initialized = _client_initialized()
+    base_url = (
+        context.server_url
+        if context
+        else str(os.environ.get(MonitorEnv.SERVER_URL, "")).strip().rstrip("/")
+    )
     if not base_url:
         logger.error(
             "[rl-insight] RL-Insight server URL is required; "
@@ -456,10 +501,71 @@ def update_prometheus_config(
         )
         return
 
-    payload = {
+    if context is None:
+        if not initialized:
+            from ..server.http_api import get_server_services
+
+            if get_server_services().get("run_context_version") == 1:
+                # Wait for logger initialization; never create a Run from an address.
+                from ..client.ray_monitor_client import current_job_context
+
+                context = current_job_context()
+                item: tuple[
+                    list[str], str | None, list[Mapping[str, Any] | None] | None
+                ] = (
+                    list(server_addresses),
+                    job_name,
+                    [dict(x) if x else None for x in labels] if labels else None,
+                )
+                if context is None:
+                    with _pending_lock:
+                        if item not in _pending_targets:
+                            if len(_pending_targets) >= 64:
+                                raise ValueError(
+                                    "Too many targets waiting for Run initialization"
+                                )
+                            _pending_targets.append(item)
+                        if _pending_probe is None or not _pending_probe.is_alive():
+                            _pending_probe = threading.Thread(
+                                target=_wait_for_context,
+                                name="insight-context",
+                                daemon=True,
+                            )
+                            _pending_probe.start()
+                    return
+
+    _register_targets(
+        server_addresses,
+        job_name,
+        labels,
+        context,
+        identity_in_metrics=identity_in_metrics,
+    )
+
+
+def _register_targets(
+    server_addresses: list[str],
+    job_name: str | None,
+    labels: list[Mapping[str, Any] | None] | None,
+    context: RunContext | None,
+    *,
+    identity_in_metrics: bool = False,
+) -> bool:
+    """Report success so deferred targets remain queued after a failed request."""
+    base_url = (
+        context.server_url
+        if context
+        else str(os.environ.get(MonitorEnv.SERVER_URL, "")).strip().rstrip("/")
+    )
+    if not base_url:
+        return False
+    payload: dict[str, Any] = {
         "job_name": job_name or PrometheusScrape.TRAINER_METRICS_JOB,
         "targets": _build_target_payload(server_addresses, labels),
     }
+    if context:
+        payload["run_context"] = context.to_dict()
+        payload["identity_in_metrics"] = identity_in_metrics
     url = f"{base_url}/api/v1/prometheus/targets"
     try:
         response = requests.post(url, json=payload, timeout=10)
@@ -468,10 +574,13 @@ def update_prometheus_config(
             f"[rl-insight] Registered {len(server_addresses)} Prometheus targets "
             f"with RL-Insight server (job_name={payload['job_name']})"
         )
+        return True
     except requests.RequestException as exc:
         logger.error(
             "[rl-insight] Failed to register Prometheus targets at %s: %s", url, exc
         )
+
+    return False
 
 
 def _build_target_payload(

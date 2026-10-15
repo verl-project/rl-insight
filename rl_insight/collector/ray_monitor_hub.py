@@ -17,14 +17,19 @@
 from __future__ import annotations
 
 import logging
+import time
+from uuid import uuid4
 from typing import Any
 
 import ray
+import requests
 from omegaconf import DictConfig
+from prometheus_client import Gauge
 
 from ..utils.constants import MonitorRayActor
 from .base import MonitorCollector
 from ..server.http_api import get_server_services
+from ..protocol import RunContext
 from ..server.network import format_host_port, service_url_from_server_url
 from ..utils import (
     MetricRegistry,
@@ -58,15 +63,53 @@ class MonitorHubActor(MonitorCollector):
 
         namespace = str(self._conf.server.namespace)
         services = get_server_services()
+        self._context = None
+        if services.get("run_context_version") == 1:
+            payload = {
+                "request_id": uuid4().hex,
+                "project": str(
+                    conf.get("run_metadata", {}).get("project", "uncategorized")
+                ),
+                "experiment_name": str(
+                    conf.get("run_metadata", {}).get("experiment_name", "unnamed")
+                ),
+                "config": {
+                    "server": {"namespace": namespace, "backend": "ray"},
+                    "prometheus": {
+                        "metrics_report_port": int(conf.prometheus.metrics_report_port)
+                    },
+                },
+            }
+            response = requests.post(
+                str(conf.server.url).rstrip("/") + "/api/v1/runs",
+                json=payload,
+                timeout=10,
+            )
+            response.raise_for_status()
+            self._context = RunContext.from_dict(response.json())
         trace_endpoint = service_url_from_server_url(
             str(self._conf.server.url),
             services.get("otlp_port"),
             "/v1/traces",
         )
         self._registry = MetricRegistry(namespace=namespace)
+        self._flush_generation = 0
+        self._flush_marker = (
+            Gauge(
+                "rl_insight_sdk_flush_sequence",
+                "Latest SDK flush sequence offered for scrape",
+                labelnames=["run_id"],
+            ).labels(run_id=self._context.run_id)
+            if self._context and services.get("prometheus_port")
+            else None
+        )
+        trace_kwargs = (
+            {"resource_attributes": {"rl_insight.run_id": self._context.run_id}}
+            if self._context
+            else {}
+        )
         self._trace_collector = OpenTelemetryTraceCollector(
-            namespace=namespace,
-            endpoint=trace_endpoint,
+            namespace=namespace, endpoint=trace_endpoint, **trace_kwargs
         )
 
         self._events_applied = 0
@@ -80,7 +123,16 @@ class MonitorHubActor(MonitorCollector):
         }
 
         start_metrics_http_server(self._metrics_port, addr=self._node_ip)
-        update_prometheus_config([format_host_port(self._node_ip, self._metrics_port)])
+        if self._context:
+            update_prometheus_config(
+                [format_host_port(self._node_ip, self._metrics_port)],
+                context=self._context,
+                identity_in_metrics=True,
+            )
+        else:
+            update_prometheus_config(
+                [format_host_port(self._node_ip, self._metrics_port)]
+            )
         logger.info(
             "[rl-insight] MonitorHubActor HTTP bind %s:%s, "
             "Prometheus scrape target %s:%s",
@@ -97,6 +149,15 @@ class MonitorHubActor(MonitorCollector):
             event: Must include ``kind``; metric kinds need ``name``/``value``; trace needs ``start_time_ns``/``end_time_ns``.
         """
         self._events_applied += 1
+        context = getattr(self, "_context", None)
+        if context:
+            event = dict(event)
+            field = (
+                "attributes"
+                if event.get("kind") == MonitorEventKind.TRACE
+                else "labels"
+            )
+            event[field] = context.labels(event.get(field))
         try:
             kind = event["kind"]
         except KeyError as e:
@@ -126,6 +187,46 @@ class MonitorHubActor(MonitorCollector):
             "otel_traces_enabled": self._trace_collector.enabled,
             "events_applied": self._events_applied,
         }
+
+    def get_context(self) -> dict[str, Any] | None:
+        return self._context.to_dict() if self._context else None
+
+    def flush(self) -> None:
+        """Confirm prior events reached OTLP and a real Prometheus scrape."""
+        deadline = time.monotonic() + 30
+        if not self._trace_collector.flush():
+            raise TimeoutError("OTLP export did not finish within the flush budget")
+        if self._context is None or self._flush_marker is None:
+            return
+        self._flush_generation += 1
+        self._flush_marker.set(self._flush_generation)
+        url = (
+            self._context.server_url.rstrip("/")
+            + "/api/v1/runs/"
+            + self._context.run_id
+            + "/prometheus/api/v1/query"
+        )
+        with requests.Session() as session:
+            session.trust_env = False
+            while time.monotonic() < deadline:
+                remaining = deadline - time.monotonic()
+                try:
+                    response = session.get(
+                        url,
+                        params={"query": "rl_insight_sdk_flush_sequence"},
+                        timeout=min(2, remaining),
+                    )
+                    response.raise_for_status()
+                    samples = response.json().get("data", {}).get("result", [])
+                    if any(
+                        float(sample["value"][1]) >= self._flush_generation
+                        for sample in samples
+                    ):
+                        return
+                except (requests.RequestException, ValueError, KeyError, TypeError):
+                    pass  # A transient query failure may recover before the deadline.
+                time.sleep(min(0.2, max(0, deadline - time.monotonic())))
+        raise TimeoutError("Prometheus did not scrape the final SDK metrics within 30s")
 
     def _handle_counter(self, event: dict[str, Any]) -> None:
         """Increment a Prometheus counter from a ``counter`` event payload."""

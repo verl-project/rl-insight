@@ -15587,7 +15587,20 @@
                     "spanNulls": false
                   }
                 },
-                "overrides": []
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "traceName"
+                    },
+                    "properties": [
+                      {
+                        "id": "displayName",
+                        "value": "${__field.labels.state_lane_id}"
+                      }
+                    ]
+                  }
+                ]
               }
             }
           }
@@ -20441,6 +20454,25 @@
     },
     "title": "verl_trainer_v1_with_vllm_engine",
     "variables": [
+      {
+        "kind": "CustomVariable",
+        "spec": {
+          "name": "run_id",
+          "label": "Run ID",
+          "query": "[]",
+          "valuesFormat": "json",
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "options": [],
+          "multi": false,
+          "includeAll": false,
+          "allowCustomValue": false,
+          "hide": "dontHide",
+          "skipUrlSync": false
+        }
+      },
       {
         "kind": "DatasourceVariable",
         "spec": {

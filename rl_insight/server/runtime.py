@@ -33,13 +33,16 @@ from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode, urlsplit
 
 import psutil
 import requests
 import yaml
 from omegaconf import DictConfig, OmegaConf
 
+from ..protocol import RunContext, RunError
 from ..utils.constants import (
+    MonitorPaths,
     PrometheusScrape,
     prometheus_targets_file_from_config,
 )
@@ -918,6 +921,237 @@ def _render_grafana_provisioning(
     (dashboards_dir / "default.yml").write_text(
         yaml.safe_dump(dashboard_data, sort_keys=False), encoding="utf-8"
     )
+
+
+DEFAULT_TEMPLATE = "verl/verl_tainer_v1_with_vllm_engine.json"
+
+
+def run_dashboard(
+    context: RunContext,
+    identifiers: dict[str, str],
+    template: Path | None = None,
+    runs: list[RunContext] | None = None,
+):
+    dashboard = json.loads(
+        (template or MonitorPaths.GRAFANA_DASHBOARDS_DIR / DEFAULT_TEMPLATE).read_text(
+            encoding="utf-8"
+        )
+    )
+    dashboard["metadata"] = {
+        "name": dashboard["metadata"]["name"],
+    }
+    spec = dashboard["spec"]
+    if runs is not None:
+        choices = [
+            {
+                "text": run.run_id,
+                "value": run.run_id,
+                "prometheus": "rli-" + run.run_id + "-p",
+                "tempo": "rli-" + run.run_id + "-t",
+            }
+            for run in runs
+        ]
+        options = [
+            {
+                "text": item["text"],
+                "value": item["value"],
+                "properties": {
+                    "prometheus": item["prometheus"],
+                    "tempo": item["tempo"],
+                },
+            }
+            for item in choices
+        ]
+        current = next(item for item in options if item["value"] == context.run_id)
+        spec["variables"] = [
+            variable
+            for variable in spec["variables"]
+            if variable["spec"]["name"] != "run_id"
+        ]
+        spec["variables"].insert(
+            0,
+            {
+                "kind": "CustomVariable",
+                "spec": {
+                    "name": "run_id",
+                    "label": "Run ID",
+                    "query": json.dumps(choices, ensure_ascii=False),
+                    "valuesFormat": "json",
+                    "current": current,
+                    "options": options,
+                    "multi": False,
+                    "includeAll": False,
+                    "allowCustomValue": False,
+                    "hide": "dontHide",
+                    "skipUrlSync": False,
+                },
+            },
+        )
+
+    def bind(value):
+        if isinstance(value, dict):
+            if value.get("kind") == "DataQuery":
+                backend = value.get("group")
+                if backend == "grafana":
+                    return  # Built-in dashboard annotations, not training data.
+                if backend not in identifiers:
+                    raise RunError("Unsupported dashboard data source", 422)
+                value["datasource"] = {
+                    "name": "${run_id." + backend + "}"
+                    if runs is not None
+                    else identifiers[backend]
+                }
+            for child in value.values():
+                bind(child)
+        elif isinstance(value, list):
+            for child in value:
+                bind(child)
+
+    bind(spec)
+    for variable in spec.get("variables", []):
+        value = variable["spec"]
+        if variable["kind"] == "DatasourceVariable":
+            uid = identifiers[value["pluginId"]]
+            if runs is not None:
+                value.update(
+                    regex="^rli-${run_id}-" + value["pluginId"][0] + "$",
+                    current={"text": uid, "value": uid},
+                    allowCustomValue=False,
+                )
+            else:
+                variable.update(
+                    kind="ConstantVariable",
+                    spec={
+                        "name": value["name"],
+                        "query": uid,
+                        "current": {"text": uid, "value": uid},
+                        "hide": "hideVariable",
+                        "skipUrlSync": True,
+                    },
+                )
+        elif runs is None and value["name"] in {"project", "experiment_name"}:
+            fixed = getattr(context, value["name"])
+            variable.update(
+                kind="ConstantVariable",
+                spec={
+                    "name": value["name"],
+                    "query": fixed,
+                    "current": {"text": fixed, "value": fixed},
+                    "hide": "dontHide",
+                    "skipUrlSync": True,
+                },
+            )
+    return dashboard
+
+
+def prepare_run_view(registry, conf, run_id, base_url, template=DEFAULT_TEMPLATE):
+    """Bind the existing Grafana dashboard and data sources to registered Runs."""
+    root = Path(
+        str(
+            OmegaConf.select(
+                conf,
+                "grafana.dashboards_dir",
+                default=MonitorPaths.GRAFANA_DASHBOARDS_DIR,
+            )
+        )
+    ).resolve()
+    grafana = "http://" + format_host_port(
+        local_addresses()["loopback"],
+        int(OmegaConf.select(conf, "grafana.port", default=3000)),
+    )
+
+    context = registry.get(run_id)
+    if not bool(OmegaConf.select(conf, "grafana.enable", default=True)):
+        raise RunError("Grafana disabled", 503)
+    file = (root / template).resolve()
+    if not file.is_relative_to(root) or file.suffix != ".json" or not file.is_file():
+        raise RunError("Unknown dashboard template", 404)
+    base = str(OmegaConf.select(conf, "server.public_url") or base_url).rstrip("/")
+    identifiers = {
+        kind: "rli-" + run_id + "-" + kind[0] for kind in ("prometheus", "tempo")
+    }
+    runs = registry.list_runs()
+    dashboard = run_dashboard(context, identifiers, file, runs)
+    staged = json.dumps(dashboard, ensure_ascii=False, indent=2)
+    with requests.Session() as session:
+        session.trust_env = False
+        token = OmegaConf.select(conf, "grafana.api_token", default="")
+        if token:
+            session.headers["Authorization"] = "Bearer " + str(token)
+        username = OmegaConf.select(conf, "grafana.username", default="")
+        if username:
+            session.auth = (
+                str(username),
+                str(OmegaConf.select(conf, "grafana.password", default="")),
+            )
+
+        def call(method, path, **kwargs):
+            try:
+                response = session.request(
+                    method,
+                    grafana + path,
+                    timeout=(3, 5),
+                    allow_redirects=False,
+                    **kwargs,
+                )
+            except requests.RequestException as exc:
+                raise RunError("Grafana request failed", 502) from exc
+            if response.status_code == 404 and method == "GET":
+                return response
+            if not 200 <= response.status_code < 300:
+                raise RunError("Grafana provisioning failed", 502)
+            return response
+
+        # Provision each selectable Run once; its backend URL remains Run-scoped.
+        for run in runs:
+            for kind in identifiers:
+                uid = "rli-" + run.run_id + "-" + kind[0]
+                current = call("GET", "/api/datasources/uid/" + uid)
+                payload = {
+                    "uid": uid,
+                    "name": uid,
+                    "type": kind,
+                    "access": "proxy",
+                    "url": base + "/api/v1/runs/" + run.run_id + "/" + kind,
+                    "editable": False,
+                    "jsonData": {"httpMethod": "GET"},
+                }
+                if current.status_code == 404:
+                    call("POST", "/api/datasources", json=payload)
+                elif current.json().get("url") != payload["url"]:
+                    call("PUT", "/api/datasources/uid/" + uid, json=payload)
+        path = "/apis/dashboard.grafana.app/v2/namespaces/default/dashboards"
+        uid = dashboard["metadata"]["name"]
+        current = call("GET", path + "/" + uid)
+        if current.status_code == 404:
+            raise RunError("Original dashboard is not provisioned in Grafana", 503)
+        # Keep its folder, permissions and provisioning ownership.
+        dashboard["metadata"] = current.json()["metadata"]
+        call("PUT", path + "/" + uid, json=dashboard)
+    runtime = OmegaConf.select(conf, "server.runtime_dir")
+    if runtime:
+        folder = (Path(str(runtime)) / "dashboards").resolve()
+        target = (folder / template).resolve()
+        if target.is_relative_to(folder) and target.is_file():
+            temporary = target.with_suffix(".json.tmp")
+            temporary.write_text(staged, encoding="utf-8")
+            temporary.replace(target)
+    address = urlsplit(base_url)
+    public = str(
+        OmegaConf.select(conf, "grafana.public_url")
+        or (
+            address.scheme
+            + "://"
+            + format_host_port(address.hostname, int(conf.grafana.port))
+        )
+    )
+    selection = urlencode(
+        {"var-run_id": run_id, "var-datasource": identifiers["prometheus"]}
+    )
+    return {
+        "url": public.rstrip("/") + "/d/" + uid + "?" + selection,
+        "datasources": identifiers,
+    }
 
 
 def _stage_grafana_dashboards(conf: DictConfig, runtime_dir: Path) -> Path:
