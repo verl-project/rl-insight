@@ -75,7 +75,7 @@ Set the RL-Insight server URL before launching or initializing training workers.
 export RL_INSIGHT_SERVER_URL=http://<server-ip>:18080
 ```
 
-Then run a small continuous demo. It uses the three metric helpers and one `trace_state` span inside a loop, so Prometheus and Grafana keep receiving representative live samples while it runs:
+Then run a small continuous demo. It uses the metric helpers and one `trace_state` span inside a loop, so Prometheus and Grafana keep receiving representative live samples while it runs:
 
 ```python
 import time
@@ -94,6 +94,7 @@ while True:
 
     insight.metric_count("train_step_total", amount=1, **labels)
     insight.metric_gauge("reward_mean", value=1.0 + step * 0.01, **labels)
+    insight.metric_log("reward_mean", value=1.0 + step * 0.01, step=step, **labels)
     insight.metric_histogram(
         "step_latency_ms", value=200 + (step % 5) * 20, **labels
     )

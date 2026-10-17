@@ -23,15 +23,16 @@ import os
 import threading
 import time
 import warnings
+from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Callable, Generator, Mapping
+from typing import Any
 
 from omegaconf import DictConfig
 
 from .client import create_monitor_client
-from .utils.monitor_config_loader import load_monitor_config
 from .utils import MonitorEventKind
+from .utils.monitor_config_loader import load_monitor_config
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
@@ -42,9 +43,10 @@ __all__ = [
     "metric_count",
     "metric_gauge",
     "metric_histogram",
+    "metric_log",
+    "trace_op",
     "trace_span",
     "trace_state",
-    "trace_op",
 ]
 
 
@@ -176,6 +178,39 @@ def metric_histogram(
     """
     doc = documentation or f"Histogram {name}"
     _emit(MonitorEventKind.HISTOGRAM, name, float(value), doc, labels)
+
+
+def metric_log(
+    name: str,
+    value: float,
+    *,
+    step: int,
+    **labels: Any,
+) -> None:
+    """Record a metric value for one training step in Tempo.
+
+    Args:
+        name: Metric name.
+        value: Observed value.
+        step: Training step.
+        **labels: Extra attributes attached to the record.
+    """
+    if not _STATE.enabled or _STATE.client is None:
+        return
+    # Tempo requires span timestamps; this is a point record, not a duration.
+    now = time.time_ns()
+    _emit_trace_span(
+        name="metric_log",
+        start_time_ns=now,
+        end_time_ns=now,
+        attributes={
+            **labels,
+            "monitor.trace_segment": "metric_log",
+            "metric.name": name,
+            "metric.value": float(value),
+            "global_step": int(step),
+        },
+    )
 
 
 @dataclass

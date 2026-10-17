@@ -109,6 +109,98 @@ def test_metric_helpers_should_emit_typed_events_when_monitoring_is_enabled(
     }
 
 
+def test_metric_log_preserves_each_observation_and_reserved_attributes(
+    recording_client: RecordingClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import rl_insight
+
+    monkeypatch.setattr(api.time, "time_ns", lambda: 123456789)
+    for step, value in [(0, 1.25), (1, -0.5), (1, 0.0)]:
+        rl_insight.metric_log(
+            "actor/loss",
+            value,
+            step=step,
+            run_id="run-a",
+            **{
+                "metric.name": "wrong",
+                "metric.value": 99,
+                "global_step": 99,
+                "monitor.trace_segment": "duration",
+            },
+        )
+    assert len(recording_client.events) == 3
+    assert [e["attributes"]["metric.value"] for e in recording_client.events] == [
+        1.25,
+        -0.5,
+        0.0,
+    ]
+    assert [e["attributes"]["global_step"] for e in recording_client.events] == [
+        0,
+        1,
+        1,
+    ]
+    for event in recording_client.events:
+        assert event["kind"] == MonitorEventKind.TRACE
+        assert event["name"] == "metric_log"
+        assert event["start_time_ns"] == event["end_time_ns"] == 123456789
+        attrs = event["attributes"]
+        assert attrs["metric.name"] == "actor/loss"
+        assert attrs["monitor.trace_segment"] == "metric_log"
+        assert attrs["project"] == "project-a"
+        assert attrs["experiment_name"] == "experiment-a"
+        assert attrs["run_id"] == "run-a"
+        assert type(attrs["global_step"]) is int
+        assert type(attrs["metric.value"]) is float
+
+
+def test_metric_log_disabled_fast_path(
+    recording_client: RecordingClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def forbidden_clock() -> int:
+        raise AssertionError("must not read clock")
+
+    monkeypatch.setattr(api.time, "time_ns", forbidden_clock)
+    api.finish()
+    api.metric_log("reward", 4, step=3)
+    assert recording_client.events == []
+
+
+def test_metric_log_exports_numeric_attributes_through_otel(
+    recording_client: RecordingClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+        InMemorySpanExporter,
+    )
+
+    from rl_insight.utils import opentelemetry_utils as otel
+
+    exporter = InMemorySpanExporter()
+    monkeypatch.setattr(otel, "OTLPSpanExporter", lambda endpoint: exporter)
+    monkeypatch.setattr(otel, "BatchSpanProcessor", SimpleSpanProcessor)
+    collector = otel.OpenTelemetryTraceCollector(endpoint="http://tempo:4318/v1/traces")
+    monkeypatch.setattr(api.time, "time_ns", lambda: 1000)
+    for step in (10, 11):
+        api.metric_log("reward", 0.75, step=step)
+    for event in recording_client.events:
+        collector.record_span(
+            event["name"],
+            event["start_time_ns"],
+            event["end_time_ns"],
+            attributes=event["attributes"],
+        )
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 2
+    assert spans[0].context.trace_id != spans[1].context.trace_id
+    for span, step in zip(spans, (10, 11)):
+        assert span.start_time == span.end_time == 1000
+        assert span.attributes["global_step"] == step
+        assert span.attributes["metric.value"] == 0.75
+
+
 def test_trace_state_should_merge_same_state_and_ignore_shadow_when_lane_is_busy(
     recording_client: RecordingClient,
     monkeypatch: pytest.MonkeyPatch,
