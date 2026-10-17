@@ -2,9 +2,9 @@
 orphan: true
 ---
 
-## 扩展指南
+# 扩展指南
 
-### 1. 扩展 **DataRule**
+## 1. 扩展 **DataRule**
 
 适用于：`InputData` / `OutputData` 的数据类型需要扩展，解析数据语义或字段发生变化，需要新的类型标识与 `ValidationRule`。
 
@@ -13,7 +13,7 @@ orphan: true
 3. 将能消费该数据的 **Parser** / **Visualizer** 的类属性 `input_type` 设为对应 `DataEnum`。
 4. 在 `docs/recipe/data/data_specification.md` 中补充数据形态说明。
 
-### 2. 扩展 **Parser** / **Visualizer**
+## 2. 扩展 **Parser** / **Visualizer**
 
 适用于：在仍使用 **OfflineInsightPipeline** 的前提下，新增一种解析后端或一种可视化输出。
 
@@ -35,7 +35,7 @@ orphan: true
 
 若输入或中间数据形态变化，需同步按上一节扩展 **DataRule**。
 
-### 3. 扩展 **Pipeline**
+## 3. 扩展 **Pipeline**
 
 适用于：全新的处理范式（跳过步骤、插入预处理、多产物、在线多进程流程等）。
 

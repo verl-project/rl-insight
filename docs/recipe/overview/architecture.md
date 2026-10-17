@@ -29,5 +29,3 @@ orphan: true
 | DataRule | `recipe/data/data_checker.py`, `recipe/data/rules.py` | `DataEnum` 区分数据阶段；`DataChecker` 按类型执行对应的 `ValidationRule`。 |
 | Parser | `recipe/parser/parser.py`, `recipe/parser/*_parser.py` | 基于约定的 `input_type` 做解析；字段约定见 `recipe/utils/schema.py`（`DataMap`、`EventRow`、`Constant` 等）。 |
 | Visualizer | `recipe/visualizer/visualizer.py`, `recipe/visualizer/timeline_visualizer.py`, … | 消费 **Parser** 输出，基于约定的 `input_type` 做可视化。 |
-
----

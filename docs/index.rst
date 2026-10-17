@@ -4,11 +4,16 @@ Welcome to RL-Insight's documentation!
 RL-Insight is a performance insight and observability toolkit for reinforcement learning (RL) systems.
 It focuses on online observability for distributed RL training.
 
-To collect CPU, memory, disk, network, or Ascend NPU metrics, start with
+Start with :doc:`Quick Start <monitor/quick_start>` to verify metrics and traces,
+then use :doc:`Configuration and Switches <monitor/configuration>` to configure your deployment.
+Continue with a real :doc:`verl <monitor/rl_framework_example/verl/index>` or
+:doc:`verl-omni <monitor/rl_framework_example/verl-omni/index>` training run.
+
+For CPU, memory, disk, network, or Ascend NPU metrics, see
 :doc:`Hardware Monitoring <monitor/hardware/index>`.
 
 For offline Recipe utilities, see the
-`Recipe documentation <recipe/overview/architecture>`_.
+:doc:`Recipe documentation <recipe/overview/architecture>`.
 
 --------------------------------------------
 
@@ -19,12 +24,23 @@ For offline Recipe utilities, see the
    :caption: Monitor
 
    Quick Start <monitor/quick_start>
+   Configuration and Switches <monitor/configuration>
    Custom Grafana Dashboards <monitor/custom_dashboards>
    Agent Loop Protocol <monitor/agent_loop_protocol>
    Server Installation <monitor/server_installation>
    Data Directory Migration <monitor/data_migration>
    Hardware Monitoring <monitor/hardware/index>
    Metric Name Catalog <monitor/metric-name-catalog>
+   Stress Test Report <monitor/stress_test_report>
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Framework Examples
+
+   verl Training <monitor/rl_framework_example/verl/index>
+   verl Metrics <monitor/rl_framework_example/verl/metrics>
+   verl-omni Training <monitor/rl_framework_example/verl-omni/index>
+   verl-omni Metrics <monitor/rl_framework_example/verl-omni/metrics>
 
 .. toctree::
    :hidden:

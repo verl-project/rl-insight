@@ -129,7 +129,7 @@ MSTX 输入当前包含三类检查：
 
 ### 3.3 内容示例（节选）
 
-```jsonl
+```json
 {"id":38,"table":"StringIds","value":"compute_log_prob"}
 {"duration":21068815496,"globalVid":281474976710656,"startTime":6589107243593703,"stopTime":6589128312409199,"table":"ANALYSIS_DETAILS"}
 {"color":255,"domainId":0,"end":21019655556,"eventType":60,"globalTid":282747880941798,"rangeId":1,"start":20979323,"table":"NVTX_EVENTS","textId":38}

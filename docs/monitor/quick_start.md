@@ -6,7 +6,13 @@ For service version requirements and Linux and Windows platform support, see [Se
 
 ## 1. Install RL-Insight
 
-From the repository root:
+Use **Python >= 3.10**. For a released package:
+
+```bash
+python -m pip install rl-insight
+```
+
+For this checkout's latest features, run from the repository root instead:
 
 ```bash
 pip install -e .
@@ -75,7 +81,9 @@ Set the RL-Insight server URL before launching or initializing training workers.
 export RL_INSIGHT_SERVER_URL=http://<server-ip>:18080
 ```
 
-Then run a small continuous demo. It uses the three metric helpers and one `trace_state` span inside a loop, so Prometheus and Grafana keep receiving representative live samples while it runs:
+In PowerShell, use `$env:RL_INSIGHT_SERVER_URL = "http://<server-ip>:18080"` instead. This is the server API address, not the Grafana URL.
+
+Save the following as `monitor_demo.py`, then run `python monitor_demo.py` in that same environment. It uses the three metric helpers and one `trace_state` span inside a loop, so Prometheus and Grafana keep receiving representative live samples while it runs. Leave it running while checking Grafana and press `Ctrl+C` when finished:
 
 ```python
 import time
@@ -166,6 +174,8 @@ rl-insight server stop
 
 ## Configuration Shortcuts
 
+See [Configuration and Switches](configuration.md) for all supported configuration layers, defaults, dependencies, and override precedence. The settings below belong to the training client, not the server YAML.
+
 Pass overrides through `insight.init(config=...)`:
 
 ```python
@@ -202,3 +212,14 @@ rl-insight server install
 
 
 If metrics do not appear, check that the monitor hub process is reachable from Prometheus and that the Prometheus configuration points to the hub `/metrics` endpoint.
+
+## Next Steps: Monitor a Real Training Run
+
+The demo above verifies the monitoring stack. Continue with a framework example for data preparation, real training commands, monitoring switches, and metric interpretation:
+
+| Framework | Example and metrics | Upstream integration |
+| --- | --- | --- |
+| verl | [Qwen3-8B PPO example](rl_framework_example/verl/index.md) · [Metrics](rl_framework_example/verl/metrics.md) | [verl integration guide](https://github.com/verl-project/verl/blob/main/docs/advance/rl_insight.md) |
+| verl-omni | [Qwen-Image FlowGRPO example](rl_framework_example/verl-omni/index.md) · [Metrics](rl_framework_example/verl-omni/metrics.md) | [verl-omni integration guide](https://github.com/verl-project/verl-omni/blob/main/docs/start/rl_insight.md) |
+
+Each example states its upstream reference revision, hardware prerequisites, and validation scope. Framework and engine Python requirements may be higher than RL-Insight's minimum.
