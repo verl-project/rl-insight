@@ -19,9 +19,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..utils.constants import MonitorPaths
+
 SERVICE_NAMES = ("prometheus", "tempo", "grafana")
 DEFAULT_INSTALL_ROOT = Path.home() / ".rl-insight" / "services"
-DEFAULT_STATE_ROOT = Path.home() / ".rl-insight"
+DEFAULT_STATE_ROOT = MonitorPaths.STATE_ROOT
 MANIFEST_FILE = "manifest.json"
 STATE_FILE = "rl-insight-services.json"
 USER_AGENT = "rl-insight-service-installer"

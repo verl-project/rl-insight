@@ -30,6 +30,7 @@ from typing import Any, Callable, Generator, Mapping
 from omegaconf import DictConfig, OmegaConf
 
 from .client import create_monitor_client
+from .hardware import start_hardware_monitor
 from .utils.monitor_config_loader import load_monitor_config
 from .utils import MonitorBackend, MonitorEventKind
 
@@ -59,6 +60,7 @@ class _MonitorState:
         namespace: Config ``namespace`` used for metric/OTEL resource naming (not Ray actor namespace).
         process_id: String PID added to trace attributes on emit.
         labels: Process-wide labels attached to every metric and trace event.
+        hardware_monitor: In-process hardware monitor started by ``init``, or ``None``.
     """
 
     enabled: bool = False
@@ -67,6 +69,7 @@ class _MonitorState:
     namespace: str = ""
     process_id: str = field(default_factory=lambda: str(os.getpid()))
     labels: dict[str, Any] = field(default_factory=dict)
+    hardware_monitor: Any | None = None
 
 
 _STATE = _MonitorState()
@@ -117,23 +120,53 @@ def init(
         }.items()
         if value is not None
     }
+    hardware_monitor = _start_hardware_monitor(monitor_conf, client, labels)
     _STATE = _MonitorState(
         enabled=client is not None,
         client=client,
         conf=monitor_conf,
         namespace=str(monitor_conf.server.namespace),
         labels=labels,
+        hardware_monitor=hardware_monitor,
     )
+
+
+def _start_hardware_monitor(
+    conf: DictConfig, client: Any | None, labels: dict[str, Any]
+) -> Any | None:
+    """Start in-process hardware monitoring; any failure only warns.
+
+    Hardware monitoring must never break ``init``, so unexpected errors from
+    the hardware package (e.g. malformed user config values) are downgraded
+    to a warning.
+    """
+    try:
+        return start_hardware_monitor(conf, client, labels)
+    except Exception:
+        logger.warning(
+            "[rl-insight] failed to start hardware monitoring; continuing without it.",
+            exc_info=True,
+        )
+        return None
 
 
 def finish() -> None:
     """Clear in-process monitor state so further emits are no-ops.
 
-    Asks the active client to release resources (stop pollers, flush sinks)
-    when it supports ``close``. Does not stop the hub HTTP server or kill the
-    detached Ray actor.
+    Stops the in-process hardware monitor thread if one is running, and asks
+    the active client to release resources (stop pollers, flush sinks) when it
+    supports ``close``. Does not stop the hub HTTP server or kill the detached
+    Ray actor.
     """
     global _STATE
+    hardware_monitor = _STATE.hardware_monitor
+    if hardware_monitor is not None:
+        try:
+            hardware_monitor.stop()
+        except Exception:
+            logger.warning(
+                "[rl-insight] failed to stop hardware monitoring.", exc_info=True
+            )
     client = _STATE.client
     if client is not None and hasattr(client, "close"):
         try:

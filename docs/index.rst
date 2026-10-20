@@ -29,6 +29,8 @@ For offline Recipe utilities, see the
 .. toctree::
    :hidden:
 
+   monitor/hardware/in_process_hardware_monitoring_zh
+   monitor/hardware/in_process_hardware_monitoring_en
    monitor/hardware/cpu_monitoring_zh
    monitor/hardware/cpu_monitoring_en
    monitor/hardware/npu_monitoring_zh
