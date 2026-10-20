@@ -46,19 +46,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"actor/grad_norm\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_actor_grad_norm{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -169,19 +163,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"actor/loss\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_actor_loss{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -292,19 +280,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"actor/lr\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_actor_lr{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -415,19 +397,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"actor/pg_clipfrac\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_actor_pg_clipfrac{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -538,19 +514,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"actor/pg_clipfrac_lower\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_actor_pg_clipfrac_lower{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -661,19 +631,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"actor/ppo_kl\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_actor_ppo_kl{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -784,19 +748,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"critic/advantages/max\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_critic_advantages_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -907,19 +865,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"critic/advantages/mean\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_critic_advantages_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -1030,19 +982,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"critic/advantages/min\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_critic_advantages_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -1153,19 +1099,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"critic/returns/max\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_critic_returns_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -1276,19 +1216,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"critic/returns/mean\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_critic_returns_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -1399,19 +1333,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"critic/returns/min\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_critic_returns_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -1522,19 +1450,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"critic/rewards/max\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_critic_rewards_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -1645,19 +1567,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"critic/rewards/mean\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_critic_rewards_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -1768,19 +1684,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"critic/rewards/min\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_critic_rewards_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -1891,19 +1801,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"perf/mfu/actor\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_perf_mfu_actor{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -2014,19 +1918,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"perf/throughput\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_perf_throughput{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -2137,19 +2035,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"perf/time_per_step\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_perf_time_per_step{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -2260,19 +2152,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"rollout_corr/chi2_seq\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_rollout_corr_chi2_seq{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -2383,19 +2269,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"rollout_corr/chi2_token\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_rollout_corr_chi2_token{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -2506,19 +2386,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"rollout_corr/k3_kl\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_rollout_corr_k3_kl{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -2629,19 +2503,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"rollout_corr/kl\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_rollout_corr_kl{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -2752,19 +2620,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"rollout_corr/log_ppl_abs_diff\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_rollout_corr_log_ppl_abs_diff{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -2875,19 +2737,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"rollout_corr/log_ppl_diff\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_rollout_corr_log_ppl_diff{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -2998,19 +2854,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"rollout_corr/log_ppl_diff_max\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_rollout_corr_log_ppl_diff_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -3121,19 +2971,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"rollout_corr/log_ppl_diff_min\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_rollout_corr_log_ppl_diff_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -3244,19 +3088,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"rollout_corr/ppl_ratio\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_rollout_corr_ppl_ratio{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -3367,19 +3205,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"rollout_corr/rollout_log_ppl\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_rollout_corr_rollout_log_ppl{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -3490,19 +3322,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"rollout_corr/rollout_ppl\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_rollout_corr_rollout_ppl{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -3613,19 +3439,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"rollout_corr/training_log_ppl\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_rollout_corr_training_log_ppl{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -3736,19 +3556,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"rollout_corr/training_ppl\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_rollout_corr_training_ppl{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -3859,19 +3673,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"timing_s/adv\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_timing_s_adv{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -3982,19 +3790,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"timing_s/gen\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_timing_s_gen{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -4105,19 +3907,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"timing_s/old_log_prob\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_timing_s_old_log_prob{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -4228,19 +4024,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"timing_s/step\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_timing_s_step{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -4351,19 +4141,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"timing_s/testing\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_timing_s_testing{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -4474,19 +4258,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"timing_s/update_actor\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_timing_s_update_actor{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -4597,19 +4375,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"timing_s/update_weights\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_timing_s_update_weights{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -4720,19 +4492,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"training/epoch\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_training_epoch{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -4818,19 +4584,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"training/global_step\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_training_global_step{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -4916,19 +4676,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"val-aux/num_turns/max\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_val_aux_num_turns_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -5039,19 +4793,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"val-aux/num_turns/mean\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_val_aux_num_turns_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -5162,19 +4910,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"val-aux/num_turns/min\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_val_aux_num_turns_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -7317,19 +7059,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"training/off_policy/trajectory_spans/mean\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_training_off_policy_trajectory_spans_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -7440,19 +7176,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"training/off_policy/trajectory_spans/min\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_training_off_policy_trajectory_spans_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -7563,19 +7293,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"training/off_policy/trajectory_staleness/max\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_training_off_policy_trajectory_staleness_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -7686,19 +7410,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"training/off_policy/trajectory_staleness_worst/max\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_training_off_policy_trajectory_staleness_worst_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -7809,19 +7527,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"training/off_policy/trajectory_staleness/mean\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_training_off_policy_trajectory_staleness_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -7932,19 +7644,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"training/off_policy/trajectory_spans/max\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_training_off_policy_trajectory_spans_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -8055,19 +7761,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"training/off_policy/trajectory_staleness_worst/min\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_training_off_policy_trajectory_staleness_worst_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -8178,19 +7878,13 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"training/off_policy/trajectory_staleness_worst/mean\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_training_off_policy_trajectory_staleness_worst_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -12272,19 +11966,14 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"actor/pg_clipfrac_higher\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_actor_pg_clipfrac_higher{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "instant": false,
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -12395,19 +12084,14 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"actor/ratio_mean\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_actor_ratio_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "instant": false,
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -12518,19 +12202,14 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"actor/ratio_std\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_actor_ratio_std{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "instant": false,
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -12641,19 +12320,14 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"critic/reward_clap/mean\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_critic_reward_clap_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "instant": false,
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -12764,19 +12438,14 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"critic/reward_clap_source_sample_rate/mean\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_critic_reward_clap_source_sample_rate_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "instant": false,
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -12887,19 +12556,14 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"critic/reward_combined/mean\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_critic_reward_combined_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "instant": false,
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -13010,19 +12674,14 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"critic/reward_imagebind/mean\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_critic_reward_imagebind_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "instant": false,
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -13133,19 +12792,14 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"critic/rewards/group_size\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_critic_rewards_group_size{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "instant": false,
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -13256,19 +12910,14 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"critic/rewards/std_mean\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_critic_rewards_std_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "instant": false,
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -13379,19 +13028,14 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"critic/rewards/zero_std_ratio\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_critic_rewards_zero_std_ratio{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "instant": false,
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -13502,19 +13146,14 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"perf/total_num_images\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_perf_total_num_images{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "instant": false,
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -13625,19 +13264,14 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"rollout_corr/logprob_abs_diff_max\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_rollout_corr_logprob_abs_diff_max{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "instant": false,
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -13748,19 +13382,14 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"rollout_corr/logprob_abs_diff_mean\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_rollout_corr_logprob_abs_diff_mean{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "instant": false,
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -13871,19 +13500,14 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"timing_per_image_ms/adv\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_timing_per_image_ms_adv{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "instant": false,
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -13994,19 +13618,14 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"timing_per_image_ms/gen\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_timing_per_image_ms_gen{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "instant": false,
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -14117,19 +13736,14 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"timing_per_image_ms/old_log_prob\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_timing_per_image_ms_old_log_prob{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "instant": false,
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -14240,19 +13854,14 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"timing_per_image_ms/update_actor\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_timing_per_image_ms_update_actor{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "instant": false,
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -14363,19 +13972,14 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"timing_s/feed\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_timing_s_feed{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "instant": false,
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -14486,19 +14090,14 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"timing_s/save_checkpoint\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_timing_s_save_checkpoint{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "instant": false,
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -14609,19 +14208,14 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"training/off_policy/trajectory_staleness/min\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_training_off_policy_trajectory_staleness_min{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "instant": false,
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -14732,19 +14326,14 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "tempo",
+                      "group": "prometheus",
                       "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
                       "spec": {
-                        "limit": 100,
-                        "metricsQueryType": "range",
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.monitor.trace_segment = \"metric_log\" && span.metric.name = \"val-core/ltx2_t2av/reward/mean@1\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" } | avg_over_time(span.metric.value)",
-                        "queryType": "traceql",
-                        "serviceMapUseNativeHistograms": false,
-                        "spss": 3,
-                        "tableType": "spans"
+                        "editorMode": "builder",
+                        "expr": "rl_insight_monitor_val_core_ltx2_t2av_reward_mean_1{project=~\"$project\", experiment_name=~\"$experiment_name\"}",
+                        "instant": false,
+                        "legendFormat": "{{__name__}}",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -17795,21 +17384,20 @@
           "skipUrlSync": false,
           "query": {
             "kind": "DataQuery",
-            "group": "tempo",
+            "group": "prometheus",
             "version": "v0",
             "datasource": {
-              "name": "tempo"
+              "name": "${datasource}"
             },
             "spec": {
-              "query": "label_values(span.project)",
-              "queryType": "traceql",
+              "query": "label_values({__name__=~\"rl_insight_monitor_.*\"}, project)",
               "refId": "StandardVariableQuery"
             }
           },
           "regex": "",
           "regexApplyTo": "value",
           "sort": "alphabeticalAsc",
-          "definition": "label_values(span.project)",
+          "definition": "label_values({__name__=~\"rl_insight_monitor_.*\"}, project)",
           "options": [],
           "multi": true,
           "includeAll": true,
@@ -17831,21 +17419,20 @@
           "skipUrlSync": false,
           "query": {
             "kind": "DataQuery",
-            "group": "tempo",
+            "group": "prometheus",
             "version": "v0",
             "datasource": {
-              "name": "tempo"
+              "name": "${datasource}"
             },
             "spec": {
-              "query": "label_values(span.experiment_name)",
-              "queryType": "traceql",
+              "query": "label_values({__name__=~\"rl_insight_monitor_.*\"}, experiment_name)",
               "refId": "StandardVariableQuery"
             }
           },
           "regex": "",
           "regexApplyTo": "value",
           "sort": "alphabeticalAsc",
-          "definition": "label_values(span.experiment_name)",
+          "definition": "label_values({__name__=~\"rl_insight_monitor_.*\"}, experiment_name)",
           "options": [],
           "multi": true,
           "includeAll": true,
