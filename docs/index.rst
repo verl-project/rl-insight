@@ -31,6 +31,7 @@ For offline Recipe utilities, see the
    :caption: Tuning Guides
 
    Async RL Training Tuning Guide <tuning_case/async_mode_tuning_tutorial>
+   Qwen3-Omni on Ascend NPU <tuning_case/qwen3_omni_ascend_npu_case_study>
 
 .. toctree::
    :hidden:
