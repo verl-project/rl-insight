@@ -6,7 +6,9 @@
     "generation": 1,
     "creationTimestamp": "2026-07-21T00:00:00Z",
     "labels": {},
-    "annotations": {}
+    "annotations": {
+      "rl-insight/metrics-selector": "{__name__=~\"rl_insight_monitor_agent_loop_run_info\"}"
+    }
   },
   "spec": {
     "annotations": [],
@@ -1192,7 +1194,7 @@
         "kind": "QueryVariable",
         "spec": {
           "name": "experiment",
-          "label": "experiment",
+          "label": "Experiment",
           "hide": "",
           "refresh": "onTimeRangeChanged",
           "skipUrlSync": true,

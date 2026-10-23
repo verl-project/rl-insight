@@ -24,7 +24,7 @@ from omegaconf import OmegaConf
 
 from rl_insight.collector import ray_monitor_hub as hub_module
 from rl_insight.utils.constants import MonitorEventKind, MonitorRayActor
-
+from rl_insight.utils.protocol import RunContext
 
 HubImplementation = cast(
     Any, hub_module.MonitorHubActor
@@ -37,6 +37,7 @@ def hub() -> Any:
     instance._registry = MagicMock()
     instance._trace_collector = MagicMock(enabled=True)
     instance._events_applied = 0
+    instance._context = None
     instance._event_handlers = {
         MonitorEventKind.COUNTER: instance._handle_counter,
         MonitorEventKind.GAUGE: instance._handle_gauge,
@@ -49,6 +50,7 @@ def hub() -> Any:
 def test_init_should_configure_collectors_and_register_scrape_target_when_created(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(hub_module, "_register_run", lambda context, config: context)
     registry = MagicMock()
     trace_collector = MagicMock(enabled=True)
     start_server = MagicMock()
@@ -73,10 +75,14 @@ def test_init_should_configure_collectors_and_register_scrape_target_when_create
 
     registry_factory.assert_called_once_with(namespace="trainer")
     trace_factory.assert_called_once_with(
-        namespace="trainer", endpoint="http://host:4318/v1/traces"
+        namespace="trainer",
+        endpoint="http://host:4318/v1/traces",
+        resource_attributes={"rl_insight.run_id": instance._context.run_id},
     )
     start_server.assert_called_once_with(9092, addr="10.0.0.8")
-    update_config.assert_called_once_with(["10.0.0.8:9092"])
+    update_config.assert_called_once_with(
+        ["10.0.0.8:9092"], context=instance._context, identity_in_metrics=True
+    )
     assert instance._registry is registry
 
 
@@ -146,14 +152,34 @@ def test_apply_event_should_raise_value_error_when_event_is_invalid(
         hub.apply_event(event)
 
 
-def test_get_status_should_describe_endpoint_when_hub_is_initialized(hub: Any) -> None:
+def test_get_context_should_describe_identity_and_live_status(hub: Any) -> None:
     hub._node_ip = "10.0.0.8"
     hub._metrics_port = 9092
     hub._events_applied = 4
 
-    status = hub.get_status()
+    hub._context = RunContext("a" * 32, "p", "e", "http://server")
+    hub._conf = OmegaConf.create({"server": {"url": "http://server"}})
+    hub._services = {"otlp_port": 4318}
+    context = hub.get_context()
+    assert context.run_id == "a" * 32
+    assert context.events_applied == 4
+    hub._events_applied = 5
+    assert hub.get_context().events_applied == 5
+    assert context.events_applied == 4
+    status = context.to_dict()
 
-    assert status == {
+    assert {
+        k: status[k]
+        for k in (
+            "actor_name",
+            "namespace",
+            "node_ip",
+            "metrics_endpoint",
+            "prometheus_metrics_enabled",
+            "otel_traces_enabled",
+            "events_applied",
+        )
+    } == {
         "actor_name": MonitorRayActor.NAME,
         "namespace": MonitorRayActor.NAMESPACE,
         "node_ip": "10.0.0.8",
@@ -162,3 +188,27 @@ def test_get_status_should_describe_endpoint_when_hub_is_initialized(hub: Any) -
         "otel_traces_enabled": True,
         "events_applied": 4,
     }
+
+
+def test_registration_rejects_a_response_after_deadline(monkeypatch):
+    import json
+
+    now = [0.0]
+    context = RunContext.create("p", "e", "http://server")
+    session = MagicMock()
+    response = session.post.return_value
+    response.status_code = 200
+
+    def chunks(**kwargs):
+        now[0] = 20.0
+        yield json.dumps(context.metadata()).encode()
+
+    response.iter_content.side_effect = chunks
+    monkeypatch.setattr(
+        hub_module.requests,
+        "Session",
+        lambda: MagicMock(__enter__=lambda self: session, __exit__=lambda *args: None),
+    )
+    monkeypatch.setattr(hub_module.time, "monotonic", lambda: now[0])
+    with pytest.raises(TimeoutError, match="budget"):
+        hub_module._register_run(context, {}, budget=10)

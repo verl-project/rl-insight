@@ -54,6 +54,8 @@ __version__ = _get_version()
 _EXPORTS = {
     "agent_loop_session": ".agent_loop",
     "finish": ".api",
+    "get_context": ".api",
+    "RunContext": ".utils.protocol",
     "init": ".api",
     "metric_count": ".api",
     "metric_gauge": ".api",

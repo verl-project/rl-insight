@@ -204,7 +204,7 @@ def test_register_should_preserve_concurrent_cross_process_updates(tmp_path) -> 
 def test_update_prometheus_config_should_send_normalized_targets_when_server_is_set(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    response = MagicMock()
+    response = MagicMock(status_code=200)
     post = MagicMock(return_value=response)
     monkeypatch.setenv("RL_INSIGHT_SERVER_URL", "http://server:18080/")
     monkeypatch.setattr(prometheus_module.requests, "post", post)
@@ -260,3 +260,21 @@ def test_update_prometheus_config_should_register_in_process_when_push_active(
         ("host-b:9000", {}),
     ]
     post.assert_not_called()
+
+
+def test_deferred_targets_drop_permanent_errors_and_keep_transient_failures(
+    monkeypatch,
+):
+    from rl_insight.utils.protocol import RunContext
+
+    context = RunContext.create("p", "e", "http://server")
+    item = (["host:9000"], "workers", None)
+    monkeypatch.setattr(prometheus_module, "_pending_targets", [item])
+    post = MagicMock(return_value=MagicMock(status_code=409, text="identity conflict"))
+    monkeypatch.setattr(prometheus_module.requests, "post", post)
+    prometheus_module.flush_pending_targets(context)
+    assert not prometheus_module._pending_targets
+    prometheus_module._pending_targets.append(item)
+    post.side_effect = prometheus_module.requests.ConnectionError("offline")
+    prometheus_module.flush_pending_targets(context)
+    assert prometheus_module._pending_targets == [item]

@@ -129,7 +129,7 @@ def test_monitor_services_should_be_reachable_when_stack_is_running(
     tempo = requests.get(f"{monitor_stack['tempo']}/ready", timeout=3)
     otlp = requests.get(f"{monitor_stack['otlp']}/v1/traces", timeout=3)
     hub = ray.get_actor(_current_job_actor_name(), namespace=MonitorRayActor.NAMESPACE)
-    hub_status = cast(dict[str, Any], ray.get(hub.get_status.remote()))
+    hub_status = cast(dict[str, Any], ray.get(hub.get_context.remote()).to_dict())
 
     assert health.json() == {"status": "ok"}
     assert prometheus.ok
@@ -161,7 +161,7 @@ def test_monitor_metrics_should_match_reported_values_when_events_are_emitted(
         )
 
     hub = ray.get_actor(_current_job_actor_name(), namespace=MonitorRayActor.NAMESPACE)
-    ray.get(hub.get_status.remote())
+    ray.get(hub.get_context.remote()).to_dict()
 
     expected_values = {
         "rl_insight_monitor_train_step_total": 3.0,
@@ -196,7 +196,7 @@ def test_monitor_trace_state_should_be_queryable_when_interval_is_reported(
         time.sleep(0.1)
 
     hub = ray.get_actor(_current_job_actor_name(), namespace=MonitorRayActor.NAMESPACE)
-    status = cast(dict[str, Any], ray.get(hub.get_status.remote()))
+    status = cast(dict[str, Any], ray.get(hub.get_context.remote()).to_dict())
     assert status["otel_traces_enabled"] is True
 
     search = _wait_for_json(

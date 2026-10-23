@@ -77,6 +77,7 @@ def test_get_or_create_monitor_hub_should_create_actor_when_actor_is_missing(
     options.assert_called_once_with(
         name=_JOB_ACTOR_NAME,
         namespace=MonitorRayActor.NAMESPACE,
+        get_if_exists=True,
         runtime_env={
             "env_vars": {"RL_INSIGHT_SERVER_URL": "http://server"},
         },

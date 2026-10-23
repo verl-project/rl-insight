@@ -31,14 +31,16 @@ from typing import Any
 from omegaconf import DictConfig, OmegaConf
 
 from .client import create_monitor_client
-from .utils.monitor_config_loader import load_monitor_config
 from .utils import MonitorBackend, MonitorEventKind
+from .utils.monitor_config_loader import load_monitor_config
+from .utils.protocol import RunContext, RunError
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
 __all__ = [
     "finish",
+    "get_context",
     "init",
     "metric_count",
     "metric_gauge",
@@ -69,6 +71,7 @@ class _MonitorState:
     namespace: str = ""
     process_id: str = field(default_factory=lambda: str(os.getpid()))
     labels: dict[str, Any] = field(default_factory=dict)
+    context: RunContext | None = None
 
 
 _STATE = _MonitorState()
@@ -88,10 +91,21 @@ def init(
         config: Optional dict-like or ``DictConfig`` overrides merged into training defaults; see ``load_monitor_config``.
 
     Note:
-        Repeated calls are ignored with ``RuntimeWarning``. Ray backend requires ``ray.init()`` first.
+        Ray requires ``ray.init()`` first. Argument-free Ray initialization attaches
+        to the current job's configured Run, buffering early events until that Run
+        exists. A later call with identity or config can complete initialization.
+        Other repeated calls are ignored with ``RuntimeWarning``.
     """
     global _STATE
-    if _STATE.enabled:
+    configured = (
+        project is not None or experiment_name is not None or config is not None
+    )
+    attaching = (
+        _STATE.conf is not None
+        and _STATE.conf.server.backend == MonitorBackend.RAY
+        and not _STATE.conf.get("run_metadata")
+    )
+    if _STATE.enabled and not (attaching and configured):
         warnings.warn(
             "[rl-insight] monitor.init() called more than once; "
             "ignoring re-initialization.",
@@ -110,21 +124,59 @@ def init(
             "or server.url in init config."
         )
         return
+    if configured or backend != MonitorBackend.RAY:
+        OmegaConf.update(
+            monitor_conf,
+            "run_metadata",
+            {
+                "project": project or "uncategorized",
+                "experiment_name": experiment_name or "unnamed",
+            },
+            force_add=True,
+        )
     client = create_monitor_client(monitor_conf)
+    context = getattr(client, "get_context", lambda: None)() if client else None
+    if context and (
+        (project and project != context.project)
+        or (experiment_name and experiment_name != context.experiment_name)
+    ):
+        raise RunError("Experiment metadata conflicts with the existing Run")
     labels = {
         key: value
         for key, value in {
-            "project": project,
-            "experiment_name": experiment_name,
+            "project": context.project if context else project,
+            "experiment_name": context.experiment_name if context else experiment_name,
         }.items()
         if value is not None
     }
+    previous = _STATE.client
     _STATE = _MonitorState(
         enabled=client is not None,
         client=client,
         conf=monitor_conf,
         namespace=str(monitor_conf.server.namespace),
         labels=labels,
+        context=context,
+    )
+    if previous is not None and previous is not client and hasattr(previous, "close"):
+        previous.close()
+    if client and (context is not None or backend != MonitorBackend.RAY):
+        from .utils.prometheus_utils import flush_pending_targets
+
+        flush_pending_targets(context)
+
+
+def get_context() -> RunContext | None:
+    """Return an immutable snapshot of the current Run identity and live status."""
+    return _STATE.client.get_context() if _STATE.client else None
+
+
+def _client_initialized() -> bool:
+    return _STATE.enabled and (
+        _STATE.context is not None
+        or (
+            _STATE.conf is not None and _STATE.conf.server.backend != MonitorBackend.RAY
+        )
     )
 
 
@@ -509,7 +561,11 @@ def _emit(
         "name": name,
         "documentation": documentation,
         "value": value,
-        "labels": {**_STATE.labels, **labels},
+        "labels": (
+            _STATE.context.labels({**_STATE.labels, **labels})
+            if _STATE.context
+            else {**_STATE.labels, **labels}
+        ),
     }
     _STATE.client.apply_event(event)
 
@@ -537,6 +593,9 @@ def _emit_trace_span(
         **_STATE.labels,
     }
     merged_attributes.update(attributes)
+    if _STATE.context:
+        _STATE.context.labels(merged_attributes)  # Validate reserved identity aliases.
+        merged_attributes["rl_insight.run_id"] = _STATE.context.run_id
 
     event = {
         "kind": MonitorEventKind.TRACE,

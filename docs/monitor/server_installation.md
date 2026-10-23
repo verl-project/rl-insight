@@ -8,6 +8,8 @@ RL-Insight Monitor needs three services before online monitoring can run:
 | Tempo      | stores and queries RL state traces  | `>= 2.0.0`     | `2.6.1`         |
 | Grafana    | shows dashboards and trace views    | `>= 13.0.0`    | `13.0.0`        |
 
+Use the same RL-Insight package version on the training driver, all workers and the server. Starting with 0.4.0, missing or different versions are rejected during initialization and Run-aware registration.
+
 Choose one of the three approaches below depending on your network environment. To run the same stack in a container instead of installing services on the host, see the **Run with Docker** section below.
 
 ## Supported Platforms
@@ -277,6 +279,6 @@ server:
   data_dir: /path/to/rl-insight/data
 ```
 
-## Next Step
+## Selecting experiment executions
 
-Continue with [Quick Start](./quick_start.md) to start the stack, instrument training code, and open Grafana.
+Select **Project**, then choose one or more executions in **Experiment**. Each option shows the original experiment name, UTC creation time and short ID, such as `gsm8k_20261019_143025_a1b2c3d4`. **All** selects the matching executions in the chosen projects. The time range controls chart data, not these selection lists. Keep the original experiment name in training configuration.

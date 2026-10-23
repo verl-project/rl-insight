@@ -19,6 +19,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
+from ..utils.protocol import RunContext
+
 
 class MonitorCollector(ABC):
     """Collector backend that receives monitor events from training-side clients.
@@ -33,5 +35,5 @@ class MonitorCollector(ABC):
         """Handle one monitor event forwarded by a client."""
 
     @abstractmethod
-    def get_status(self) -> dict[str, Any]:
-        """Return a small status snapshot for debugging or health checks."""
+    def get_context(self) -> RunContext:
+        """Return the current identity, connection and status snapshot."""

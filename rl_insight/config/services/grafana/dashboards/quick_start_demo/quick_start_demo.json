@@ -6,6 +6,7 @@
     "namespace": "default",
     "uid": "b7560416-da14-4d4d-898d-971245772891",
     "annotations": {
+      "rl-insight/metrics-selector": "{__name__=~\"rl_insight_monitor_(reward_mean|step_latency_ms_.*|train_step_total)\"}",
       "grafana.app/managedBy": "classic-file-provisioning",
       "grafana.app/managerAllowsEdits": "true",
       "grafana.app/managerId": "RL-Insight",
@@ -61,7 +62,7 @@
                       "spec": {
                         "limit": 100,
                         "metricsQueryType": "range",
-                        "query": "{span.state_lane_id != \"\"}",
+                        "query": "{span.\"monitor.trace_segment\"=\"state_interval\" && span.state_lane_id!=\"\"} | select(span.state_lane_id)",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 100,

@@ -23,6 +23,8 @@ from typing import Any
 
 from omegaconf import DictConfig, OmegaConf
 
+from ..utils.protocol import RunContext
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
@@ -44,6 +46,10 @@ class MonitorClient(ABC):
     @abstractmethod
     def apply_event(self, event: dict[str, Any]) -> None:
         """Forward one monitor event to the collector backend."""
+
+    def get_context(self) -> RunContext | None:
+        """Optional identity support; existing third-party clients remain valid."""
+        return None
 
 
 def register_monitor_client(backend: str, factory: MonitorClientFactory) -> None:

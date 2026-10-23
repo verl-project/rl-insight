@@ -17,13 +17,16 @@
 from __future__ import annotations
 
 import logging
+import threading
+from collections import deque
 from typing import Any, cast
 
 import ray
 from omegaconf import DictConfig
 
 from ..collector.ray_monitor_hub import MonitorHubActor
-from ..utils.constants import MonitorEnv, MonitorRayActor
+from ..utils.constants import MonitorEnv, MonitorRayActor, MonitorServer
+from ..utils.protocol import RunContext, RunError, validate_version
 from .base import MonitorClient
 
 logger = logging.getLogger(__name__)
@@ -39,7 +42,27 @@ def _current_job_actor_name() -> str:
     return f"{MonitorRayActor.NAME}_{job_id_str}"
 
 
-def get_or_create_monitor_hub(conf: DictConfig) -> Any:
+def current_job_context() -> RunContext | None:
+    """Resolve only an existing Hub; native registration must not create a Run."""
+    if not ray.is_initialized():
+        return None
+    try:
+        hub: Any = ray.get_actor(
+            _current_job_actor_name(), namespace=MonitorRayActor.NAMESPACE
+        )
+    except ValueError:
+        return None
+    try:
+        context = ray.get(hub.get_context.remote(), timeout=2)
+    except (ray.exceptions.GetTimeoutError, ray.exceptions.ActorUnavailableError):
+        return None
+    if not isinstance(context, RunContext):
+        raise RunError("Hub returned an invalid RunContext")
+    validate_version(getattr(context, "version", None))
+    return context
+
+
+def get_or_create_monitor_hub(conf: DictConfig, *, create: bool = True) -> Any:
     """Get or create a job-scoped MonitorHubActor with health check.
 
     Each Ray job gets its own hub actor named
@@ -66,6 +89,8 @@ def get_or_create_monitor_hub(conf: DictConfig) -> Any:
         )
         return handle
     except ValueError:
+        if not create:
+            return None
         logger.info(
             "[rl-insight] No existing monitor hub actor %r found; creating one.",
             actor_name,
@@ -73,6 +98,7 @@ def get_or_create_monitor_hub(conf: DictConfig) -> Any:
     actor_options: dict[str, Any] = {
         "name": actor_name,
         "namespace": namespace,
+        "get_if_exists": True,
     }
     server_url = str(conf.server.url).strip()
     if server_url:
@@ -105,7 +131,7 @@ def create_ray_monitor_client(conf: DictConfig) -> MonitorRayClient | None:
         logger.warning("[rl-insight] Ray is not initialized; monitoring is disabled.")
         return None
 
-    handle = get_or_create_monitor_hub(conf)
+    handle = get_or_create_monitor_hub(conf, create=bool(conf.get("run_metadata")))
     return MonitorRayClient(handle)
 
 
@@ -118,6 +144,39 @@ class MonitorRayClient(MonitorClient):
             actor_handle: Return value of ``get_or_create_monitor_hub``.
         """
         self._actor = actor_handle
+        self._actor_name = _current_job_actor_name() if actor_handle is None else ""
+        self._pending: deque[dict[str, Any]] = deque()
+        self._lock = threading.Lock()
+        self._closed = threading.Event()
+        self._waiter: threading.Thread | None = None
+
+    def _resolve_actor(self) -> bool:
+        if self._actor is None:
+            try:
+                self._actor = ray.get_actor(
+                    self._actor_name, namespace=MonitorRayActor.NAMESPACE
+                )
+            except ValueError:
+                return False
+        return True
+
+    def get_context(self) -> RunContext | None:
+        if not self._resolve_actor():
+            return None
+        # Includes discovery, bounded registration retries and actor scheduling.
+        timeout = (
+            MonitorServer.SERVICE_DISCOVERY_RETRIES
+            * (
+                MonitorServer.SERVICE_DISCOVERY_TIMEOUT_SECONDS
+                + MonitorServer.SERVICE_DISCOVERY_RETRY_DELAY_SECONDS
+            )
+            + 30
+        )
+        context = ray.get(self._actor.get_context.remote(), timeout=timeout)
+        if not isinstance(context, RunContext):
+            raise RunError("Hub returned an invalid RunContext")
+        validate_version(getattr(context, "version", None))
+        return context
 
     def apply_event(self, event: dict[str, Any]) -> None:
         """Submit ``MonitorHubActor.apply_event`` on the actor (fire-and-forget; no ``ray.get``).
@@ -128,4 +187,49 @@ class MonitorRayClient(MonitorClient):
         Note:
             Errors on the hub side are not surfaced here. Ordering follows Ray actor scheduling.
         """
-        self._actor.apply_event.remote(event)
+        with self._lock:
+            if self._closed.is_set():
+                raise RunError("Monitor client is closed")
+            if self._actor is not None and not self._pending:
+                self._actor.apply_event.remote(event)
+                return
+            if len(self._pending) >= 1024:
+                raise RunError(
+                    "Too many events waiting for configured Run initialization"
+                )
+            self._pending.append(event)
+            if self._waiter is None or not self._waiter.is_alive():
+                self._waiter = threading.Thread(
+                    target=self._wait_for_hub, name="insight-events", daemon=True
+                )
+                self._waiter.start()
+
+    def _flush_pending(self) -> bool:
+        with self._lock:
+            if not self._resolve_actor():
+                return False
+            while self._pending:
+                self._actor.apply_event.remote(self._pending[0])
+                self._pending.popleft()
+            return True
+
+    def _wait_for_hub(self) -> None:
+        delay = 0.1
+        while not self._closed.is_set():
+            try:
+                if self._flush_pending():
+                    return
+            except ray.exceptions.RayError:
+                logger.exception("[rl-insight] Cannot attach pending events to the Run")
+            if self._closed.wait(delay):
+                return
+            delay = min(delay * 2, 2)
+
+    def close(self) -> None:
+        self._closed.set()
+        if self._pending and not self._flush_pending():
+            logger.warning(
+                "[rl-insight] Discarding %d events: no configured Run was initialized",
+                len(self._pending),
+            )
+            self._pending.clear()

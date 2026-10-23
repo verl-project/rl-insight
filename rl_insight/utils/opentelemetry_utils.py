@@ -43,8 +43,14 @@ def _reduce_otel_export_log_noise() -> None:
 class OpenTelemetryTraceCollector:
     """Export closed root spans to Tempo via OTLP/HTTP."""
 
-    def __init__(self, namespace: str = "", endpoint: str | None = None) -> None:
+    def __init__(
+        self,
+        namespace: str = "",
+        endpoint: str | None = None,
+        resource_attributes: dict[str, Any] | None = None,
+    ) -> None:
         self._tracer = None
+        self._provider = None
         if not endpoint:
             logger.warning(
                 "[rl-insight] OpenTelemetry trace export is disabled because no OTLP endpoint "
@@ -53,11 +59,16 @@ class OpenTelemetryTraceCollector:
             return
 
         _reduce_otel_export_log_noise()
-        provider = TracerProvider(resource=Resource.create({SERVICE_NAME: namespace}))
+        provider = TracerProvider(
+            resource=Resource.create(
+                {**(resource_attributes or {}), SERVICE_NAME: namespace}
+            )
+        )
         provider.add_span_processor(
             BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint))
         )
         self._tracer = provider.get_tracer(__name__)
+        self._provider = provider
 
     @property
     def enabled(self) -> bool:
