@@ -81,7 +81,8 @@ def test_get_or_create_monitor_hub_should_create_actor_when_actor_is_missing(
             "env_vars": {"RL_INSIGHT_SERVER_URL": "http://server"},
         },
     )
-    remote.assert_called_once_with(conf)
+    assert remote.call_args.args == (conf,)
+    assert len(remote.call_args.kwargs["owner_token"]) == 32
 
 
 def test_get_or_create_monitor_hub_should_reuse_winner_when_creation_races(

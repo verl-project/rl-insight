@@ -6,7 +6,9 @@
     "generation": 45,
     "creationTimestamp": "2026-07-08T14:34:31Z",
     "labels": {},
-    "annotations": {}
+    "annotations": {
+      "rl-insight/metrics-selector": "{__name__=~\"vllm:.*\"}"
+    }
   },
   "spec": {
     "annotations": [
@@ -4238,7 +4240,7 @@
                       "spec": {
                         "limit": 10000,
                         "metricsQueryType": "range",
-                        "query": "{span.state_lane_id!=\"\"}",
+                        "query": "{span.\"monitor.trace_segment\"=\"state_interval\" && span.state_lane_id!=\"\"} | select(span.state_lane_id)",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 100,
@@ -4477,7 +4479,20 @@
                     "spanNulls": false
                   }
                 },
-                "overrides": []
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "traceName"
+                    },
+                    "properties": [
+                      {
+                        "id": "displayName",
+                        "value": "${__field.labels.state_lane_id}"
+                      }
+                    ]
+                  }
+                ]
               }
             }
           }
@@ -6980,7 +6995,7 @@
                       },
                       "spec": {
                         "limit": 100000,
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.\"monitor.trace_segment\" = \"metric_log\" && span.\"metric.name\" = \"$trainer_metric\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" && span.global_step != nil && span.\"metric.value\" != nil }",
+                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.\"monitor.trace_segment\" = \"metric_log\" && span.\"metric.name\" = \"$trainer_metric\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" && span.global_step != nil && span.\"metric.value\" != nil } | select(span.project, span.experiment_name, span.global_step, span.\"metric.name\", span.\"metric.value\")",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 3,
@@ -8263,7 +8278,7 @@
             "text": "All",
             "value": "$__all"
           },
-          "label": "training: Experiment Name",
+          "label": "Experiment",
           "hide": "dontHide",
           "refresh": "onTimeRangeChanged",
           "skipUrlSync": false,

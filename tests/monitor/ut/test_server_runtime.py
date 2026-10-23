@@ -398,3 +398,68 @@ def test_auto_port_real_start_retry_and_cleanup(tmp_path, monkeypatch, races):
         finally:
             for process in processes:
                 runtime_module._terminate_process(process)
+
+
+def test_provisioning_uses_fixed_gateway_sources_and_multiselect_without_credentials(
+    tmp_path,
+):
+    import json
+
+    conf = load_server_config_file()
+    conf.server.runtime_dir = str(tmp_path / "runtime")
+    conf.server.data_dir = str(tmp_path / "data")
+    runtime = runtime_module.LocalServiceRuntime(conf, tmp_path / "install")
+    files = runtime.prepare_files()
+    provisioning = files.grafana_config.parent / "provisioning/datasources/default.yml"
+    sources = yaml.safe_load(provisioning.read_text())["datasources"]
+    assert {s["uid"] for s in sources} == {"prometheus", "tempo", "rli-catalog"}
+    assert all("/api/v1/" in s["url"] for s in sources)
+    dashboards = list((files.grafana_config.parent / "dashboards").rglob("*.json"))
+    assert len(dashboards) >= 5
+    for path in dashboards:
+        dashboard = json.loads(path.read_text())
+        variables = dashboard["spec"]["variables"]
+        for variable in variables:
+            if variable["kind"] == "DatasourceVariable":
+                source = variable["spec"]
+                assert source["regex"] == "^" + source["current"]["text"] + "$"
+                assert source["current"]["text"] in {"Prometheus", "Tempo"}
+        execution = next(
+            v["spec"]
+            for v in variables
+            if v["spec"]["name"] in {"experiment", "experiment_name"}
+        )
+        assert execution["multi"] and execution["includeAll"]
+        assert "rli-${run_id}" not in json.dumps(dashboard)
+        for element in dashboard["spec"]["elements"].values():
+            panel = element.get("spec", {})
+            if panel.get("title") in {"state timeline", "state_timeline"}:
+                query = panel["data"]["spec"]["queries"][0]["spec"]["query"]["spec"][
+                    "query"
+                ]
+                assert '"state_interval"' in query
+                assert "select(span.state_lane_id)" in query
+                assert "metric.name" not in query and "global_step" not in query
+
+        def check_partition(value):
+            if isinstance(value, dict):
+                if value.get("kind") == "QueryVariable" and value["spec"]["name"] in {
+                    "trainer_metric",
+                    "metric_group",
+                }:
+                    query = value["spec"]["query"]
+                    assert query["group"] == "prometheus"
+                    assert query["datasource"]["name"] == "rli-catalog"
+                    assert "${run_id:regex}" in query["spec"]["query"]
+                    assert "metric_name" in query["spec"]["query"]
+                if value.get("group") == "partitionByValues":
+                    fields = value["spec"]["options"]["fields"]
+                    if "metric.name" in fields:
+                        assert "rl_insight.run_id" in fields
+                for child in value.values():
+                    check_partition(child)
+            elif isinstance(value, list):
+                for child in value:
+                    check_partition(child)
+
+        check_partition(dashboard)

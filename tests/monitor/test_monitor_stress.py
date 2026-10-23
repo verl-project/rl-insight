@@ -177,7 +177,7 @@ def _hub_events_count() -> int:
     for actor_name in (_current_job_actor_name(), MonitorRayActor.NAME):
         try:
             actor = ray.get_actor(actor_name, namespace=namespace)
-            status = ray.get(actor.get_status.remote())
+            status = ray.get(actor.get_context.remote()).to_dict()
             return int(status.get("events_applied", 0))
         except ValueError:
             continue
@@ -409,6 +409,9 @@ def _process_worker(
     if track_sum:
         submitted_sum = sum(_hist_sum(n) for n in worker_counts)
 
+    # Keep the producer alive until its asynchronous actor submissions complete.
+    # A parent-process status query cannot order calls from other producers.
+    _ray.get(hub_handle.get_context.remote(), timeout=EVENT_DRAIN_TIMEOUT_S)
     result_queue.put(
         {
             "submitted": submitted,
