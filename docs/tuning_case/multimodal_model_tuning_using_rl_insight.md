@@ -1,6 +1,6 @@
-# Qwen3-Omni Training and Async Tuning on Ascend 910B NPUs
+# Multimodal Model Tuning Using RL-Insight
 
-This case study documents the compatibility work and performance tuning required to run Qwen3-Omni-30B-A3B-Instruct reinforcement learning on Ascend 910B NPUs. It focuses on the observations that can be diagnosed with RL Insight: memory pressure during actor updates, Trainer/Rollouter bubbles, per-rank rollout imbalance, and the throughput trade-offs between synchronous, separate-async, and colocate-async execution.
+This case study uses Qwen3-Omni-30B-A3B-Instruct training on Ascend 910B NPUs to demonstrate how RL-Insight can guide multimodal model tuning. It focuses on memory pressure during actor updates, Trainer/Rollouter bubbles, per-rank rollout imbalance, and the throughput trade-offs between synchronous, separate-async, and colocate-async execution.
 
 For the general tuning methodology, see the [Async RL Training Tuning Guide](async_mode_tuning_tutorial.md). This page records one workload and should not be treated as a universal configuration recommendation.
 
@@ -104,7 +104,7 @@ The actor-update measurement decreased by more than 20% in the captured comparis
 
 These plots represent one workload and revision set. Validate numerical parity and performance again when changing the model, CANN, `torch_npu`, or verl revision.
 
-## 4. Separate-Async Tuning with RL Insight
+## 4. Separate-Async Tuning with RL-Insight
 
 In this section, `rXtY` denotes `X` rollout NPUs and `Y` training NPUs. Separate async uses disjoint resource pools, so configurations with different `X` and `Y` values do not use the same total number of NPUs. Compare both end-to-end throughput and throughput per allocated NPU.
 
@@ -120,7 +120,7 @@ In this section, `rXtY` denotes `X` rollout NPUs and `Y` training NPUs. Separate
 
 Before the first replay-buffer sample was ready, the hybrid engine could participate in rollout. In steady state, however, inference was substantially faster than training. Rollouters ran approximately five PPO mini-batches ahead and then waited:
 
-![r8t8 RL Insight timeline](../../assets/doc/async_mode_tuning/image7.png)
+![r8t8 RL-Insight timeline](../../assets/doc/async_mode_tuning/image7.png)
 
 ![r8t8 rollout-load details](../../assets/doc/async_mode_tuning/image8.png)
 
@@ -150,7 +150,7 @@ The captured throughput comparison includes the `r8t8`, `r8t16`, and synchronous
 
 The tuning sequence was:
 
-1. Use the RL Insight timeline to identify that rollout was consistently ahead of training.
+1. Use the RL-Insight timeline to identify that rollout was consistently ahead of training.
 2. Rebalance the Trainer/Rollouter resource ratio.
 3. Confirm training-side memory headroom.
 4. Increase the PPO token budget until the speed gap narrowed while retaining a memory safety margin.
@@ -212,9 +212,9 @@ Before comparing execution modes, keep the following items explicit:
 - peak allocated and reserved HBM per rank;
 - reward and accuracy across multiple seeds when making quality claims.
 
-For this workload, the most useful RL Insight signals were:
+For this workload, the most useful RL-Insight signals were:
 
-| Question | RL Insight evidence |
+| Question | RL-Insight evidence |
 | --- | --- |
 | Which side owns the bubble? | Trainer/Rollouter state timeline |
 | Are all rollout ranks busy? | `running_request`, scheduler state, and cache utilization per rank |
