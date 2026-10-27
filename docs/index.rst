@@ -44,6 +44,11 @@ For offline Recipe utilities, see the
 Contribution
 -------------
 
+.. toctree::
+   :maxdepth: 1
+
+   Monitor Development <monitor/development>
+
 RL-Insight is free software; you can redistribute it and/or modify it under the terms
 of the Apache License 2.0. We welcome contributions.
 Join us on `GitHub <https://github.com/verl-project/rl-insight>`_ for discussions.

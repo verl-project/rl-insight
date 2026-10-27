@@ -56,7 +56,7 @@ class MonitorDefaults:
     """Default trainer monitor config values."""
 
     NAMESPACE = "rl_insight_monitor"
-    METRICS_REPORT_PORT = 9092
+    METRICS_REPORT_PORT = 0
 
 
 class MonitorBackend:

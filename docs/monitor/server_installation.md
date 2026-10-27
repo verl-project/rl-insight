@@ -1,190 +1,142 @@
 # Server Installation
 
-RL-Insight Monitor needs three services before online monitoring can run:
+Install and start one RL-Insight server stack, then connect your training jobs to
+it. For a runnable training example, see [Quick Start](./quick_start.md).
 
-| Service    | Role                                | Required version | Installer version |
-| ---------- | ----------------------------------- | ---------------- | ----------------- |
-| Prometheus | stores and queries training metrics | `>= 2.30.0`    | `2.54.1`        |
-| Tempo      | stores and queries RL state traces  | `>= 2.0.0`     | `2.6.1`         |
-| Grafana    | shows dashboards and trace views    | `>= 13.0.0`    | `13.0.0`        |
+## Requirements
 
-Choose one of the three approaches below depending on your network environment. To run the same stack in a container instead of installing services on the host, see the **Run with Docker** section below.
+Install the Python package from the repository root:
 
-## Supported Platforms
+```bash
+pip install -e .
+```
 
-Automatic installation supports Linux and Windows x64.
+The automatic service installer supports Linux x64/arm64 and Windows x64.
+When upgrading an existing deployment, update the server before the training
+environments.
 
-| OS family                    | CPU architectures                               |
-| ---------------------------- | ----------------------------------------------- |
-| Ubuntu / Debian              | `amd64` / `x86_64`, `arm64` / `aarch64` |
-| CentOS / RHEL / Rocky / Alma | `amd64` / `x86_64`, `arm64` / `aarch64` |
-| Windows | `amd64` / `x86_64` |
+| Service | Required version | Installed version |
+| --- | --- | --- |
+| Prometheus | `>= 2.30.0` | `2.54.1` |
+| Tempo | `>= 2.0.0` | `2.6.1` |
+| Grafana | `>= 13.0.0` | `13.0.0` |
 
----
+## Install services
 
-## Approach 1: Direct Installation (Official Source)
+Choose one installation method.
 
-Suitable for users whose nodes can reach GitHub release assets and `dl.grafana.com` directly. The installer downloads and manages everything.
+### Online installation
+
+Use this if the server machine can reach GitHub release downloads and
+`dl.grafana.com`:
 
 ```bash
 rl-insight server install
 ```
 
-The command downloads Prometheus, Tempo, and Grafana into `~/.rl-insight/services`, then prints a dependency summary.
+Services are installed under `~/.rl-insight/services`. Use `--force` to reinstall,
+or `--install-dir /opt/rl-insight/services` to choose another location.
 
-Then start the stack:
+### Offline installation
 
-```bash
-rl-insight server start
-```
-
-Use `rl-insight server start --auto-port` (optionally with `--detach`) to retain available configured ports and replace occupied ports with OS-assigned ports. This includes Tempo's internal gRPC and memberlist ports. Automatic mode waits for readiness and makes up to three startup attempts if a port is taken meanwhile. Actual ports are saved in the runtime config for service discovery, Grafana, and `server targets add`; original YAML is unchanged. Use the printed server and Grafana URLs, which may change between starts. Fixed-port mode is unchanged.
-
-To use a custom data directory, pass `--log-dir`:
-
-```bash
-rl-insight server start --log-dir /path/to/rl-insight-data
-```
-
-The directory is created automatically and is used by Prometheus, Tempo, Grafana, and target state. See [Data Directory Migration](./data_migration.md) for backup and restore instructions.
-
-Useful variants:
-
-```bash
-# Reinstall even if binaries already exist.
-rl-insight server install --force
-
-# Use a different managed install directory.
-rl-insight server install --install-dir /opt/rl-insight/services
-
-# Start in background and stop later.
-rl-insight server start --detach
-rl-insight server stop
-```
-
----
-
-## Approach 2: Offline Installation With Pre-downloaded Archives
-
-Suitable for nodes that cannot access official sources or have no internet connection at all. Pre-download the archives on another machine and provide them locally.
-
-### 1. Get the download list
-
-Run `rl-insight server install` on the target node. Even if it cannot download, it prints the planned URLs before attempting:
-
-```text
-Planned downloads:
-  prometheus   2.54.1    https://github.com/prometheus/prometheus/releases/download/v2.54.1/prometheus-2.54.1.linux-amd64.tar.gz
-  tempo        2.6.1     https://github.com/grafana/tempo/releases/download/v2.6.1/tempo_2.6.1_linux_amd64.tar.gz
-  grafana      13.0.0    https://dl.grafana.com/oss/release/grafana-13.0.0.linux-amd64.tar.gz
-```
-
-### 2. Download the archives
-
-Use a machine with network access to download the files listed above. The filenames must match exactly.
-
-### 3. Install from the local directory
-
-Place the three release archives (`.tar.gz` or `.zip`, depending on platform) in a single directory and run:
+1. Run `rl-insight server install` on the target machine to see the required
+   archive filenames and download URLs.
+2. Download all three archives on a connected machine and copy them into one
+   directory on the target machine. Keep the filenames unchanged.
+3. Install from that directory:
 
 ```bash
 rl-insight server install --local-archive /path/to/archives
 ```
 
-RL-Insight checks the local directory for each archive by exact filename. Archives that match are copied and used directly; any missing archive falls back to the configured download URL. The version is verified implicitly — the archive filename must include the version configured in `install_version`.
+Include all three archives; missing files trigger an online download attempt.
 
----
+### Use existing service binaries
 
-## Approach 3: Manual Installation (No Installer)
-
-Suitable for air-gapped environments, centralized operations with unified deployment tooling, or users who need full control over binary placement and custom deployment requirements.
-
-RL-Insight searches for binaries in this order: manifest.json → `~/.rl-insight/services` → system PATH → system fixed paths. If your binaries are already on `PATH` or in a standard location, simply run `rl-insight server start`. To point at an arbitrary path, use `binary_path` in config:
+If compatible binaries are already on `PATH`, skip installation and start the
+server. Otherwise, set their paths in a YAML file. Keep the full Grafana
+installation directory alongside its executable.
 
 ```yaml
 prometheus:
-  binary_path: /opt/custom/prometheus
+  binary_path: /opt/prometheus/prometheus
 tempo:
-  binary_path: /opt/custom/tempo
+  binary_path: /opt/tempo/tempo
 grafana:
-  binary_path: /opt/custom/grafana-server
+  binary_path: /opt/grafana/bin/grafana
 ```
 
-### 1. Get the archives
+Pass this file to the start command with `--config server.yaml`.
 
-Follow Approach 2 to identify and download the three release archives (`.tar.gz` or `.zip`, depending on platform).
-
-### 2. Extract and place
-
-On Windows, extract the archives and configure `binary_path` for each service; keep the full Grafana directory. The commands below are for Linux.
+## Start and stop
 
 ```bash
-PROMETHEUS_ARCHIVE=prometheus-2.54.1.linux-arm64.tar.gz
-TEMPO_ARCHIVE=tempo_2.6.1_linux_arm64.tar.gz
-GRAFANA_ARCHIVE=grafana-13.0.0.linux-arm64.tar.gz
-
-# Prometheus — extracted directory name matches the archive (minus .tar.gz)
-PROMETHEUS_DIR="${PROMETHEUS_ARCHIVE%.tar.gz}"
-TMP_DIR="$(mktemp -d)"
-tar -xzf "$PROMETHEUS_ARCHIVE" -C "$TMP_DIR"
-mkdir -p ~/.rl-insight/services/prometheus
-cp "$TMP_DIR/$PROMETHEUS_DIR/prometheus" ~/.rl-insight/services/prometheus/prometheus
-chmod +x ~/.rl-insight/services/prometheus/prometheus
-
-# Tempo — extracts a flat binary, no directory
-TMP_DIR="$(mktemp -d)"
-tar -xzf "$TEMPO_ARCHIVE" -C "$TMP_DIR"
-mkdir -p ~/.rl-insight/services/tempo
-cp "$TMP_DIR/tempo" ~/.rl-insight/services/tempo/tempo
-chmod +x ~/.rl-insight/services/tempo/tempo
-
-# Grafana — directory name drops the arch suffix; read it from the tarball
-GRAFANA_DIR=$(tar -tzf "$GRAFANA_ARCHIVE" | head -1 | cut -d/ -f1)
-TMP_DIR="$(mktemp -d)"
-tar -xzf "$GRAFANA_ARCHIVE" -C "$TMP_DIR"
-mkdir -p ~/.rl-insight/services/grafana
-cp -a "$TMP_DIR/$GRAFANA_DIR" ~/.rl-insight/services/grafana/$GRAFANA_DIR
-```
-
-### 3. Verify and start
-
-```bash
-~/.rl-insight/services/prometheus/prometheus --version
-~/.rl-insight/services/tempo/tempo --version
-~/.rl-insight/services/grafana/$GRAFANA_DIR/bin/grafana --version
-
 rl-insight server start
 ```
 
----
+Use the server and Grafana URLs printed at startup. Press `Ctrl+C` to stop the
+foreground stack.
+
+| Option | Use |
+| --- | --- |
+| `--detach` | Run in the background. |
+| `--attach-logs` | Run in the foreground and stream service logs. |
+| `--auto-port` | Choose available ports when configured ports are occupied. Use the newly printed URLs after each start. |
+| `--log-dir /path/to/data` | Choose where monitoring data is saved. |
+| `--config server.yaml` | Load a custom server configuration. |
+
+To stop a background stack:
+
+```bash
+rl-insight server stop
+```
+
+If you started with `--config`, pass the same file when stopping. Check that the
+server is reachable before launching training:
+
+```bash
+curl -fsS http://<server-ip>:18080/healthz
+```
+
+The expected response is `{"status":"ok"}`. Replace the address and port with the
+printed server URL.
+
+## Connect training jobs
+
+Set this in the environment used to launch each training job:
+
+```bash
+export RL_INSIGHT_SERVER_URL=http://<server-ip>:18080
+```
+
+Use an address reachable from every training node, and make the same setting
+available to all workers. For multiple jobs, use the same server URL and leave
+the training metrics port unset so each job receives an available port. See
+[Monitor concurrent training jobs](./quick_start.md#monitor-concurrent-training-jobs).
+
+For training on other machines, allow these connections:
+
+| From | To | Default port |
+| --- | --- | --- |
+| Training processes | RL-Insight server | `18080` |
+| Training processes | Trace ingestion | `4318` |
+| Prometheus | Training metrics endpoints | Dynamically assigned, or explicitly configured per job |
+| Your browser | Grafana | `3000` |
+
+If firewall rules require fixed training metrics ports, set
+`prometheus.metrics_report_port` in the training monitoring configuration. Jobs
+on the same machine must use different ports. With `--auto-port`, use the service
+ports printed at startup instead of the defaults above.
 
 ## Run with Docker
 
-The project also provides an all-in-one image that bundles the CLI together with Prometheus, Tempo, and Grafana. With this approach nothing is installed on the host — no Node.js, no Grafana Labs repository, and no service binaries. Docker is the only requirement.
-
-Build the image from the repository root:
+Build an image from the repository root; it includes the server services:
 
 ```bash
 docker build -f docker/Dockerfile -t rl-insight:latest .
 ```
 
-To select a different Python base image or pip index, pass `PYTHON_VERSION` / `PIP_INDEX_URL` as `--build-arg` values.
-
-Multi-architecture (amd64/arm64) images are also published to the GitHub Container Registry on every `v*` tag:
-
-```bash
-docker pull ghcr.io/verl-project/rl-insight:0.3.0
-```
-
-A rolling `nightly` image is additionally rebuilt from `main` (daily schedule and pushes), so you can try the latest unreleased changes without waiting for a version tag:
-
-```bash
-docker pull ghcr.io/verl-project/rl-insight:nightly
-```
-
-Every nightly build also pushes an immutable `nightly-<date>-<sha>` tag (e.g. `nightly-20260925-3c92f22`), and the same name exists as a git tag in the repository, so a given build can be pinned and reproduced exactly. Stable releases are published under their semver tags only (e.g. `0.3.0`, `0.3`); there is no rolling `latest` tag.
-
-Start the full stack on Linux:
+On Linux, use host networking so training processes can reach the service ports:
 
 ```bash
 docker run -d --name rl-insight --network host --stop-timeout 45 \
@@ -193,75 +145,40 @@ docker run -d --name rl-insight --network host --stop-timeout 45 \
     rl-insight:latest
 ```
 
-| Option                     | Meaning                                                                                                        |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `--network host`         | Services bind`0.0.0.0`, so ports 18080 / 9090 / 3200 / 3000 are published on the host directly (Linux only). |
-| `--stop-timeout 45`      | Allow time for graceful shutdown (Prometheus data flush) before SIGKILL.                                       |
-| `--shm-size=2g`          | Shared memory headroom; the Docker default of 64MB is too small.                                               |
-| `-v rl-insight-data:...` | Persist server data in a named volume (see**Data Persistence** below).                                   |
-
-The container runs as `root` and bundles common debugging tools such as `curl` and `vim`. `~` resolves to `/root`, so data stays in the default `~/.rl-insight` layout; the named volume mounts exactly that directory (see **Data Persistence** below).
-
-### Port Mapping
-
-With `--network host`, service ports land on the host unchanged and cannot be remapped. On macOS/Windows, or when a host port is already taken by another process, use bridge networking and publish ports explicitly. The container port after `:` is fixed by each service; the host port before it is freely configurable:
+With bridge networking, publish the ports explicitly:
 
 ```bash
 docker run -d --name rl-insight --stop-timeout 45 --shm-size=2g \
-    -p 18080:18080 -p 9090:9090 -p 3200:3200 -p 13000:3000 \
+    -p 18080:18080 -p 9090:9090 -p 3200:3200 -p 4318:4318 -p 13000:3000 \
     -v rl-insight-data:/root/.rl-insight/data \
     rl-insight:latest
 ```
 
-The example above maps Grafana to host port 13000 to avoid a conflict with an existing Grafana instance; browse `http://<server-ip>:13000`.
+In this example, open Grafana at `http://<server-ip>:13000`. The server container
+must also be able to reach the training metrics endpoints.
 
-| Container port | Service           |
-| -------------- | ----------------- |
-| 18080          | rl-insight web UI |
-| 9090           | Prometheus        |
-| 3200           | Tempo             |
-| 3000           | Grafana           |
-
-### Health Check and Logs
-
-The image defines a `HEALTHCHECK` that polls all four service endpoints every 30s:
+Check logs and stop the container with:
 
 ```bash
-docker inspect --format '{{json .State.Health}}' rl-insight
 docker logs -f rl-insight
+docker stop rl-insight
 ```
 
-The repository also provides `tests/monitor/special_e2e/docker_smoke_test.sh`, the same four-stage container test used by CI (healthy start, graceful stop, restart, core-service failure):
+For offline distribution, use `docker save` on the build machine and `docker load`
+on the target machine. Use an image built for the target CPU architecture.
 
-```bash
-tests/monitor/special_e2e/docker_smoke_test.sh rl-insight:latest
-```
+## Keep monitoring data
 
-### Offline Image Distribution
+The default data directory is `~/.rl-insight/data`. Use the same directory when
+restarting the server to retain experiment history. Stopping the server does not
+delete collected data. The Docker examples persist it in the `rl-insight-data`
+volume.
 
-Where a registry is unavailable, distribute the image as a file:
+Back up the data directory before upgrading. To roll back a server version,
+restore its matching pre-upgrade backup.
 
-```bash
-docker save rl-insight:latest | gzip > rl-insight-latest-linux-arm64.tar.gz
-```
-
-Name the file with the architecture it was built for. On the target host, `docker load -i rl-insight-latest-linux-arm64.tar.gz` restores the original name:tag.
-
----
-
-## Data Persistence
-
-RL-Insight keeps server data on disk. By default, data is stored under `~/.rl-insight/data`:
-
-| Service    | Persistent data                                                          |
-| ---------- | ------------------------------------------------------------------------ |
-| Prometheus | `~/.rl-insight/data/prometheus` TSDB blocks                            |
-| Tempo      | `~/.rl-insight/data/tempo/traces` and `~/.rl-insight/data/tempo/wal` |
-| Grafana    | `~/.rl-insight/data/grafana` data, logs, and plugins                   |
-
-`Ctrl+C` and `rl-insight server stop` stop processes only. They do not delete collected metrics, traces, or dashboard state.
-
-Prometheus and Tempo retain data for `30d` by default:
+Prometheus and Tempo retain data for `30d` by default. To change retention, add
+these settings to your server YAML and start with `--config`:
 
 ```yaml
 prometheus:
@@ -270,13 +187,4 @@ tempo:
   retention_time: 30d
 ```
 
-Set a different persistent directory in server YAML:
-
-```yaml
-server:
-  data_dir: /path/to/rl-insight/data
-```
-
-## Next Step
-
-Continue with [Quick Start](./quick_start.md) to start the stack, instrument training code, and open Grafana.
+For backup and restore, see [Data Directory Migration](./data_migration.md).

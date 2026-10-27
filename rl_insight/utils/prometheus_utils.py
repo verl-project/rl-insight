@@ -20,11 +20,13 @@ import logging
 import os
 import sys
 import threading
+import time
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import requests
 import yaml
@@ -39,9 +41,58 @@ from .constants import (
     PrometheusScrape,
     prometheus_targets_file_from_config,
 )
+from .protocol import RunContext, RunError
 
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.WARNING)
+
+_pending_targets: list[
+    tuple[list[str], str | None, list[Mapping[str, Any] | None] | None]
+] = []
+_pending_lock = threading.Lock()
+_pending_probe: threading.Thread | None = None
+
+
+def _wait_for_context() -> None:
+    """Retry pending native targets for the lifetime of their worker process."""
+    global _pending_probe
+    from ray.exceptions import RayActorError
+
+    from ..client.ray_monitor_client import current_job_context
+
+    delay = 0.1
+    while True:
+        with _pending_lock:
+            if not _pending_targets:
+                _pending_probe = None
+                return
+        try:
+            context = current_job_context()
+            if context:
+                flush_pending_targets(context)
+        except (RunError, RayActorError) as exc:
+            logger.error("[rl-insight] Cannot resolve native target identity: %s", exc)
+            with _pending_lock:
+                _pending_targets.clear()
+                _pending_probe = None
+            return
+        time.sleep(delay)
+        delay = min(delay * 2, 2)
+
+
+def flush_pending_targets(context: RunContext | None) -> None:
+    with _pending_lock:
+        pending = list(_pending_targets)
+    for item in pending:
+        try:
+            done = _register_targets(*item, context)
+        except RunError as exc:
+            logger.error("[rl-insight] Native target registration rejected: %s", exc)
+            done = True
+        if done:
+            with _pending_lock:
+                if item in _pending_targets:
+                    _pending_targets.remove(item)
 
 
 __all__ = [
@@ -155,19 +206,61 @@ class PrometheusTargetStore:
             }
             for (stored_job, target), labels in sorted(target_map.items())
         ]
-        payload = yaml.safe_dump(groups, sort_keys=False)
-        tmp_path = self.targets_file.with_name(
-            f".{self.targets_file.name}.{os.getpid()}.{threading.get_ident()}.tmp"
+        self._write_discovery(
+            self.targets_file, yaml.safe_dump(groups, sort_keys=False)
+        )
+
+    @staticmethod
+    def _write_discovery(path: Path, payload: str) -> None:
+        if path.exists() and path.read_text(encoding="utf-8") == payload:
+            return
+        temporary = path.with_name(
+            f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp"
         )
         try:
-            tmp_path.write_text(payload, encoding="utf-8")
-            os.replace(tmp_path, self.targets_file)
-        except BaseException:
-            try:
-                tmp_path.unlink()
-            except FileNotFoundError:
-                pass
-            raise
+            temporary.write_text(payload, encoding="utf-8")
+            for attempt in range(6):
+                try:
+                    os.replace(temporary, path)
+                    break
+                except PermissionError as exc:
+                    # Windows readers can briefly deny delete/replace sharing.
+                    if getattr(exc, "winerror", None) not in {5, 32} or attempt == 5:
+                        raise
+                    time.sleep(0.02 * 2**attempt)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+    def check_ownership(self, targets, run_id):
+        with self._lock, self._file_lock():
+            addresses = {t.target for t in targets}
+            for (_, address), labels in self._read_targets().items():
+                owner = labels.get("__rl_insight_run_id", labels.get("run_id"))
+                if address in addresses and owner != run_id:
+                    raise RunError(
+                        "Target address already has different Run ownership", 409
+                    )
+
+    def project_runs(self, targets, ended_runs=()):
+        """Keep legacy registrations and project renewable targets into existing file_sd."""
+        with self._lock, self._file_lock():
+            direct = {
+                key: labels
+                for key, labels in self._read_targets().items()
+                if "__rl_insight_publisher" not in labels
+                and labels.get("__rl_insight_run_id", labels.get("run_id"))
+                not in ended_runs
+            }
+            direct.update(
+                {
+                    (item["job_name"], item["target"]): {
+                        **item["labels"],
+                        "__rl_insight_publisher": item["publisher_id"],
+                    }
+                    for item in targets
+                }
+            )
+            self._write_targets(direct)
 
     def _read_targets(self) -> dict[tuple[str, str], dict[str, str]]:
         if not self.targets_file.exists():
@@ -228,15 +321,9 @@ def _merge_labels(
     return out
 
 
-def start_metrics_http_server(port: int, addr: str = "") -> None:
-    """Start a background thread serving ``/metrics`` via ``prometheus_client``.
-
-    Args:
-        port: TCP port to listen on.
-        addr: Bind address; empty may mean all interfaces depending on library defaults.
-    """
-    addr = addr.strip("[]") if addr else addr
-    start_http_server(port, addr=addr)
+def start_metrics_http_server(port: int, addr: str = ""):
+    """Bind once and return the actual HTTP server/thread; port 0 allocates a port."""
+    return start_http_server(port, addr=addr.strip("[]") if addr else addr)
 
 
 class MetricRegistry:
@@ -404,6 +491,9 @@ def update_prometheus_config(
     server_addresses: list[str],
     job_name: str | None = None,
     labels: list[Mapping[str, Any] | None] | None = None,
+    *,
+    context: RunContext | None = None,
+    identity_in_metrics: bool = False,
 ) -> None:
     """Register trainer metrics endpoints with the RL-Insight server.
 
@@ -419,6 +509,7 @@ def update_prometheus_config(
         labels: Optional per-target labels. When provided, its length must match
             ``server_addresses``.
     """
+    global _pending_probe
     if not server_addresses:
         logger.warning("[rl-insight] No server addresses available to register")
         return
@@ -447,7 +538,17 @@ def update_prometheus_config(
         )
         return
 
-    base_url = str(os.environ.get(MonitorEnv.SERVER_URL, "")).strip().rstrip("/")
+    initialized = True
+    if context is None:
+        from ..api import _client_initialized, get_context
+
+        context = get_context()
+        initialized = _client_initialized()
+    base_url = (
+        context.server_url
+        if context
+        else str(os.environ.get(MonitorEnv.SERVER_URL, "")).strip().rstrip("/")
+    )
     if not base_url:
         logger.error(
             "[rl-insight] RL-Insight server URL is required; "
@@ -456,22 +557,185 @@ def update_prometheus_config(
         )
         return
 
-    payload = {
+    if context is None:
+        if not initialized:
+            from ..server.http_api import get_server_services
+
+            if get_server_services():
+                # Wait for logger initialization; never create a Run from an address.
+                from ..client.ray_monitor_client import current_job_context
+
+                context = current_job_context()
+                item: tuple[
+                    list[str], str | None, list[Mapping[str, Any] | None] | None
+                ] = (
+                    list(server_addresses),
+                    job_name,
+                    [dict(x) if x else None for x in labels] if labels else None,
+                )
+                if context is None:
+                    with _pending_lock:
+                        if item not in _pending_targets:
+                            if len(_pending_targets) >= 64:
+                                raise ValueError(
+                                    "Too many targets waiting for Run initialization"
+                                )
+                            _pending_targets.append(item)
+                        if _pending_probe is None or not _pending_probe.is_alive():
+                            _pending_probe = threading.Thread(
+                                target=_wait_for_context,
+                                name="insight-context",
+                                daemon=True,
+                            )
+                            _pending_probe.start()
+                    return
+
+    _register_targets(
+        server_addresses,
+        job_name,
+        labels,
+        context,
+        identity_in_metrics=identity_in_metrics,
+    )
+
+
+_publisher_id = uuid4().hex
+_target_publications: dict[tuple[str, str, str, str], tuple[dict[str, Any], float]] = {}
+_publication_lock = threading.Lock()
+_publication_thread: threading.Thread | None = None
+
+
+def _forget_targets(context: RunContext | None) -> None:
+    if context is not None:
+        with _publication_lock:
+            for key in list(_target_publications):
+                if key[:2] == (context.server_url, context.run_id):
+                    del _target_publications[key]
+
+
+def _post_targets(base_url, payload):
+    response = requests.post(
+        base_url + "/api/v1/prometheus/targets", json=payload, timeout=10
+    )
+    response.raise_for_status()
+    result = response.json()
+    ttl = result.get("ttl") if isinstance(result, dict) else None
+    return (
+        max(0.25, float(ttl) / 3)
+        if isinstance(ttl, (int, float)) and 1 <= ttl <= 3600
+        else None
+    )
+
+
+def _registration_retry(base_url, payload, error):
+    code = getattr(error.response, "status_code", None)
+    if code == 409:
+        try:
+            response = requests.get(
+                base_url + "/api/v1/runs/" + payload["run_context"]["run_id"], timeout=5
+            )
+            if response.status_code == 404 or (
+                response.status_code == 200 and response.json().get("status") == "ended"
+            ):
+                return None
+        except requests.RequestException:
+            pass
+    elif code is not None and 400 <= code < 500 and code not in {408, 429}:
+        return None
+    return 1.0
+
+
+def _renew_targets():
+    """One process-level renewal loop; no exporter-specific integration is needed."""
+    global _publication_thread
+    while True:
+        with _publication_lock:
+            if not _target_publications:
+                _publication_thread = None
+                return
+            ready = [
+                (key, value)
+                for key, value in _target_publications.items()
+                if value[1] <= time.monotonic()
+            ]
+        for key, (payload, _) in ready:
+            delay = 1.0
+            try:
+                delay = _post_targets(key[0], payload)
+            except requests.RequestException as exc:
+                delay = _registration_retry(key[0], payload, exc)
+                logger.warning("Target renewal failed: %s", exc)
+            with _publication_lock:
+                if (
+                    key not in _target_publications
+                    or _target_publications[key][0] is not payload
+                ):
+                    continue
+                if delay is None:
+                    _target_publications.pop(key, None)
+                else:
+                    _target_publications[key] = (payload, time.monotonic() + delay)
+        time.sleep(0.1)
+
+
+def _register_targets(
+    server_addresses: list[str],
+    job_name: str | None,
+    labels: list[Mapping[str, Any] | None] | None,
+    context: RunContext | None,
+    *,
+    identity_in_metrics: bool = False,
+) -> bool:
+    global _publication_thread
+    base_url = (
+        context.server_url
+        if context
+        else str(os.environ.get(MonitorEnv.SERVER_URL, "")).strip().rstrip("/")
+    )
+    if not base_url:
+        return False
+    payload: dict[str, Any] = {
         "job_name": job_name or PrometheusScrape.TRAINER_METRICS_JOB,
         "targets": _build_target_payload(server_addresses, labels),
     }
-    url = f"{base_url}/api/v1/prometheus/targets"
+    if context:
+        payload.update(
+            run_context=context.to_dict(),
+            identity_in_metrics=identity_in_metrics,
+            publisher_id=_publisher_id,
+        )
+    success, delay = True, None
     try:
-        response = requests.post(url, json=payload, timeout=10)
-        response.raise_for_status()
-        print(
-            f"[rl-insight] Registered {len(server_addresses)} Prometheus targets "
-            f"with RL-Insight server (job_name={payload['job_name']})"
-        )
+        delay = _post_targets(base_url, payload)
     except requests.RequestException as exc:
-        logger.error(
-            "[rl-insight] Failed to register Prometheus targets at %s: %s", url, exc
-        )
+        success = False
+        delay = _registration_retry(base_url, payload, exc) if context else None
+        if (
+            delay is None
+            and exc.response is not None
+            and 400 <= exc.response.status_code < 500
+            and exc.response.status_code not in {408, 429}
+        ):
+            raise RunError(
+                "Target registration rejected: " + exc.response.text[:512],
+                exc.response.status_code,
+            ) from exc
+        logger.warning("Target registration failed: %s", exc)
+    if context and delay is not None:
+        with _publication_lock:
+            for target in payload["targets"]:
+                key = (base_url, context.run_id, payload["job_name"], target["target"])
+                # Publish each target independently so later updates replace its labels.
+                _target_publications[key] = (
+                    {**payload, "targets": [target]},
+                    time.monotonic() + delay,
+                )
+            if _publication_thread is None or not _publication_thread.is_alive():
+                _publication_thread = threading.Thread(
+                    target=_renew_targets, name="insight-targets", daemon=True
+                )
+                _publication_thread.start()
+    return success
 
 
 def _build_target_payload(
