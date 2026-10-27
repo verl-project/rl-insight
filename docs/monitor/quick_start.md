@@ -202,6 +202,7 @@ Environment variables take precedence for common deployment settings:
 |---|---|
 | `RL_INSIGHT_SERVER_URL` | RL-Insight server URL, for example `http://<server-ip>:18080`. |
 | `RL_INSIGHT_SERVER_BACKEND` | Trainer-side monitor client backend (`server.backend`), for example `ray`. Also applies to worker processes that call `rl_insight.init()` without a config. |
+| `RL_INSIGHT_HARDWARE_ENABLED` | Enable (`1`/`true`/`yes`/`on`) or disable (`0`/`false`/`no`/`off`) hardware monitoring (`hardware.enabled`, disabled by default). The environment variable takes precedence over the config. |
 
 ## Troubleshooting
 

@@ -112,3 +112,34 @@ def test_apply_event_should_submit_without_waiting_when_client_has_actor() -> No
     client.apply_event(event)
 
     actor.apply_event.remote.assert_called_once_with(event)
+
+
+def test_apply_events_should_submit_one_batched_call_without_waiting() -> None:
+    actor = MagicMock()
+    client = client_module.MonitorRayClient(actor)
+    events = [
+        {"kind": "gauge", "name": "cpu", "value": 12.0},
+        {"kind": "gauge", "name": "mem", "value": 34.0},
+    ]
+
+    client.apply_events(events)
+
+    actor.apply_events.remote.assert_called_once_with(events)
+    actor.apply_event.remote.assert_not_called()
+
+
+def test_apply_events_should_default_to_one_apply_event_per_event() -> None:
+    events = [{"kind": "gauge", "name": "cpu", "value": 1.0}] * 3
+
+    class LoopingClient(client_module.MonitorClient):
+        def __init__(self) -> None:
+            self.submitted: list[dict[str, object]] = []
+
+        def apply_event(self, event: dict[str, object]) -> None:
+            self.submitted.append(event)
+
+    client = LoopingClient()
+
+    client.apply_events(events)
+
+    assert client.submitted == events

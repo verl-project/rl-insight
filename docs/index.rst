@@ -23,6 +23,16 @@ For CPU, memory, disk, network, or Ascend NPU metrics, see
    Hardware Monitoring <monitor/hardware/index>
 
 .. toctree::
+   :hidden:
+
+   monitor/hardware/hardware_monitoring_zh
+   monitor/hardware/hardware_monitoring_en
+   monitor/hardware/cpu_monitoring_zh
+   monitor/hardware/cpu_monitoring_en
+   monitor/hardware/npu_monitoring_zh
+   monitor/hardware/npu_monitoring_en
+
+.. toctree::
    :maxdepth: 1
    :caption: Framework Integrations
 

@@ -16,7 +16,8 @@
 
 Precedence (lowest to highest): built-in defaults, the external YAML named by
 ``RL_INSIGHT_CONFIG``, the explicit ``init(config)`` mapping, and finally the
-``RL_INSIGHT_SERVER_URL`` / ``RL_INSIGHT_SERVER_BACKEND`` environment variables.
+``RL_INSIGHT_SERVER_URL`` / ``RL_INSIGHT_SERVER_BACKEND`` /
+``RL_INSIGHT_HARDWARE_ENABLED`` environment variables.
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ from collections.abc import Generator
 
 import pytest
 
-from rl_insight.utils.constants import MonitorBackend, MonitorEnv
+from rl_insight.utils.constants import MonitorBackend, MonitorEnv, MonitorHardware
 from rl_insight.utils.monitor_config_loader import load_monitor_config
 
 
@@ -36,6 +37,7 @@ def _clear_config_env(
     monkeypatch.delenv(MonitorEnv.CONFIG_PATH, raising=False)
     monkeypatch.delenv(MonitorEnv.SERVER_URL, raising=False)
     monkeypatch.delenv(MonitorEnv.SERVER_BACKEND, raising=False)
+    monkeypatch.delenv(MonitorEnv.HARDWARE_ENABLED, raising=False)
     yield
 
 
@@ -161,3 +163,72 @@ def test_empty_server_backend_env_should_be_ignored(
     conf = load_monitor_config({"server": {"backend": "custom"}})
 
     assert conf.server.backend == "custom"
+
+
+def test_load_monitor_config_should_default_hardware_section() -> None:
+    conf = load_monitor_config()
+
+    assert conf.hardware.enabled == MonitorHardware.ENABLED
+    assert conf.hardware.interval_seconds == MonitorHardware.INTERVAL_SECONDS
+    assert list(conf.hardware.collectors) == list(MonitorHardware.COLLECTORS)
+    assert "disk_path" not in conf.hardware
+    assert "worker_role" not in conf.hardware
+
+
+def test_load_monitor_config_should_merge_hardware_overrides() -> None:
+    conf = load_monitor_config(
+        {
+            "server": {"url": "http://a"},
+            "hardware": {
+                "enabled": False,
+                "interval_seconds": 5,
+                "collectors": ["cpu"],
+            },
+        }
+    )
+
+    assert conf.hardware.enabled is False
+    assert conf.hardware.interval_seconds == 5
+    assert list(conf.hardware.collectors) == ["cpu"]
+
+
+@pytest.mark.parametrize("value", ["0", "false", "False", "no", "off", " OFF "])
+def test_hardware_enabled_env_should_disable(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv(MonitorEnv.HARDWARE_ENABLED, value)
+
+    conf = load_monitor_config()
+
+    assert conf.hardware.enabled is False
+
+
+@pytest.mark.parametrize("value", ["1", "true", "True", "yes", "on"])
+def test_hardware_enabled_env_should_enable_over_config(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv(MonitorEnv.HARDWARE_ENABLED, value)
+
+    conf = load_monitor_config({"hardware": {"enabled": False}})
+
+    assert conf.hardware.enabled is True
+
+
+def test_empty_hardware_enabled_env_should_be_ignored(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(MonitorEnv.HARDWARE_ENABLED, "  ")
+
+    conf = load_monitor_config({"hardware": {"enabled": False}})
+
+    assert conf.hardware.enabled is False
+
+
+def test_invalid_hardware_enabled_env_should_be_ignored(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(MonitorEnv.HARDWARE_ENABLED, "maybe")
+
+    conf = load_monitor_config()
+
+    assert conf.hardware.enabled == MonitorHardware.ENABLED

@@ -37,7 +37,7 @@ from .display import (
     format_table,
 )
 from .network import format_host_port, local_addresses
-from .runtime import StartedService
+from .runtime import StartedService, refresh_staged_dashboards
 from .services import ServerServiceManager
 
 
@@ -243,6 +243,10 @@ class ServerCommands:
                 store.register(job_name, targets)
                 print(f"Added {len(targets)} target(s) to job {job_name!r}.")
             store.reload()
+            # Registering an exporter changes which hardware series the
+            # dashboards should show; re-apply the selection so Grafana picks
+            # it up on its next provisioned-file reload.
+            refresh_staged_dashboards(conf)
         except (OSError, ValueError, requests.RequestException) as exc:
             print(f"Failed to add Prometheus targets: {exc}", file=sys.stderr)
             return 1

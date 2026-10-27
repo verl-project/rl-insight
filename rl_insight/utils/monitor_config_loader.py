@@ -23,9 +23,29 @@ from typing import Any, Mapping
 
 from omegaconf import DictConfig, OmegaConf
 
-from .constants import MonitorBackend, MonitorDefaults, MonitorEnv, MonitorPaths
+from .constants import (
+    MonitorBackend,
+    MonitorDefaults,
+    MonitorEnv,
+    MonitorHardware,
+    MonitorPaths,
+)
 
 logger = logging.getLogger(__name__)
+
+_TRUE_ENV_VALUES = frozenset({"1", "true", "yes", "on"})
+_FALSE_ENV_VALUES = frozenset({"0", "false", "no", "off"})
+
+
+def _parse_bool_env(value: str) -> bool | None:
+    """Parse a boolean environment value; ``None`` when it is not recognised."""
+    normalized = value.strip().lower()
+    if normalized in _TRUE_ENV_VALUES:
+        return True
+    if normalized in _FALSE_ENV_VALUES:
+        return False
+    return None
+
 
 _TRAINING_MONITOR_DEFAULTS = OmegaConf.create(
     {
@@ -36,6 +56,11 @@ _TRAINING_MONITOR_DEFAULTS = OmegaConf.create(
         },
         "prometheus": {
             "metrics_report_port": MonitorDefaults.METRICS_REPORT_PORT,
+        },
+        "hardware": {
+            "enabled": MonitorHardware.ENABLED,
+            "interval_seconds": MonitorHardware.INTERVAL_SECONDS,
+            "collectors": list(MonitorHardware.COLLECTORS),
         },
     }
 )
@@ -112,6 +137,17 @@ def load_monitor_config(
         merged.server.url = str(url).strip()
     if backend := os.environ.get(MonitorEnv.SERVER_BACKEND, "").strip():
         merged.server.backend = backend
+    if raw_enabled := os.environ.get(MonitorEnv.HARDWARE_ENABLED, "").strip():
+        enabled = _parse_bool_env(raw_enabled)
+        if enabled is None:
+            logger.warning(
+                "[rl-insight] ignoring invalid %s=%r; expected one of %s.",
+                MonitorEnv.HARDWARE_ENABLED,
+                raw_enabled,
+                ", ".join(sorted(_TRUE_ENV_VALUES | _FALSE_ENV_VALUES)),
+            )
+        else:
+            merged.hardware.enabled = enabled
     return merged
 
 

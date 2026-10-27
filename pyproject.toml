@@ -25,6 +25,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+nvidia = [
+  "nvidia-ml-py",
+]
 recipe = [
   "numpy",
   "scikit-learn",
