@@ -1,7 +1,6 @@
 # Metric Name Catalog
 
-This review file is generated from `recipe/perf_analysis/degradation/metrics.py`.
-It records each exact metric name together with a Chinese description for review.
+This catalog records the metric names used by the verl integration and their Chinese descriptions.
 
 ## 数据类型
 

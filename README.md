@@ -56,7 +56,9 @@ https://github.com/user-attachments/assets/d0ef242d-e108-468f-afa5-ec9a5321f0e8
 
 ## News
 
-- [2026/07/16] RL-Insight 0.2.0 is released and now integrated into verl. See the [verl integration guide](https://github.com/verl-project/verl/blob/main/docs/advance/rl_insight.md) to enable training, rollout, TransferQueue, trace, and hardware monitoring.
+- [2026/10/20] Tuning guides are available for [verl asynchronous training](https://rl-insight.readthedocs.io/en/latest/tuning_case/async_mode_tuning_tutorial.html) and [verl-omni multimodal training](https://rl-insight.readthedocs.io/en/latest/tuning_case/multimodal_model_tuning_using_rl_insight.html).
+- [2026/09/15] RL-Insight is integrated into verl-omni. See the [integration guide](https://github.com/verl-project/verl-omni/blob/main/docs/start/rl_insight.md).
+- [2026/07/15] [RL-Insight 0.2.0](https://github.com/verl-project/rl-insight/releases/tag/v0.2.0) was released. See the [verl integration guide](https://github.com/verl-project/verl/blob/main/docs/advance/rl_insight.md) to enable training, rollout, TransferQueue, trace, and hardware monitoring.
 - [2026/06/16] RL-Insight officially supports Online Monitor, including one-command server startup, trainer and rollout metric aggregation, and Grafana dashboards for RL workloads.
 
 ## Get Started
@@ -104,6 +106,8 @@ RL-Insight manages three open-source services locally on Linux and Windows x64:
 Configuration can be passed to `insight.init(config=...)` or through environment variables:
 
 ```python
+import rl_insight as insight
+
 insight.init(
     project="verl",
     experiment_name="ppo-smoke-test",
@@ -127,15 +131,6 @@ Useful environment variables:
 | `RL_INSIGHT_SERVER_URL` | RL-Insight server URL, for example `http://<server-ip>:18080`. |
 | `RL_INSIGHT_SERVER_BACKEND` | Trainer-side monitor client backend (`server.backend`), for example `ray`. Also applies to worker processes that call `rl_insight.init()` without a config. |
 
-## Recipe Offline Analysis
-
-Offline timeline, heatmap, and parser utilities are kept under `recipe/`; see the [Recipe documentation](https://rl-insight.readthedocs.io/en/latest/recipe/overview/architecture.html) for that workflow.
-Install the optional recipe dependencies with:
-
-```bash
-pip install "rl-insight[recipe]"
-```
-
 ## Roadmap
 
 - Q1 Roadmap https://github.com/verl-project/rl-insight/issues/6
@@ -143,11 +138,12 @@ pip install "rl-insight[recipe]"
 
 ## Documentation
 
+- [Configuration](https://rl-insight.readthedocs.io/en/latest/monitor/configuration.html): server and client settings, defaults, and override precedence.
+- [Python API](https://rl-insight.readthedocs.io/en/latest/monitor/api.html): initialization, metrics, traces, and cleanup.
 - [Quick Start](https://rl-insight.readthedocs.io/en/latest/monitor/quick_start.html): install RL-Insight, start the services, instrument code, and open Grafana.
 - [Server Installation](https://rl-insight.readthedocs.io/en/latest/monitor/server_installation.html): Linux and Windows service requirements, supported OS/CPU combinations, and version policy.
 - [Hardware Monitoring](https://rl-insight.readthedocs.io/en/latest/monitor/hardware/index.html): install exporters and register CPU or Ascend NPU scrape targets.
 - [Default server config](https://github.com/verl-project/rl-insight/blob/main/rl_insight/config/config.yaml): bundled ports, retention settings, and service config paths.
-- [Recipe documentation](https://rl-insight.readthedocs.io/en/latest/recipe/overview/architecture.html): offline timeline, heatmap, and parser utilities.
 
 ## Community
 

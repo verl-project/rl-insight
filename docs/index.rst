@@ -4,11 +4,10 @@ Welcome to RL-Insight's documentation!
 RL-Insight is a performance insight and observability toolkit for reinforcement learning (RL) systems.
 It focuses on online observability for distributed RL training.
 
-To collect CPU, memory, disk, network, or Ascend NPU metrics, start with
+Start with :doc:`Quick Start <monitor/quick_start>` to verify metrics and traces,
+then use :doc:`Configuration <monitor/configuration>` to configure your deployment.
+For CPU, memory, disk, network, or Ascend NPU metrics, see
 :doc:`Hardware Monitoring <monitor/hardware/index>`.
-
-For offline Recipe utilities, see the
-`Recipe documentation <recipe/overview/architecture>`_.
 
 --------------------------------------------
 
@@ -18,13 +17,17 @@ For offline Recipe utilities, see the
    :maxdepth: 2
    :caption: Monitor
 
-   Quick Start <monitor/quick_start>
-   Custom Grafana Dashboards <monitor/custom_dashboards>
-   Agent Loop Protocol <monitor/agent_loop_protocol>
-   Server Installation <monitor/server_installation>
-   Data Directory Migration <monitor/data_migration>
+   Getting Started <monitor/getting_started>
+   Instrumentation <monitor/instrumentation>
+   Operations <monitor/operations>
    Hardware Monitoring <monitor/hardware/index>
-   Metric Name Catalog <monitor/metric-name-catalog>
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Framework Integrations
+
+   verl <monitor/integrations/verl>
+   verl-omni <monitor/integrations/verl-omni>
 
 .. toctree::
    :maxdepth: 2
@@ -32,14 +35,6 @@ For offline Recipe utilities, see the
 
    Async RL Training Tuning Guide <tuning_case/async_mode_tuning_tutorial>
    Multimodal Model Tuning Using RL-Insight <tuning_case/multimodal_model_tuning_using_rl_insight>
-
-.. toctree::
-   :hidden:
-
-   monitor/hardware/cpu_monitoring_zh
-   monitor/hardware/cpu_monitoring_en
-   monitor/hardware/npu_monitoring_zh
-   monitor/hardware/npu_monitoring_en
 
 Contribution
 -------------
