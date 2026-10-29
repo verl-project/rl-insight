@@ -182,7 +182,7 @@ A rolling `nightly` image is additionally rebuilt from `main` (daily schedule an
 docker pull ghcr.io/verl-project/rl-insight:nightly
 ```
 
-Every nightly build also pushes an immutable `nightly-<date>-<sha>` tag (e.g. `nightly-20260925-3c92f22`), and the same name exists as a git tag in the repository, so a given build can be pinned and reproduced exactly. Stable releases are published under their semver tags only (e.g. `0.3.0`, `0.3`); there is no rolling `latest` tag.
+Every nightly build also pushes an immutable `nightly-<date>-<sha>` tag (e.g. `nightly-20260925-3c92f22`), embedding the commit it was built from so a given build can be pinned exactly and its source checked out from that SHA. These are image tags only; no git tags are created for nightly builds. Stable releases are published under their semver tags only (e.g. `0.3.0`, `0.3`); there is no rolling `latest` tag.
 
 Start the full stack on Linux:
 

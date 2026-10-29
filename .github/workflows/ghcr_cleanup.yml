@@ -29,7 +29,6 @@ jobs:
     timeout-minutes: 30
     permissions:
       packages: write # Delete image versions in GHCR.
-      contents: write # Delete obsolete nightly-* git marker tags.
     steps:
       # Step 1 — unlink the legacy `latest` tag. This must NOT set
       # keep-n-tagged: the action gates untag operations against the keep
@@ -67,32 +66,3 @@ jobs:
           delete-partial-images: true
           delete-orphaned-images: true
           dry-run: ${{ env.DRY_RUN }}
-
-      # The Docker workflow pushes one nightly-<date>-<sha> git marker tag per
-      # publish and its `changes` gate scans them, so prune the same history
-      # on the git side: keep the 10 newest marker tags. The strict pattern
-      # matches only nightly markers; every other tag is never touched.
-      - name: Prune old nightly git tags
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          KEEP_N: 10
-        run: |
-          set -euo pipefail
-          pattern='^refs/tags/nightly-[0-9]{8}-[0-9a-f]{7,40}$'
-          refs=$(gh api --paginate \
-            "/repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/nightly-" \
-            --jq '.[].ref' | grep -E "${pattern}" | sort || true)
-          count=$(printf '%s\n' "${refs}" | grep -c . || true)
-          echo "Found ${count} nightly marker tags (keep ${KEEP_N})"
-          if [ "${count}" -le "${KEEP_N}" ]; then
-            exit 0
-          fi
-          printf '%s\n' "${refs}" | head -n "-${KEEP_N}" | while read -r ref; do
-            if [ "${DRY_RUN}" = "true" ]; then
-              echo "[dry-run] would delete ${ref}"
-            else
-              echo "Deleting ${ref}"
-              gh api -X DELETE \
-                "/repos/${GITHUB_REPOSITORY}/git/refs/${ref#refs/}"
-            fi
-          done
