@@ -38,6 +38,13 @@ Zero denominator increments, missing series and resets do not emit a ratio.
 Optional `scale` and `offset` apply to the resulting ratio; e.g. acceptance length
 can use accepted tokens / draft steps + 1 for the bonus token.
 
+`ratio` divides two gauge sources and joins them by identical source labels as
+well, so a scrape that exposes one series per `model_name` or `replica` produces
+one ratio per series, carrying that series' labels. A denominator with a single
+label-free series is used as the shared divisor for every numerator series.
+Series without a matching denominator, or whose own denominator is zero, are
+skipped individually instead of suppressing the whole rule.
+
 Any rule may set `presence: <metric-name>` to emit a source-presence gauge with
 `metric=<rule-name>`. Missing sources produce presence=0, not fake zero latency.
 A `counter_delta` rule may also select an exact histogram `_sum`/`_count` sample,
