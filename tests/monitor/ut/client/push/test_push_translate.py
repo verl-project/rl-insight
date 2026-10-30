@@ -188,3 +188,103 @@ b 0.0
         [{"numerator": "a", "denominator": "b", "type": "ratio", "name": "r"}]
     )
     assert state.translate(text, rules) == []
+
+
+def test_ratio_joins_numerator_and_denominator_by_label_set() -> None:
+    state = ScrapeState()
+    text = """
+# TYPE engine_cache_used gauge
+engine_cache_used{model_name="m1"} 10.0
+engine_cache_used{model_name="m2"} 90.0
+# TYPE engine_cache_max gauge
+engine_cache_max{model_name="m2"} 100.0
+engine_cache_max{model_name="m1"} 20.0
+"""
+    rules = OmegaConf.create(
+        [
+            {
+                "numerator": "engine_cache_used",
+                "denominator": "engine_cache_max",
+                "type": "ratio",
+                "name": "cache_ratio",
+            }
+        ]
+    )
+    out = state.translate(text, rules)
+    # Per-series division, in the numerator's order, with the numerator labels.
+    assert [(e.value, e.tags) for e in out] == [
+        (0.5, {"model_name": "m1"}),
+        (0.9, {"model_name": "m2"}),
+    ]
+    assert all(e.op == OP_STORE for e in out)
+
+
+def test_ratio_broadcasts_a_single_denominator_series() -> None:
+    state = ScrapeState()
+    text = """
+# TYPE engine_requests gauge
+engine_requests{replica="0"} 4.0
+engine_requests{replica="1"} 6.0
+# TYPE engine_capacity gauge
+engine_capacity 8.0
+"""
+    rules = OmegaConf.create(
+        [
+            {
+                "numerator": "engine_requests",
+                "denominator": "engine_capacity",
+                "type": "ratio",
+                "name": "load",
+            }
+        ]
+    )
+    values = {e.tags["replica"]: e.value for e in state.translate(text, rules)}
+    assert values == {"0": 0.5, "1": 0.75}
+
+
+def test_ratio_skips_only_the_series_with_a_zero_denominator() -> None:
+    state = ScrapeState()
+    text = """
+# TYPE engine_hits gauge
+engine_hits{replica="0"} 3.0
+engine_hits{replica="1"} 7.0
+# TYPE engine_queries gauge
+engine_queries{replica="0"} 0.0
+engine_queries{replica="1"} 10.0
+"""
+    rules = OmegaConf.create(
+        [
+            {
+                "numerator": "engine_hits",
+                "denominator": "engine_queries",
+                "type": "ratio",
+                "name": "hit_rate",
+            }
+        ]
+    )
+    out = state.translate(text, rules)
+    assert [(e.value, e.tags) for e in out] == [(0.7, {"replica": "1"})]
+
+
+def test_ratio_ignores_unmatched_label_sets() -> None:
+    state = ScrapeState()
+    text = """
+# TYPE engine_used gauge
+engine_used{model_name="m1"} 5.0
+engine_used{model_name="m2"} 6.0
+# TYPE engine_max gauge
+engine_max{model_name="m1"} 10.0
+engine_max{engine="other"} 2.0
+"""
+    rules = OmegaConf.create(
+        [
+            {
+                "numerator": "engine_used",
+                "denominator": "engine_max",
+                "type": "ratio",
+                "name": "cache_ratio",
+            }
+        ]
+    )
+    out = state.translate(text, rules)
+    assert [(e.value, e.tags) for e in out] == [(0.5, {"model_name": "m1"})]
