@@ -26,7 +26,7 @@ from omegaconf import DictConfig, OmegaConf
 from ...utils.constants import MonitorEventKind
 from ..base import MonitorClient
 from .driver import build_sink
-from .poller import PrometheusPoller, set_active_registry
+from .poller import PrometheusPoller, get_active_registry, set_active_registry
 from .sinks.base import PushSink
 from .tags import collect_env_tags
 
@@ -189,7 +189,8 @@ class PushMonitorClient(MonitorClient):
         self._closed = True
         if self._poller is not None:
             self._poller.stop()
-        set_active_registry(None)
+            if get_active_registry() is self._poller.targets:
+                set_active_registry(None)
         for bound in self._bound:
             try:
                 bound.sink.close()

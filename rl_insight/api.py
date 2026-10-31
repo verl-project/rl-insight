@@ -31,14 +31,17 @@ from typing import Any
 from omegaconf import DictConfig, OmegaConf
 
 from .client import create_monitor_client
-from .utils.monitor_config_loader import load_monitor_config
 from .utils import MonitorBackend, MonitorEventKind
+from .utils.constants import MonitorDefaults
+from .utils.monitor_config_loader import load_monitor_config
+from .utils.protocol import RunContext, RunError
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
 __all__ = [
     "finish",
+    "get_context",
     "init",
     "metric_count",
     "metric_gauge",
@@ -69,6 +72,7 @@ class _MonitorState:
     namespace: str = ""
     process_id: str = field(default_factory=lambda: str(os.getpid()))
     labels: dict[str, Any] = field(default_factory=dict)
+    context: RunContext | None = None
 
 
 _STATE = _MonitorState()
@@ -78,54 +82,134 @@ def init(
     project: str | None = None,
     experiment_name: str | None = None,
     config: Mapping[str, Any] | DictConfig | None = None,
+    *,
+    refresh: bool = False,
 ) -> None:
     """Load merged monitor config, create backend client, enable metric/trace helpers (once per process).
 
     Args:
         project: Optional project name attached to all metrics and traces as the ``project`` label/attribute.
         experiment_name: Optional experiment name attached to all metrics and traces as the
-            ``experiment_name`` label/attribute.
+            ``experiment_name`` label/attribute. The Ray Hub appends one execution ID;
+            ``get_context().experiment_name`` returns the resulting telemetry name.
         config: Optional dict-like or ``DictConfig`` overrides merged into training defaults; see ``load_monitor_config``.
+        refresh: Reconnect using the current configuration plus explicit overrides.
+            Omitted names retain their current values during a refresh.
 
     Note:
-        Repeated calls are ignored with ``RuntimeWarning``. Ray backend requires ``ray.init()`` first.
+        Ray requires ``ray.init()`` first. A no-argument call connects to the
+        current task; pass configuration or names to start monitoring. Use
+        ``init(config={})`` to start with default names. After monitoring starts,
+        repeated calls require ``refresh=True``; otherwise they are ignored with ``RuntimeWarning``.
+        The existing job's Hub keeps its execution identity during a refresh.
     """
     global _STATE
-    if _STATE.enabled:
+    if (
+        _STATE.enabled
+        and _STATE.conf is not None
+        and _STATE.conf.get("run_metadata") is not None
+        and not refresh
+    ):
         warnings.warn(
             "[rl-insight] monitor.init() called more than once; "
-            "ignoring re-initialization.",
+            "use refresh=True to refresh its configuration.",
             RuntimeWarning,
             stacklevel=2,
         )
         return
 
-    monitor_conf = load_monitor_config(config)
+    previous_metadata = (
+        _STATE.conf.get("run_metadata", {})
+        if refresh and _STATE.conf is not None
+        else {}
+    )
+    metadata = {
+        "project": (
+            project
+            if project is not None
+            else previous_metadata.get("project", MonitorDefaults.PROJECT_NAME)
+        ),
+        "experiment_name": (
+            experiment_name
+            if experiment_name is not None
+            else previous_metadata.get(
+                "experiment_name", MonitorDefaults.EXPERIMENT_NAME
+            )
+        ),
+    }
+    overrides = (
+        OmegaConf.merge(_STATE.conf, config or {})
+        if refresh and _STATE.conf is not None
+        else config
+    )
+    monitor_conf = load_monitor_config(overrides)
     backend = str(OmegaConf.select(monitor_conf, "server.backend") or "").strip()
+    initialize_task = (
+        backend != MonitorBackend.RAY
+        or any(value is not None for value in (project, experiment_name, config))
+        or refresh
+    )
     # Only the Ray backend talks to the external RL-Insight server; direct-emit
     # backends (e.g. push) intentionally run without a server URL.
-    if backend == MonitorBackend.RAY and not str(monitor_conf.server.url).strip():
+    if (
+        backend == MonitorBackend.RAY
+        and initialize_task
+        and not str(monitor_conf.server.url).strip()
+    ):
         logger.error(
             "[rl-insight] RL-Insight server URL is required; set RL_INSIGHT_SERVER_URL "
             "or server.url in init config."
         )
         return
+    if initialize_task:
+        OmegaConf.update(monitor_conf, "run_metadata", metadata, force_add=True)
+    else:
+        monitor_conf.pop("run_metadata", None)
     client = create_monitor_client(monitor_conf)
+    if client is None:
+        return
+    context = getattr(client, "get_context", lambda: None)()
+    if context and (
+        (project is not None and project != context.project)
+        or (
+            experiment_name is not None
+            and experiment_name != context.original_experiment_name
+        )
+    ):
+        raise RunError("Experiment metadata conflicts with the existing Run")
+    if context:
+        metadata = {
+            "project": context.project,
+            "experiment_name": context.original_experiment_name
+            or context.experiment_name,
+        }
+        OmegaConf.update(monitor_conf, "run_metadata", metadata, force_add=True)
     labels = {
         key: value
         for key, value in {
-            "project": project,
-            "experiment_name": experiment_name,
+            "project": context.project if context else metadata["project"],
+            "experiment_name": context.experiment_name
+            if context
+            else metadata["experiment_name"],
         }.items()
         if value is not None
     }
+    previous = _STATE.client
     _STATE = _MonitorState(
         enabled=client is not None,
         client=client,
         conf=monitor_conf,
         namespace=str(monitor_conf.server.namespace),
         labels=labels,
+        context=context,
     )
+    if previous is not None and previous is not client and hasattr(previous, "close"):
+        previous.close()
+
+
+def get_context() -> RunContext | None:
+    """Return an immutable snapshot of the current Run identity and live status."""
+    return _STATE.client.get_context() if _STATE.client else None
 
 
 def finish() -> None:
@@ -509,7 +593,11 @@ def _emit(
         "name": name,
         "documentation": documentation,
         "value": value,
-        "labels": {**_STATE.labels, **labels},
+        "labels": (
+            _STATE.context.labels({**_STATE.labels, **labels})
+            if _STATE.context
+            else {**_STATE.labels, **labels}
+        ),
     }
     _STATE.client.apply_event(event)
 
@@ -537,6 +625,8 @@ def _emit_trace_span(
         **_STATE.labels,
     }
     merged_attributes.update(attributes)
+    if _STATE.context:
+        merged_attributes = _STATE.context.labels(merged_attributes)
 
     event = {
         "kind": MonitorEventKind.TRACE,

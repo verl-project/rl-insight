@@ -65,6 +65,9 @@ def test_init_should_enable_monitoring_when_server_and_client_are_available(
         "project": "project-a",
         "experiment_name": "experiment-a",
     }
+    api.finish()
+    api.init(config={"server": {"url": "http://monitor:18080"}})
+    assert api._STATE.labels == {"project": "default", "experiment_name": "default"}
 
 
 def test_init_should_leave_monitoring_disabled_when_server_url_is_missing(
@@ -489,3 +492,9 @@ def test_init_without_config_should_use_backend_from_env(
 
     assert selected_backends == ["custom"]
     assert api._STATE.enabled is True
+    api.metric_gauge("default_names", 1)
+    assert api._STATE.client is not None
+    assert api._STATE.client.events[-1]["labels"] == {
+        "project": "default",
+        "experiment_name": "default",
+    }

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import multiprocessing
 from functools import partial
-from typing import Any
+from typing import Any, cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -26,6 +26,7 @@ import yaml
 from prometheus_client import CollectorRegistry, Gauge, make_wsgi_app
 
 from rl_insight.utils import prometheus_utils as prometheus_module
+from rl_insight.utils.protocol import RunContext, RunError
 
 
 def _register_target_in_process(
@@ -204,7 +205,7 @@ def test_register_should_preserve_concurrent_cross_process_updates(tmp_path) -> 
 def test_update_prometheus_config_should_send_normalized_targets_when_server_is_set(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    response = MagicMock()
+    response = MagicMock(status_code=200)
     post = MagicMock(return_value=response)
     monkeypatch.setenv("RL_INSIGHT_SERVER_URL", "http://server:18080/")
     monkeypatch.setattr(prometheus_module.requests, "post", post)
@@ -213,6 +214,7 @@ def test_update_prometheus_config_should_send_normalized_targets_when_server_is_
         ["host-a:9000", "host-b:9000"],
         job_name="workers",
         labels=[{"rank": 0}, None],
+        context=RunContext("p", "e", "http://server:18080"),
     )
 
     post.assert_called_once_with(
@@ -220,8 +222,14 @@ def test_update_prometheus_config_should_send_normalized_targets_when_server_is_
         json={
             "job_name": "workers",
             "targets": [
-                {"target": "host-a:9000", "labels": {"rank": "0"}},
-                {"target": "host-b:9000"},
+                {
+                    "target": "host-a:9000",
+                    "labels": {"rank": "0", "project": "p", "experiment_name": "e"},
+                },
+                {
+                    "target": "host-b:9000",
+                    "labels": {"project": "p", "experiment_name": "e"},
+                },
             ],
         },
         timeout=10,
@@ -260,3 +268,29 @@ def test_update_prometheus_config_should_register_in_process_when_push_active(
         ("host-b:9000", {}),
     ]
     post.assert_not_called()
+
+
+def test_hub_targets_keep_registration_failures_for_explicit_retry(
+    monkeypatch,
+):
+    from rl_insight.collector.ray_monitor_hub import MonitorHubActor
+
+    context = RunContext.create("p", "e", "http://server")
+    implementation = cast(Any, MonitorHubActor).__ray_metadata__.modified_class
+    hub = implementation.__new__(implementation)
+    hub._context = context
+    hub._pending_targets = []
+    item = (["host:9000"], "workers", None, False)
+    post = MagicMock(return_value=MagicMock(status_code=409, text="identity conflict"))
+    monkeypatch.setattr(prometheus_module.requests, "post", post)
+    with pytest.raises(RunError, match="identity conflict"):
+        hub.register_targets(*item[:3])
+    assert hub._pending_targets == [item]
+    post.side_effect = prometheus_module.requests.ConnectionError("offline")
+    with pytest.raises(RunError, match="Cannot register"):
+        hub.register_targets([])
+    assert hub._pending_targets == [item]
+    post.side_effect = None
+    post.return_value.status_code = 200
+    hub.register_targets([])
+    assert not hub._pending_targets

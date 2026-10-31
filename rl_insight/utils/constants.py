@@ -55,6 +55,8 @@ class MonitorEnv:
 class MonitorDefaults:
     """Default trainer monitor config values."""
 
+    PROJECT_NAME = "default"
+    EXPERIMENT_NAME = "default"
     NAMESPACE = "rl_insight_monitor"
     METRICS_REPORT_PORT = 9092
 

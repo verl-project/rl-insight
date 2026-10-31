@@ -61,7 +61,7 @@
                       "spec": {
                         "limit": 100,
                         "metricsQueryType": "range",
-                        "query": "{span.state_lane_id != \"\"}",
+                        "query": "{span.\"monitor.trace_segment\"=\"state_interval\" && span.state_lane_id!=\"\"} | select(span.project, span.experiment_name, span.state_lane_id)",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 100,
@@ -159,9 +159,30 @@
                   "spec": {
                     "options": {
                       "fields": [
+                        "project",
+                        "experiment_name",
                         "state_lane_id"
                       ],
-                      "keepFields": false
+                      "keepFields": false,
+                      "naming": {
+                        "asLabels": true
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "filterFieldsByName",
+                  "spec": {
+                    "options": {
+                      "include": {
+                        "names": [
+                          "time",
+                          "Start time",
+                          "End time",
+                          "traceName"
+                        ]
+                      }
                     }
                   }
                 }
@@ -225,7 +246,20 @@
                     "spanNulls": false
                   }
                 },
-                "overrides": []
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "traceName"
+                    },
+                    "properties": [
+                      {
+                        "id": "displayName",
+                        "value": "${__field.labels.experiment_name} / ${__field.labels.state_lane_id}"
+                      }
+                    ]
+                  }
+                ]
               }
             }
           }

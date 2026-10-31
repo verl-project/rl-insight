@@ -65,7 +65,7 @@ PROMETHEUS_PORT = int(os.environ.get("RL_INSIGHT_PROMETHEUS_PORT", "9090"))
 GRAFANA_PORT = 3000
 SCRAPE_WAIT_S = 15
 AGGREGATE_WAIT_S = 30
-EVENT_DRAIN_TIMEOUT_S = 15
+EVENT_DRAIN_TIMEOUT_S = 60
 NS = "rl_insight_monitor"
 CHECKPOINT_FILE = os.environ.get(
     "RL_INSIGHT_STRESS_CHECKPOINT", "stress_checkpoint.json"
@@ -177,7 +177,7 @@ def _hub_events_count() -> int:
     for actor_name in (_current_job_actor_name(), MonitorRayActor.NAME):
         try:
             actor = ray.get_actor(actor_name, namespace=namespace)
-            status = ray.get(actor.get_status.remote())
+            status = ray.get(actor.get_context.remote()).to_dict()
             return int(status.get("events_applied", 0))
         except ValueError:
             continue
@@ -282,6 +282,7 @@ def _process_worker(
     try:
         hub_handle = _ray.get_actor(hub_actor_name, namespace=MonitorRayActor.NAMESPACE)
         client = MonitorRayClient(hub_handle)
+        client.initialize()
     except Exception:
         result_queue.put({"submitted": 0, "submitted_sum": 0.0, "latencies": []})
         return
@@ -392,7 +393,7 @@ def _process_worker(
                 pass
             else:
                 local_lat.append(_time.perf_counter() - t0)
-            seq += 1
+                seq += 1
         worker_counts[wid] = len(local_lat)
         with lat_lock:
             all_latencies.extend(local_lat)
@@ -409,6 +410,10 @@ def _process_worker(
     if track_sum:
         submitted_sum = sum(_hist_sum(n) for n in worker_counts)
 
+    # Keep the producer alive until its asynchronous actor submissions complete.
+    # A parent-process status query cannot order calls from other producers.
+    client.close()
+    _ray.get(hub_handle.get_context.remote(), timeout=EVENT_DRAIN_TIMEOUT_S)
     result_queue.put(
         {
             "submitted": submitted,
@@ -457,7 +462,9 @@ def run_concurrency_test(
     total_sum = 0.0
     for _ in range(len(processes)):
         try:
-            result = result_queue.get(timeout=STRESS_DURATION_S + 30)
+            result = result_queue.get(
+                timeout=STRESS_DURATION_S + EVENT_DRAIN_TIMEOUT_S + 30
+            )
             total_submitted += result["submitted"]
             total_sum += result["submitted_sum"]
             all_latencies.extend(result["latencies"])

@@ -34,6 +34,7 @@ from rl_insight import agent_loop_session, trace_span
 from rl_insight.agent_loop import agent_loop_lane_id
 from rl_insight.client.ray_monitor_client import _current_job_actor_name
 from rl_insight.utils.constants import MonitorRayActor
+from rl_insight.utils.protocol import SDK_VERSION_HEADER
 
 pytestmark = pytest.mark.skipif(
     sys.platform not in {"linux", "win32"},
@@ -58,6 +59,7 @@ def _wait_for_json(
     url: str,
     *,
     params: dict[str, str] | None = None,
+    headers: dict[str, str] | None = None,
     ready: Callable[[dict[str, Any]], bool] = bool,
 ) -> dict[str, Any]:
     deadline = time.monotonic() + READY_TIMEOUT_SECONDS
@@ -65,7 +67,7 @@ def _wait_for_json(
     last_payload: dict[str, Any] | None = None
     while time.monotonic() < deadline:
         try:
-            response = requests.get(url, params=params, timeout=3)
+            response = requests.get(url, params=params, headers=headers, timeout=3)
             response.raise_for_status()
             payload = response.json()
             last_payload = payload
@@ -86,6 +88,7 @@ def monitor_stack() -> Generator[dict[str, str], None, None]:
     os.environ["RL_INSIGHT_SERVER_URL"] = SERVER_URL
     services = _wait_for_json(
         f"{SERVER_URL}/api/v1/services",
+        headers={SDK_VERSION_HEADER: insight.__version__},
         ready=lambda data: data.get("status") == "ok",
     )
     endpoints = {
@@ -129,7 +132,7 @@ def test_monitor_services_should_be_reachable_when_stack_is_running(
     tempo = requests.get(f"{monitor_stack['tempo']}/ready", timeout=3)
     otlp = requests.get(f"{monitor_stack['otlp']}/v1/traces", timeout=3)
     hub = ray.get_actor(_current_job_actor_name(), namespace=MonitorRayActor.NAMESPACE)
-    hub_status = cast(dict[str, Any], ray.get(hub.get_status.remote()))
+    hub_status = cast(dict[str, Any], ray.get(hub.get_context.remote()).to_dict())
 
     assert health.json() == {"status": "ok"}
     assert prometheus.ok
@@ -161,7 +164,7 @@ def test_monitor_metrics_should_match_reported_values_when_events_are_emitted(
         )
 
     hub = ray.get_actor(_current_job_actor_name(), namespace=MonitorRayActor.NAMESPACE)
-    ray.get(hub.get_status.remote())
+    ray.get(hub.get_context.remote()).to_dict()
 
     expected_values = {
         "rl_insight_monitor_train_step_total": 3.0,
@@ -196,7 +199,7 @@ def test_monitor_trace_state_should_be_queryable_when_interval_is_reported(
         time.sleep(0.1)
 
     hub = ray.get_actor(_current_job_actor_name(), namespace=MonitorRayActor.NAMESPACE)
-    status = cast(dict[str, Any], ray.get(hub.get_status.remote()))
+    status = cast(dict[str, Any], ray.get(hub.get_context.remote()).to_dict())
     assert status["otel_traces_enabled"] is True
 
     search = _wait_for_json(
@@ -217,7 +220,7 @@ def test_agent_loop_dashboard_should_query_generated_protocol_data(
 ) -> None:
     """Generate one Agent Loop run and verify Tempo and Prometheus queryability."""
     project = "rl-insight-e2e"
-    experiment_name = EXPERIMENT_NAME
+    experiment_name = insight.get_context().experiment_name
     sample = "0"
     session_index = "0"
     session_id = f"session-{TEST_RUN_ID}"

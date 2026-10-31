@@ -50,7 +50,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_controller_uptime_seconds",
+                        "expr": "tq_controller_uptime_seconds{project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
                         "legendFormat": "",
                         "range": true
                       },
@@ -132,7 +132,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_controller_memory_rss_bytes",
+                        "expr": "tq_controller_memory_rss_bytes{project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
                         "legendFormat": "",
                         "range": true
                       },
@@ -222,7 +222,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_partitions_total",
+                        "expr": "tq_partitions_total{project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
                         "legendFormat": "",
                         "range": true
                       },
@@ -303,7 +303,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_global_index_allocated_total",
+                        "expr": "tq_global_index_allocated_total{project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
                         "legendFormat": "",
                         "range": true
                       },
@@ -384,7 +384,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_global_index_reusable_total",
+                        "expr": "tq_global_index_reusable_total{project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
                         "legendFormat": "",
                         "range": true
                       },
@@ -465,8 +465,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (op_type) (rate(tq_controller_request_total{op_type=~\"$op_type\"}[$__rate_interval]))",
-                        "legendFormat": "{{ op_type }}",
+                        "expr": "sum by (op_type, project, experiment_name) (rate(tq_controller_request_total{op_type=~\"$op_type\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$__rate_interval]))",
+                        "legendFormat": "{{experiment_name}} / {{ op_type }}",
                         "range": true
                       },
                       "labels": {
@@ -583,8 +583,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "histogram_quantile(0.50, sum by (op_type, le) (rate(tq_controller_request_duration_seconds_bucket{op_type=~\"$op_type\"}[$__rate_interval])))",
-                        "legendFormat": "p50 {{ op_type }}",
+                        "expr": "histogram_quantile(0.50, sum by (op_type, le, project, experiment_name) (rate(tq_controller_request_duration_seconds_bucket{op_type=~\"$op_type\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$__rate_interval])))",
+                        "legendFormat": "{{experiment_name}} / p50 {{ op_type }}",
                         "range": true
                       },
                       "labels": {
@@ -604,8 +604,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "histogram_quantile(0.99, sum by (op_type, le) (rate(tq_controller_request_duration_seconds_bucket{op_type=~\"$op_type\"}[$__rate_interval])))",
-                        "legendFormat": "p99 {{ op_type }}",
+                        "expr": "histogram_quantile(0.99, sum by (op_type, le, project, experiment_name) (rate(tq_controller_request_duration_seconds_bucket{op_type=~\"$op_type\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$__rate_interval])))",
+                        "legendFormat": "{{experiment_name}} / p99 {{ op_type }}",
                         "range": true
                       },
                       "labels": {
@@ -734,8 +734,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_partition_samples_total",
-                        "legendFormat": "{{ partition_id }}",
+                        "expr": "tq_partition_samples_total{project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
+                        "legendFormat": "{{experiment_name}} / {{ partition_id }}",
                         "range": true
                       },
                       "labels": {
@@ -850,8 +850,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_partition_production_progress{task_name=~\"$task_name\"}",
-                        "legendFormat": "{{ partition_id }} / {{ task_name }}",
+                        "expr": "tq_partition_production_progress{task_name=~\"$task_name\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
+                        "legendFormat": "{{experiment_name}} / {{ partition_id }} / {{ task_name }}",
                         "range": true
                       },
                       "labels": {
@@ -969,8 +969,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_partition_consumption_progress{task_name=~\"$task_name\"}",
-                        "legendFormat": "{{ partition_id }} / {{ task_name }}",
+                        "expr": "tq_partition_consumption_progress{task_name=~\"$task_name\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
+                        "legendFormat": "{{experiment_name}} / {{ partition_id }} / {{ task_name }}",
                         "range": true
                       },
                       "labels": {
@@ -1088,8 +1088,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_storage_utilization_ratio",
-                        "legendFormat": "{{ storage_unit_id }}",
+                        "expr": "tq_storage_utilization_ratio{project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
+                        "legendFormat": "{{experiment_name}} / {{ storage_unit_id }}",
                         "range": true
                       },
                       "labels": {
@@ -1186,8 +1186,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_storage_active_keys_total",
-                        "legendFormat": "{{ storage_unit_id }}",
+                        "expr": "tq_storage_active_keys_total{project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
+                        "legendFormat": "{{experiment_name}} / {{ storage_unit_id }}",
                         "range": true
                       },
                       "labels": {
@@ -1302,8 +1302,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_storage_capacity_total",
-                        "legendFormat": "capacity {{ storage_unit_id }}",
+                        "expr": "tq_storage_capacity_total{project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
+                        "legendFormat": "{{experiment_name}} / capacity {{ storage_unit_id }}",
                         "range": true
                       },
                       "labels": {
@@ -1323,8 +1323,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_storage_active_keys_total",
-                        "legendFormat": "active {{ storage_unit_id }}",
+                        "expr": "tq_storage_active_keys_total{project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
+                        "legendFormat": "{{experiment_name}} / active {{ storage_unit_id }}",
                         "range": true
                       },
                       "labels": {
@@ -1439,8 +1439,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_storage_memory_rss_bytes",
-                        "legendFormat": "{{ storage_unit_id }}",
+                        "expr": "tq_storage_memory_rss_bytes{project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
+                        "legendFormat": "{{experiment_name}} / {{ storage_unit_id }}",
                         "range": true
                       },
                       "labels": {
@@ -1556,8 +1556,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (op_type) (rate(tq_storage_request_ops{op_type=~\"$op_type\"}[$__rate_interval]))",
-                        "legendFormat": "{{ op_type }}",
+                        "expr": "sum by (op_type, project, experiment_name) (rate(tq_storage_request_ops{op_type=~\"$op_type\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$__rate_interval]))",
+                        "legendFormat": "{{experiment_name}} / {{ op_type }}",
                         "range": true
                       },
                       "labels": {
@@ -1674,8 +1674,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_storage_request_latency_p50{op_type=~\"$op_type\"}",
-                        "legendFormat": "p50 {{ op_type }} ({{ storage_unit_id }})",
+                        "expr": "tq_storage_request_latency_p50{op_type=~\"$op_type\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
+                        "legendFormat": "{{experiment_name}} / p50 {{ op_type }} ({{ storage_unit_id }})",
                         "range": true
                       },
                       "labels": {
@@ -1695,8 +1695,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "tq_storage_request_latency_p99{op_type=~\"$op_type\"}",
-                        "legendFormat": "p99 {{ op_type }} ({{ storage_unit_id }})",
+                        "expr": "tq_storage_request_latency_p99{op_type=~\"$op_type\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
+                        "legendFormat": "{{experiment_name}} / p99 {{ op_type }} ({{ storage_unit_id }})",
                         "range": true
                       },
                       "labels": {
@@ -1825,8 +1825,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum(rate(tq_controller_request_samples_total{op_type=\"NOTIFY_DATA_UPDATE\"}[$__rate_interval]))",
-                        "legendFormat": "Produced samples/s",
+                        "expr": "sum by (project, experiment_name) (rate(tq_controller_request_samples_total{op_type=\"NOTIFY_DATA_UPDATE\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$__rate_interval]))",
+                        "legendFormat": "{{experiment_name}} / Produced samples/s",
                         "range": true
                       },
                       "labels": {
@@ -1846,8 +1846,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum(rate(tq_controller_request_samples_total{op_type=\"CLEAR_META\"}[$__rate_interval]))",
-                        "legendFormat": "Cleared samples/s",
+                        "expr": "sum by (project, experiment_name) (rate(tq_controller_request_samples_total{op_type=\"CLEAR_META\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$__rate_interval]))",
+                        "legendFormat": "{{experiment_name}} / Cleared samples/s",
                         "range": true
                       },
                       "labels": {
@@ -1964,8 +1964,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum(tq_storage_active_keys_total)",
-                        "legendFormat": "Total Active Keys (all storage units)",
+                        "expr": "sum by (project, experiment_name) (tq_storage_active_keys_total{project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"})",
+                        "legendFormat": "{{experiment_name}} / Total Active Keys (all storage units)",
                         "range": true
                       },
                       "labels": {
@@ -2083,7 +2083,7 @@
                       "spec": {
                         "limit": 10000,
                         "metricsQueryType": "range",
-                        "query": "{span.state_lane_id!=\"\"}",
+                        "query": "{span.experiment_name=~\"${experiment_name:regex}\" && span.project=~\"${project:regex}\" && span.\"monitor.trace_segment\"=\"state_interval\" && span.state_lane_id!=\"\"} | select(span.project, span.experiment_name, span.state_lane_id)",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 100,
@@ -2227,9 +2227,30 @@
                   "spec": {
                     "options": {
                       "fields": [
+                        "project",
+                        "experiment_name",
                         "state_lane_id"
                       ],
-                      "keepFields": false
+                      "keepFields": false,
+                      "naming": {
+                        "asLabels": true
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "filterFieldsByName",
+                  "spec": {
+                    "options": {
+                      "include": {
+                        "names": [
+                          "time",
+                          "Start time",
+                          "End time",
+                          "traceName"
+                        ]
+                      }
                     }
                   }
                 }
@@ -2322,7 +2343,20 @@
                     "spanNulls": false
                   }
                 },
-                "overrides": []
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "traceName"
+                    },
+                    "properties": [
+                      {
+                        "id": "displayName",
+                        "value": "${__field.labels.experiment_name} / ${__field.labels.state_lane_id}"
+                      }
+                    ]
+                  }
+                ]
               }
             }
           }
@@ -2349,9 +2383,9 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.99, sum by (le, replica) (rate({__name__=~\"sglang[:_]e2e_request_latency_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])))",
+                        "expr": "histogram_quantile(0.99, sum by (le, replica, project, experiment_name) (rate({__name__=~\"sglang[:_]e2e_request_latency_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$__rate_interval])))",
                         "interval": "",
-                        "legendFormat": "replica {{replica}} P99",
+                        "legendFormat": "{{experiment_name}} / replica {{replica}} P99",
                         "queryType": "randomWalk",
                         "range": true
                       }
@@ -2370,9 +2404,9 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.9, sum by (le, replica) (rate({__name__=~\"sglang[:_]e2e_request_latency_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])))",
+                        "expr": "histogram_quantile(0.9, sum by (le, replica, project, experiment_name) (rate({__name__=~\"sglang[:_]e2e_request_latency_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$__rate_interval])))",
                         "interval": "",
-                        "legendFormat": "replica {{replica}} P90",
+                        "legendFormat": "{{experiment_name}} / replica {{replica}} P90",
                         "queryType": "randomWalk",
                         "range": true
                       }
@@ -2391,9 +2425,9 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.5, sum by (le, replica) (rate({__name__=~\"sglang[:_]e2e_request_latency_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])))",
+                        "expr": "histogram_quantile(0.5, sum by (le, replica, project, experiment_name) (rate({__name__=~\"sglang[:_]e2e_request_latency_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$__rate_interval])))",
                         "interval": "",
-                        "legendFormat": "replica {{replica}} P50",
+                        "legendFormat": "{{experiment_name}} / replica {{replica}} P50",
                         "queryType": "randomWalk",
                         "range": true
                       }
@@ -2412,9 +2446,9 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by (replica) (rate({__name__=~\"sglang[:_]e2e_request_latency_seconds_sum\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])) / sum by (replica) (rate({__name__=~\"sglang[:_]e2e_request_latency_seconds_count\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval]))",
+                        "expr": "sum by (replica, project, experiment_name) (rate({__name__=~\"sglang[:_]e2e_request_latency_seconds_sum\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$__rate_interval])) / sum by (replica, project, experiment_name) (rate({__name__=~\"sglang[:_]e2e_request_latency_seconds_count\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$__rate_interval]))",
                         "interval": "",
-                        "legendFormat": "replica {{replica}} Avg",
+                        "legendFormat": "{{experiment_name}} / replica {{replica}} Avg",
                         "queryType": "randomWalk",
                         "range": true
                       }
@@ -2628,9 +2662,9 @@
                       "spec": {
                         "editorMode": "builder",
                         "exemplar": true,
-                        "expr": "sum by (le, replica) (increase({__name__=~\"sglang[:_]e2e_request_latency_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval]))",
+                        "expr": "sum by (le, replica, project, experiment_name) (increase({__name__=~\"sglang[:_]e2e_request_latency_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$__rate_interval]))",
                         "interval": "",
-                        "legendFormat": "replica {{replica}} le {{le}}",
+                        "legendFormat": "{{experiment_name}} / replica {{replica}} le {{le}}",
                         "queryType": "randomWalk",
                         "range": true,
                         "format": "heatmap",
@@ -2738,9 +2772,9 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.99, sum by (le, replica) (rate({__name__=~\"sglang[:_]time_to_first_token_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])))",
+                        "expr": "histogram_quantile(0.99, sum by (le, replica, project, experiment_name) (rate({__name__=~\"sglang[:_]time_to_first_token_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$__rate_interval])))",
                         "interval": "",
-                        "legendFormat": "replica {{replica}} P99",
+                        "legendFormat": "{{experiment_name}} / replica {{replica}} P99",
                         "queryType": "randomWalk",
                         "range": true
                       }
@@ -2759,9 +2793,9 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.9, sum by (le, replica) (rate({__name__=~\"sglang[:_]time_to_first_token_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])))",
+                        "expr": "histogram_quantile(0.9, sum by (le, replica, project, experiment_name) (rate({__name__=~\"sglang[:_]time_to_first_token_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$__rate_interval])))",
                         "interval": "",
-                        "legendFormat": "replica {{replica}} P90",
+                        "legendFormat": "{{experiment_name}} / replica {{replica}} P90",
                         "queryType": "randomWalk",
                         "range": true
                       }
@@ -2780,9 +2814,9 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "histogram_quantile(0.5, sum by (le, replica) (rate({__name__=~\"sglang[:_]time_to_first_token_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])))",
+                        "expr": "histogram_quantile(0.5, sum by (le, replica, project, experiment_name) (rate({__name__=~\"sglang[:_]time_to_first_token_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$__rate_interval])))",
                         "interval": "",
-                        "legendFormat": "replica {{replica}} P50",
+                        "legendFormat": "{{experiment_name}} / replica {{replica}} P50",
                         "queryType": "randomWalk",
                         "range": true
                       }
@@ -2801,9 +2835,9 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by (replica) (rate({__name__=~\"sglang[:_]time_to_first_token_seconds_sum\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval])) / sum by (replica) (rate({__name__=~\"sglang[:_]time_to_first_token_seconds_count\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval]))",
+                        "expr": "sum by (replica, project, experiment_name) (rate({__name__=~\"sglang[:_]time_to_first_token_seconds_sum\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$__rate_interval])) / sum by (replica, project, experiment_name) (rate({__name__=~\"sglang[:_]time_to_first_token_seconds_count\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$__rate_interval]))",
                         "interval": "",
-                        "legendFormat": "replica {{replica}} Avg",
+                        "legendFormat": "{{experiment_name}} / replica {{replica}} Avg",
                         "queryType": "randomWalk",
                         "range": true
                       }
@@ -3017,9 +3051,9 @@
                       "spec": {
                         "editorMode": "builder",
                         "exemplar": false,
-                        "expr": "sum by (le, replica) (increase({__name__=~\"sglang[:_]time_to_first_token_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval]))",
+                        "expr": "sum by (le, replica, project, experiment_name) (increase({__name__=~\"sglang[:_]time_to_first_token_seconds_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$__rate_interval]))",
                         "interval": "",
-                        "legendFormat": "replica {{replica}} le {{le}}",
+                        "legendFormat": "{{experiment_name}} / replica {{replica}} le {{le}}",
                         "queryType": "randomWalk",
                         "range": true,
                         "format": "heatmap",
@@ -3127,9 +3161,9 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "{__name__=~\"sglang[:_]num_running_reqs\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}",
+                        "expr": "{__name__=~\"sglang[:_]num_running_reqs\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
                         "interval": "",
-                        "legendFormat": "replica {{replica}}",
+                        "legendFormat": "{{experiment_name}} / replica {{replica}}",
                         "queryType": "randomWalk",
                         "range": true
                       }
@@ -3343,9 +3377,9 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "{__name__=~\"sglang[:_]gen_throughput\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}",
+                        "expr": "{__name__=~\"sglang[:_]gen_throughput\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
                         "interval": "",
-                        "legendFormat": "replica {{replica}}",
+                        "legendFormat": "{{experiment_name}} / replica {{replica}}",
                         "queryType": "randomWalk",
                         "range": true
                       }
@@ -3559,9 +3593,9 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "{__name__=~\"sglang[:_]cache_hit_rate\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}",
+                        "expr": "{__name__=~\"sglang[:_]cache_hit_rate\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
                         "interval": "",
-                        "legendFormat": "replica {{replica}}",
+                        "legendFormat": "{{experiment_name}} / replica {{replica}}",
                         "queryType": "randomWalk",
                         "range": true
                       }
@@ -3775,9 +3809,9 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "{__name__=~\"sglang[:_]num_queue_reqs\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}",
+                        "expr": "{__name__=~\"sglang[:_]num_queue_reqs\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
                         "interval": "",
-                        "legendFormat": "replica {{replica}}",
+                        "legendFormat": "{{experiment_name}} / replica {{replica}}",
                         "queryType": "randomWalk",
                         "range": true
                       }
@@ -3993,7 +4027,7 @@
                       },
                       "spec": {
                         "limit": 100000,
-                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.\"monitor.trace_segment\" = \"metric_log\" && span.\"metric.name\" = \"$trainer_metric\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" && span.global_step != nil && span.\"metric.value\" != nil }",
+                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.\"monitor.trace_segment\" = \"metric_log\" && span.\"metric.name\" = \"$trainer_metric\" && span.project =~ \"${project:regex}\" && span.experiment_name =~ \"${experiment_name:regex}\" && span.global_step != nil && span.\"metric.value\" != nil } | select(span.project, span.experiment_name, span.global_step, span.\"metric.name\", span.\"metric.value\")",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 3,

@@ -21,6 +21,7 @@ from unittest.mock import MagicMock
 import pytest
 from omegaconf import OmegaConf
 
+from rl_insight import __version__
 from rl_insight.client import ray_monitor_client as client_module
 from rl_insight.utils.constants import MonitorRayActor
 
@@ -53,7 +54,7 @@ def test_get_or_create_monitor_hub_should_reuse_actor_when_actor_exists(
     get_actor = MagicMock(return_value=actor)
     monkeypatch.setattr(client_module.ray, "get_actor", get_actor)
 
-    assert client_module.get_or_create_monitor_hub(OmegaConf.create({})) is actor
+    assert client_module.get_or_create_monitor_hub() is actor
     get_actor.assert_called_once_with(
         _JOB_ACTOR_NAME, namespace=MonitorRayActor.NAMESPACE
     )
@@ -64,7 +65,6 @@ def test_get_or_create_monitor_hub_should_create_actor_when_actor_is_missing(
 ) -> None:
     _patch_actor_name(monkeypatch)
 
-    conf = OmegaConf.create({"server": {"url": "http://server"}})
     actor = MagicMock()
     remote = MagicMock(return_value=actor)
     options = MagicMock(return_value=MagicMock(remote=remote))
@@ -73,15 +73,13 @@ def test_get_or_create_monitor_hub_should_create_actor_when_actor_is_missing(
     )
     monkeypatch.setattr(client_module, "MonitorHubActor", MagicMock(options=options))
 
-    assert client_module.get_or_create_monitor_hub(conf) is actor
+    assert client_module.get_or_create_monitor_hub() is actor
     options.assert_called_once_with(
         name=_JOB_ACTOR_NAME,
         namespace=MonitorRayActor.NAMESPACE,
-        runtime_env={
-            "env_vars": {"RL_INSIGHT_SERVER_URL": "http://server"},
-        },
+        get_if_exists=True,
     )
-    remote.assert_called_once_with(conf)
+    remote.assert_called_once_with()
 
 
 def test_get_or_create_monitor_hub_should_reuse_winner_when_creation_races(
@@ -89,7 +87,6 @@ def test_get_or_create_monitor_hub_should_reuse_winner_when_creation_races(
 ) -> None:
     _patch_actor_name(monkeypatch)
 
-    conf = OmegaConf.create({"server": {"url": "http://server"}})
     winner = MagicMock()
     get_actor = MagicMock(side_effect=[winner])
     remote = MagicMock(side_effect=ValueError)
@@ -100,15 +97,24 @@ def test_get_or_create_monitor_hub_should_reuse_winner_when_creation_races(
         MagicMock(options=MagicMock(return_value=MagicMock(remote=remote))),
     )
 
-    assert client_module.get_or_create_monitor_hub(conf) is winner
+    assert client_module.get_or_create_monitor_hub() is winner
     get_actor.assert_called_with(_JOB_ACTOR_NAME, namespace=MonitorRayActor.NAMESPACE)
 
 
-def test_apply_event_should_submit_without_waiting_when_client_has_actor() -> None:
+def test_apply_event_should_submit_without_waiting_when_hub_is_verified(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     actor = MagicMock()
     client = client_module.MonitorRayClient(actor)
     event = {"kind": "counter", "name": "steps", "value": 1}
+    monkeypatch.setattr(
+        client_module.ray,
+        "get",
+        lambda *args, **kwargs: __version__,
+    )
+    client.initialize()
 
     client.apply_event(event)
 
+    actor.connect.remote.assert_called_once_with(__version__)
     actor.apply_event.remote.assert_called_once_with(event)

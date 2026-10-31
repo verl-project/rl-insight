@@ -25,12 +25,19 @@ from typing import Any, Sequence
 
 import requests
 import uvicorn
-from fastapi import Body, FastAPI, HTTPException, status
+from fastapi import Body, FastAPI, Header, HTTPException, status
 from omegaconf import DictConfig, OmegaConf
 
+from .. import __version__
 from ..utils.constants import MonitorEnv, MonitorServer, PrometheusScrape
 from ..utils.monitor_config_loader import load_server_config_file
 from ..utils.prometheus_utils import PrometheusTarget, PrometheusTargetStore
+from ..utils.protocol import (
+    SDK_VERSION_HEADER,
+    InvalidVersionError,
+    RunError,
+    require_version,
+)
 from .network import local_addresses
 
 logger = logging.getLogger(__name__)
@@ -41,15 +48,15 @@ def server_url() -> str:
     return str(os.environ.get(MonitorEnv.SERVER_URL, "")).strip().rstrip("/")
 
 
-def get_server_services() -> dict[str, Any]:
-    """Fetch service endpoints from the RL-Insight server."""
-    base_url = server_url()
+def get_server_services(base_url: str | None = None) -> dict[str, Any]:
+    """Fetch the Server's service endpoints, retrying transient failures."""
+    base_url = (base_url or server_url()).strip().rstrip("/")
     if not base_url:
         logger.error(
             "[rl-insight] RL-Insight server URL is required; set %s",
             MonitorEnv.SERVER_URL,
         )
-        return {}
+        raise RunError(f"RL-Insight requires a Server URL; set {MonitorEnv.SERVER_URL}")
 
     url = f"{base_url}{MonitorServer.API_PREFIX}/services"
     last_error: requests.RequestException | ValueError | None = None
@@ -57,6 +64,7 @@ def get_server_services() -> dict[str, Any]:
         try:
             response = requests.get(
                 url,
+                headers={SDK_VERSION_HEADER: __version__},
                 timeout=MonitorServer.SERVICE_DISCOVERY_TIMEOUT_SECONDS,
             )
             response.raise_for_status()
@@ -65,9 +73,21 @@ def get_server_services() -> dict[str, Any]:
                 raise ValueError(
                     f"services response must be an object, got {type(data).__name__}"
                 )
-            return data
+        except requests.HTTPError as exc:
+            if (
+                exc.response is not None
+                and 400 <= exc.response.status_code < 500
+                and exc.response.status_code not in {408, 429}
+            ):
+                raise RunError(
+                    f"RL-Insight service discovery rejected at {url}: {exc.response.text[:512]}",
+                    exc.response.status_code,
+                ) from exc
+            last_error = exc
         except (requests.RequestException, ValueError) as exc:
             last_error = exc
+        else:
+            return data
 
         if attempt + 1 < MonitorServer.SERVICE_DISCOVERY_RETRIES:
             time.sleep(MonitorServer.SERVICE_DISCOVERY_RETRY_DELAY_SECONDS)
@@ -77,12 +97,28 @@ def get_server_services() -> dict[str, Any]:
         url,
         last_error,
     )
-    return {}
+    raise RunError(
+        f"Cannot fetch RL-Insight services at {url}: {last_error}", 503
+    ) from last_error
+
+
+def initialize_server_connection(base_url: str | None = None) -> dict[str, Any]:
+    """Discover Server endpoints and validate compatibility during initialization."""
+    try:
+        services = get_server_services(base_url)
+    except RunError as exc:
+        if exc.status in {404, 405}:
+            require_version(None, "Server (services API unavailable)")
+        if exc.status == 409:
+            raise InvalidVersionError(str(exc), 409) from exc
+        raise
+    require_version(services.get("server_version"), "Server")
+    return services
 
 
 def create_app(conf: DictConfig) -> FastAPI:
     """Create the RL-Insight server application."""
-    app = FastAPI(title="RL-Insight server", version="0.1.0")
+    app = FastAPI(title="RL-Insight server", version=__version__)
     store = PrometheusTargetStore.from_config(conf)
 
     @app.get("/healthz")
@@ -91,10 +127,17 @@ def create_app(conf: DictConfig) -> FastAPI:
         return {"status": "ok"}
 
     @app.get(f"{MonitorServer.API_PREFIX}/services")
-    def services() -> dict[str, Any]:
-        """Expose enabled component ports for trainer-side endpoint discovery."""
+    def services(
+        client_version: str | None = Header(None, alias=SDK_VERSION_HEADER),
+    ) -> dict[str, Any]:
+        """Verify the connecting SDK and expose the Server's enabled services."""
+        try:
+            require_version(client_version, "Client")
+        except InvalidVersionError as exc:
+            raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
         return {
             "status": "ok",
+            "server_version": __version__,
             "otlp_port": (
                 int(OmegaConf.select(conf, "otel.otel_port"))
                 if bool(OmegaConf.select(conf, "tempo.enable", default=True))

@@ -37,7 +37,7 @@
                       "spec": {
                         "limit": 1000,
                         "metricsQueryType": "range",
-                        "query": "{span.state_lane_id =~ \"experiment=${experiment}/${session}/traj=.*\" && span.experiment_name =~ \"${experiment}\" && span.project =~ \"${project}\" && span.global_steps = ${step} && span.turn >= 0 && resource.service.name=\"rl_insight_monitor\"} | select(span.turn, span.finish_reason)",
+                        "query": "{span.state_lane_id =~ \"experiment=.*/${session}/traj=.*\" && span.experiment_name =~ \"${experiment:regex}\" && span.project =~ \"${project:regex}\" && span.global_steps = ${step} && span.turn >= 0 && resource.service.name=\"rl_insight_monitor\"} | select(span.turn, span.finish_reason)",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 100,
@@ -329,7 +329,7 @@
                       "spec": {
                         "limit": 100,
                         "metricsQueryType": "range",
-                        "query": "{span.monitor.trace_source = \"task\" && span.state_lane_id =~ \"experiment=${experiment}/${session}/traj=.*\" && span.experiment_name =~ \"${experiment}\" && span.project =~ \"${project}\" && span.global_steps = ${step}} | select(span.task_name, span.status, span.reward, span.accuracy, span.finished, span.reward_posted, span.error)",
+                        "query": "{span.monitor.trace_source = \"task\" && span.state_lane_id =~ \"experiment=.*/${session}/traj=.*\" && span.experiment_name =~ \"${experiment:regex}\" && span.project =~ \"${project:regex}\" && span.global_steps = ${step}} | select(span.task_name, span.status, span.reward, span.accuracy, span.finished, span.reward_posted, span.error)",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 100,
@@ -499,7 +499,7 @@
                       "spec": {
                         "limit": 100,
                         "metricsQueryType": "range",
-                        "query": "{span.monitor.trace_source = \"session\" && span.state_lane_id =~ \"experiment=${experiment}/${session}/traj=.*\" && span.experiment_name =~ \"${experiment}\" && span.project =~ \"${project}\" && span.global_steps = ${step}} | select(span.runner_name, span.status, span.num_trajectories, span.reward_source, span.finished)",
+                        "query": "{span.monitor.trace_source = \"session\" && span.state_lane_id =~ \"experiment=.*/${session}/traj=.*\" && span.experiment_name =~ \"${experiment:regex}\" && span.project =~ \"${project:regex}\" && span.global_steps = ${step}} | select(span.runner_name, span.status, span.num_trajectories, span.reward_source, span.finished)",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 100,
@@ -644,7 +644,7 @@
                       "spec": {
                         "limit": 500,
                         "metricsQueryType": "range",
-                        "query": "{span.state_lane_id =~ \"experiment=${experiment}/${session}/traj=${traj}\" && span.experiment_name =~ \"${experiment}\" && span.project =~ \"${project}\" && span.global_steps = ${step} && span.turn >= 0 && resource.service.name=\"rl_insight_monitor\"} | select(span.turn, span.type, span.tools, span.tool_args, span.finish_reason, span.reasoning, span.content, span.prompt_tokens, span.completion_tokens)",
+                        "query": "{span.state_lane_id =~ \"experiment=.*/${session}/traj=${traj}\" && span.experiment_name =~ \"${experiment:regex}\" && span.project =~ \"${project:regex}\" && span.global_steps = ${step} && span.turn >= 0 && resource.service.name=\"rl_insight_monitor\"} | select(span.turn, span.type, span.tools, span.tool_args, span.finish_reason, span.reasoning, span.content, span.prompt_tokens, span.completion_tokens)",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 100,
@@ -812,7 +812,7 @@
           {
             "kind": "RowsLayoutRow",
             "spec": {
-              "title": "Agent Loop Trajectory",
+              "title": "Agent Loop Trajectory · ${experiment:text}",
               "collapse": true,
               "hideHeader": false,
               "layout": {
@@ -1103,7 +1103,11 @@
                     "includeAll": true
                   }
                 }
-              ]
+              ],
+              "repeat": {
+                "mode": "variable",
+                "value": "experiment"
+              }
             }
           }
         ]

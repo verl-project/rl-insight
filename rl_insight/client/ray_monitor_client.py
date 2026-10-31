@@ -17,19 +17,26 @@
 from __future__ import annotations
 
 import logging
+import threading
 from typing import Any, cast
 
 import ray
 from omegaconf import DictConfig
 
+from .. import __version__
 from ..collector.ray_monitor_hub import MonitorHubActor
-from ..utils.constants import MonitorEnv, MonitorRayActor
+from ..server.http_api import initialize_server_connection
+from ..utils.constants import MonitorRayActor, MonitorServer
+from ..utils.protocol import RunContext, RunError, require_version
 from .base import MonitorClient
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
 __all__ = ["MonitorRayClient", "create_ray_monitor_client", "get_or_create_monitor_hub"]
+
+# Named handles are weak; retain creating handles for the Ray job's lifetime.
+_hub_owners: list[Any] = []
 
 
 def _current_job_actor_name() -> str:
@@ -39,26 +46,20 @@ def _current_job_actor_name() -> str:
     return f"{MonitorRayActor.NAME}_{job_id_str}"
 
 
-def get_or_create_monitor_hub(conf: DictConfig) -> Any:
-    """Get or create a job-scoped MonitorHubActor with health check.
+def _initialize_hub_connection(
+    hub: Any, *, timeout: float, conf: DictConfig | None = None
+) -> None:
+    """Verify the Hub version before applying task configuration."""
+    version = ray.get(hub.connect.remote(__version__), timeout=timeout)
+    require_version(version, "Ray Hub")
+    if conf is not None:
+        ray.get(hub.init.remote(conf), timeout=timeout)
 
-    Each Ray job gets its own hub actor named
-    ``MonitorRayActor.NAME_{job_id}``. The actor is not detached, so it
-    cleans up automatically when the job exits.
 
-    Args:
-        conf: Merged trainer monitor config passed to the actor constructor.
-
-    Returns:
-        Ray actor handle for ``MonitorHubActor``.
-
-    Raises:
-        RuntimeError: If Ray is not initialized.
-    """
-
+def get_or_create_monitor_hub() -> Any:
+    """Reuse the current job's Hub; Ray handles concurrent creation."""
     actor_name = _current_job_actor_name()
     namespace = MonitorRayActor.NAMESPACE
-
     try:
         handle = ray.get_actor(actor_name, namespace=namespace)
         logger.info(
@@ -73,23 +74,11 @@ def get_or_create_monitor_hub(conf: DictConfig) -> Any:
     actor_options: dict[str, Any] = {
         "name": actor_name,
         "namespace": namespace,
+        "get_if_exists": True,
     }
-    server_url = str(conf.server.url).strip()
-    if server_url:
-        actor_options["runtime_env"] = {
-            "env_vars": {MonitorEnv.SERVER_URL: server_url},
-        }
-
-    try:
-        actor_cls = cast(Any, MonitorHubActor)
-        return actor_cls.options(**actor_options).remote(conf)
-    except ValueError:
-        logger.info(
-            "[rl-insight] Monitor hub actor %r was created concurrently; "
-            "connecting to it.",
-            actor_name,
-        )
-        return ray.get_actor(actor_name, namespace=namespace)
+    hub = cast(Any, MonitorHubActor).options(**actor_options).remote()
+    _hub_owners.append(hub)
+    return hub
 
 
 def create_ray_monitor_client(conf: DictConfig) -> MonitorRayClient | None:
@@ -105,8 +94,13 @@ def create_ray_monitor_client(conf: DictConfig) -> MonitorRayClient | None:
         logger.warning("[rl-insight] Ray is not initialized; monitoring is disabled.")
         return None
 
-    handle = get_or_create_monitor_hub(conf)
-    return MonitorRayClient(handle)
+    task_conf = conf if conf.get("run_metadata") is not None else None
+    if task_conf is not None:
+        initialize_server_connection(str(task_conf.server.url))
+    handle = get_or_create_monitor_hub()
+    client = MonitorRayClient(handle)
+    client.initialize(task_conf)
+    return client
 
 
 class MonitorRayClient(MonitorClient):
@@ -118,6 +112,46 @@ class MonitorRayClient(MonitorClient):
             actor_handle: Return value of ``get_or_create_monitor_hub``.
         """
         self._actor = actor_handle
+        self._lock = threading.Lock()
+        self._init_lock = threading.Lock()
+        self._closed = False
+        self._compatibility_error: RunError | None = None
+        self._initialized = False
+        # Includes service discovery and actor scheduling during initialization.
+        self._timeout = (
+            MonitorServer.SERVICE_DISCOVERY_RETRIES
+            * (
+                MonitorServer.SERVICE_DISCOVERY_TIMEOUT_SECONDS
+                + MonitorServer.SERVICE_DISCOVERY_RETRY_DELAY_SECONDS
+            )
+            + 30
+        )
+
+    def initialize(self, conf: DictConfig | None = None) -> None:
+        """Establish and validate the Hub connection before collecting data."""
+        with self._init_lock:
+            if self._compatibility_error is not None:
+                raise self._compatibility_error
+            if self._initialized:
+                return
+            try:
+                _initialize_hub_connection(
+                    self._actor, timeout=self._timeout, conf=conf
+                )
+            except RunError as exc:
+                self._compatibility_error = exc
+                raise
+            self._initialized = True
+
+    def get_context(self) -> RunContext | None:
+        if self._compatibility_error is not None:
+            raise self._compatibility_error
+        if not self._initialized:
+            return None
+        context = ray.get(self._actor.get_context.remote(), timeout=self._timeout)
+        if context is not None and not isinstance(context, RunContext):
+            raise RunError("Ray Hub returned an invalid Context", 502)
+        return context
 
     def apply_event(self, event: dict[str, Any]) -> None:
         """Submit ``MonitorHubActor.apply_event`` on the actor (fire-and-forget; no ``ray.get``).
@@ -128,4 +162,15 @@ class MonitorRayClient(MonitorClient):
         Note:
             Errors on the hub side are not surfaced here. Ordering follows Ray actor scheduling.
         """
-        self._actor.apply_event.remote(event)
+        with self._lock:
+            if self._compatibility_error is not None:
+                raise self._compatibility_error
+            if self._closed:
+                raise RunError("Monitor client is closed")
+            if not self._initialized:
+                raise RunError("Monitor client is not initialized")
+            self._actor.apply_event.remote(event)
+
+    def close(self) -> None:
+        with self._lock:
+            self._closed = True
