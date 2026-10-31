@@ -129,3 +129,16 @@ class MonitorRayClient(MonitorClient):
             Errors on the hub side are not surfaced here. Ordering follows Ray actor scheduling.
         """
         self._actor.apply_event.remote(event)
+
+    def apply_events(self, events: list[dict[str, Any]]) -> None:
+        """Submit one batched ``MonitorHubActor.apply_events`` call (fire-and-forget).
+
+        Args:
+            events: Ordered monitor events, applied by the hub in order.
+
+        Note:
+            Errors on the hub side are not surfaced here. One RPC replaces
+            one per event, keeping actor-round-trips low for frequent senders
+            such as the hardware monitor.
+        """
+        self._actor.apply_events.remote(list(events))

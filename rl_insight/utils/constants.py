@@ -49,6 +49,7 @@ class MonitorEnv:
 
     SERVER_URL = "RL_INSIGHT_SERVER_URL"
     SERVER_BACKEND = "RL_INSIGHT_SERVER_BACKEND"
+    HARDWARE_ENABLED = "RL_INSIGHT_HARDWARE_ENABLED"
     CONFIG_PATH = "RL_INSIGHT_CONFIG"
 
 
@@ -64,6 +65,25 @@ class MonitorBackend:
 
     RAY = "ray"
     PUSH = "push"
+
+
+class MonitorHardware:
+    """Defaults for hardware monitoring."""
+
+    ENABLED = False
+    INTERVAL_SECONDS = 10
+    MIN_INTERVAL_SECONDS = 5
+    COLLECTORS = (
+        # CPU, memory, network and disk are collected together.
+        "cpu",
+        "gpu",
+        "npu",
+        # Per-Ray-actor process sampling (skipped automatically outside a Ray
+        # job) and the process hosting the monitor itself.
+        "ray_actor_process",
+        "self_process",
+    )
+    STATUS_METRIC_NAME = "rlinsight_hardware_collector_available"
 
 
 class MonitorEventKind:

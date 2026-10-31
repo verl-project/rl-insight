@@ -1,5 +1,7 @@
 # 昇腾 NPU 硬件监控
 
+> **已废弃：** 基于 exporter 的硬件监控已废弃。请使用内置的[硬件监控指南](hardware_monitoring_zh.md)。本文档保留用于已有的 Prometheus 部署。
+
 昇腾 NPU 指标由 MindCluster NPU Exporter 提供。每个需要监控的 NPU 节点都要运行一个 NPU Exporter。
 
 第 1～3 节在需要监控的 NPU 节点上执行；第 4 节在运行 RL-Insight Server 的机器上执行。

@@ -28,7 +28,7 @@ import socket
 import subprocess
 import sys
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -736,6 +736,204 @@ def _read_file_sd_targets(path: Path) -> list[dict[str, Any]]:
     return data
 
 
+# Hardware panels ship two queries per series: a built-in query and an
+# exporter query. Only one is visible at a time; the server decides which one
+# by rewriting the staged dashboards instead of relying on PromQL ``or``, which
+# never de-duplicates across the two label sets and silently draws two lines
+# whenever both sources are scraped.
+_HARDWARE_SOURCE_BUILTIN = "builtin"
+_HARDWARE_SOURCE_EXPORTER = "exporter"
+# Built-in metric family -> exporter job prefix that provides the same family.
+_HARDWARE_FAMILY_EXPORTER = {
+    "cpu": "node-exporter",
+    "memory": "node-exporter",
+    "network": "node-exporter",
+    "disk": "node-exporter",
+    "npu": "npu-exporter",
+    "gpu": "dcgm",
+}
+# Exporter job prefixes, derived so a new family is added in one place only.
+_HARDWARE_EXPORTER_JOB_PREFIXES = tuple(
+    dict.fromkeys(_HARDWARE_FAMILY_EXPORTER.values())
+)
+# Substring that identifies a built-in hardware query.
+_BUILTIN_HARDWARE_MARKER = "rl_insight_monitor_rlinsight_"
+_BUILTIN_FAMILY_RE = re.compile(
+    "rlinsight_(" + "|".join(_HARDWARE_FAMILY_EXPORTER) + ")_"
+)
+
+
+def _registered_hardware_exporters(conf: DictConfig) -> set[str]:
+    """Return the exporter job prefixes registered in the file_sd target store.
+
+    The default is an empty set (built-in only). Selection is tracked per
+    exporter because one exporter cannot serve another domain: a registered
+    ``node-exporter`` must not hide built-in NPU/GPU panels.
+    """
+    try:
+        groups = _read_file_sd_targets(prometheus_targets_file_from_config(conf))
+    except (OSError, ValueError, yaml.YAMLError):
+        return set()
+    exporters: set[str] = set()
+    for group in groups:
+        if not isinstance(group, Mapping):
+            continue
+        labels = group.get("labels")
+        if not isinstance(labels, Mapping):
+            continue
+        job = str(labels.get(PrometheusScrape.DYNAMIC_JOB_LABEL) or "").strip()
+        lowered = job.casefold()
+        for prefix in _HARDWARE_EXPORTER_JOB_PREFIXES:
+            if lowered.startswith(prefix):
+                exporters.add(prefix)
+                break
+    return exporters
+
+
+def _builtin_hardware_family(expr: str) -> str | None:
+    """Return the hardware family (``cpu``, ``npu``, ...) of a built-in query."""
+    match = _BUILTIN_FAMILY_RE.search(expr)
+    return match.group(1) if match else None
+
+
+def _panel_hardware_source(
+    queries: Sequence[Mapping[str, Any]], registered_exporters: set[str]
+) -> str | None:
+    """Return the source a dual-source panel should show, or ``None`` to leave it.
+
+    Every built-in query in a dual-source panel must map to the same
+    exporter prefix; unknown or mixed families are left untouched.
+    """
+    prefixes: set[str] = set()
+    for query in queries:
+        expr = _query_expr(query)
+        if expr is None or _BUILTIN_HARDWARE_MARKER not in expr:
+            continue
+        family = _builtin_hardware_family(expr)
+        if family is None:
+            return None
+        prefixes.add(_HARDWARE_FAMILY_EXPORTER[family])
+    if len(prefixes) != 1:
+        return None
+    prefix = next(iter(prefixes))
+    return (
+        _HARDWARE_SOURCE_EXPORTER
+        if prefix in registered_exporters
+        else _HARDWARE_SOURCE_BUILTIN
+    )
+
+
+def _panel_queries(panel_spec: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    data = panel_spec.get("data")
+    if not isinstance(data, Mapping):
+        return []
+    data_spec = data.get("spec")
+    if not isinstance(data_spec, Mapping):
+        return []
+    queries = data_spec.get("queries")
+    if not isinstance(queries, list):
+        return []
+    return [query for query in queries if isinstance(query, Mapping)]
+
+
+def _query_expr(query: Mapping[str, Any]) -> str | None:
+    spec = query.get("spec")
+    if not isinstance(spec, Mapping):
+        return None
+    expression = spec.get("query")
+    if not isinstance(expression, Mapping):
+        return None
+    inner = expression.get("spec")
+    if not isinstance(inner, Mapping):
+        return None
+    expr = inner.get("expr")
+    return expr if isinstance(expr, str) else None
+
+
+def _set_hardware_source(
+    dashboard: Mapping[str, Any], registered_exporters: set[str]
+) -> bool:
+    """Show the right hardware source on every dual-source panel of ``dashboard``.
+
+    Panels are switched independently by the exporter their built-in family
+    needs. Panels that only carry a single source (e.g. exporter-only NPU
+    network) or an unknown/mixed family are left untouched. Returns whether any
+    query changed.
+    """
+    spec = dashboard.get("spec")
+    if not isinstance(spec, Mapping):
+        return False
+    elements = spec.get("elements")
+    if not isinstance(elements, Mapping):
+        return False
+    changed = False
+    for panel in elements.values():
+        if not isinstance(panel, Mapping):
+            continue
+        panel_spec = panel.get("spec")
+        if not isinstance(panel_spec, Mapping):
+            continue
+        queries = _panel_queries(panel_spec)
+        builtin_queries = [
+            query
+            for query in queries
+            if (expr := _query_expr(query)) is not None
+            and _BUILTIN_HARDWARE_MARKER in expr
+        ]
+        if not builtin_queries or len(builtin_queries) == len(queries):
+            continue
+        source = _panel_hardware_source(queries, registered_exporters)
+        if source is None:
+            continue
+        for query in queries:
+            expr = _query_expr(query)
+            if expr is None:
+                continue
+            is_builtin = _BUILTIN_HARDWARE_MARKER in expr
+            hidden = (source == _HARDWARE_SOURCE_BUILTIN) != is_builtin
+            query_spec = query.get("spec")
+            if isinstance(query_spec, dict) and query_spec.get("hidden") != hidden:
+                query_spec["hidden"] = hidden
+                changed = True
+    return changed
+
+
+def _apply_hardware_source(dashboard_dir: Path, registered_exporters: set[str]) -> int:
+    """Rewrite staged dashboard JSON files in place. Returns the count changed."""
+    if not dashboard_dir.is_dir():
+        return 0
+    updated = 0
+    for path in sorted(dashboard_dir.rglob("*")):
+        if not path.is_file() or path.suffix.casefold() != ".json":
+            continue
+        try:
+            dashboard = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(dashboard, dict) or not _set_hardware_source(
+            dashboard, registered_exporters
+        ):
+            continue
+        payload = json.dumps(dashboard, indent=2, ensure_ascii=False) + "\n"
+        tmp_path = path.with_name(f"{path.name}.tmp")
+        tmp_path.write_text(payload, encoding="utf-8")
+        os.replace(tmp_path, path)
+        updated += 1
+    return updated
+
+
+def refresh_staged_dashboards(conf: DictConfig) -> int:
+    """Re-apply the hardware source selection to already staged dashboards.
+
+    ``rl-insight add-targets`` registers exporter scrape targets while the
+    server is running. Grafana reloads provisioned files every
+    ``updateIntervalSeconds``, so the staged dashboards only need rewriting,
+    not a service restart.
+    """
+    target = (_runtime_dir_from_config(conf) / "dashboards").resolve()
+    return _apply_hardware_source(target, _registered_hardware_exporters(conf))
+
+
 def _migrate_prometheus_static_targets(
     config_file: Path,
     source_scrape_configs: list[Any],
@@ -929,6 +1127,12 @@ def _render_grafana_provisioning(
 
 
 def _stage_grafana_dashboards(conf: DictConfig, runtime_dir: Path) -> Path:
+    target = _copy_staged_dashboards(conf, runtime_dir)
+    _apply_hardware_source(target, _registered_hardware_exporters(conf))
+    return target
+
+
+def _copy_staged_dashboards(conf: DictConfig, runtime_dir: Path) -> Path:
     source = Path(str(OmegaConf.select(conf, "grafana.dashboards_dir"))).resolve()
     target = (runtime_dir / "dashboards").resolve()
     target.mkdir(parents=True, exist_ok=True)
