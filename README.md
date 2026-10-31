@@ -23,7 +23,7 @@ RL-Insight focuses on the online observability path that RL training needs most:
 
 - **One-command server startup**: install dependencies and start the RL-Insight server with Prometheus, Tempo, and Grafana with `rl-insight server install` and `rl-insight server start`.
 - **Trainer and rollout metric aggregation**: collect key actor, rollout, and transfer queue metrics in one monitoring view while keeping training-side instrumentation lightweight.
-- **CPU and Ascend NPU monitoring**: register node_exporter and NPU Exporter endpoints to view hardware metrics in the RL-Insight Grafana dashboards.
+- **Hardware monitoring**: collect CPU, memory, network, disk, NVIDIA GPU, and Ascend NPU metrics with the monitor started by `rl_insight.init()`; no exporter deployment is required. Legacy exporter guides remain available for existing Prometheus deployments.
 - **Grafana dashboards for RL workloads**: provide ready-to-use dashboard structure for training metrics, rollout behavior, engine metrics, and RL state timelines.
 
 ## Architecture
@@ -69,7 +69,7 @@ Start with the guide that matches your current setup:
 |---|---|---|
 | [Server Installation](https://rl-insight.readthedocs.io/en/latest/monitor/server_installation.html) | Prometheus, Tempo, and Grafana service setup, including supported Linux and Windows platforms, direct installation, offline installation, and existing service binaries. | Use this first if the monitor services are not installed or you need to verify the server environment. |
 | [Quick Start](https://rl-insight.readthedocs.io/en/latest/monitor/quick_start.html) | A full smoke-test flow: install the Python package, start the monitor stack, emit sample metric/trace data, and open Grafana. | Use this after the services are ready, or when you want to validate the monitor path end to end. |
-| [Hardware Monitoring](https://rl-insight.readthedocs.io/en/latest/monitor/hardware/index.html) | Install or reuse node_exporter and NPU Exporter, then register CPU and Ascend NPU targets with RL-Insight. | Use this when you want hardware metrics in the RL-Insight Grafana dashboards. |
+| [Hardware Monitoring](https://rl-insight.readthedocs.io/en/latest/monitor/hardware/index.html) | Built-in hardware collection started by `rl_insight.init()` (CPU, memory, network, disk, NVIDIA GPU, Ascend NPU), plus the deprecated exporter guides. | Use this when you want hardware metrics in the RL-Insight Grafana dashboards. |
 
 Recommended order:
 
@@ -101,7 +101,7 @@ RL-Insight manages three open-source services locally on Linux and Windows x64:
 | `trace_state(state_name, state_lane_id=None, **labels)` | Record a named RL state interval. |
 | `trace_op(name=None, extra_labels=None, **static_labels)` | Decorate a sync or async function and emit one duration span per call. |
 | `trace_span(name, start_time_ns, end_time_ns, attributes)` | Report one completed span directly, with a caller-supplied name, epoch-ns times, and attributes. |
-| `finish()` | Reset in-process monitor state. |
+| `finish()` | Reset monitor state. |
 
 Configuration can be passed to `insight.init(config=...)` or through environment variables:
 
@@ -130,6 +130,7 @@ Useful environment variables:
 |---|---|
 | `RL_INSIGHT_SERVER_URL` | RL-Insight server URL, for example `http://<server-ip>:18080`. |
 | `RL_INSIGHT_SERVER_BACKEND` | Trainer-side monitor client backend (`server.backend`), for example `ray`. Also applies to worker processes that call `rl_insight.init()` without a config. |
+| `RL_INSIGHT_HARDWARE_ENABLED` | Enable (`1`/`true`/`yes`/`on`) or disable (`0`/`false`/`no`/`off`) hardware monitoring (`hardware.enabled`, disabled by default). The environment variable takes precedence over the config. |
 
 ## Roadmap
 
@@ -142,7 +143,7 @@ Useful environment variables:
 - [Python API](https://rl-insight.readthedocs.io/en/latest/monitor/api.html): initialization, metrics, traces, and cleanup.
 - [Quick Start](https://rl-insight.readthedocs.io/en/latest/monitor/quick_start.html): install RL-Insight, start the services, instrument code, and open Grafana.
 - [Server Installation](https://rl-insight.readthedocs.io/en/latest/monitor/server_installation.html): Linux and Windows service requirements, supported OS/CPU combinations, and version policy.
-- [Hardware Monitoring](https://rl-insight.readthedocs.io/en/latest/monitor/hardware/index.html): install exporters and register CPU or Ascend NPU scrape targets.
+- [Hardware Monitoring](https://rl-insight.readthedocs.io/en/latest/monitor/hardware/index.html): built-in hardware collection, metric names, Grafana panels, and the deprecated exporter guides.
 - [Default server config](https://github.com/verl-project/rl-insight/blob/main/rl_insight/config/config.yaml): bundled ports, retention settings, and service config paths.
 
 ## Community
