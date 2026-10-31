@@ -7147,6 +7147,243 @@
             }
           }
         }
+      },
+      "selected-metric-panel": {
+        "kind": "Panel",
+        "spec": {
+          "id": 355,
+          "title": "$selected_metrics",
+          "description": "Legend is project-experiment_name-metric name, with the last value on the right. The x axis is the training step. The query returns at most 100000 spans. A result that comes back full is truncated, and sorting cannot restore the missing steps.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "tempo"
+                      },
+                      "spec": {
+                        "limit": 100000,
+                        "query": "{ resource.service.name = \"rl_insight_monitor\" && span.\"monitor.trace_segment\" = \"metric_log\" && span.\"metric.name\" = \"$selected_metrics\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" && span.global_step != nil && span.\"metric.value\" != nil }",
+                        "queryType": "traceql",
+                        "serviceMapUseNativeHistograms": false,
+                        "spss": 3,
+                        "tableType": "spans"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [
+                {
+                  "kind": "Transformation",
+                  "group": "convertFieldType",
+                  "spec": {
+                    "options": {
+                      "conversions": [
+                        {
+                          "targetField": "global_step",
+                          "destinationType": "number"
+                        },
+                        {
+                          "targetField": "metric.value",
+                          "destinationType": "number"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "sortBy",
+                  "spec": {
+                    "options": {
+                      "sort": [
+                        {
+                          "field": "Start time",
+                          "desc": false
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "calculateField",
+                  "spec": {
+                    "options": {
+                      "alias": "Value",
+                      "mode": "binary",
+                      "binary": {
+                        "left": {
+                          "matcher": {
+                            "id": "byName",
+                            "options": "metric.value"
+                          }
+                        },
+                        "operator": "*",
+                        "right": {
+                          "fixed": "1"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "groupBy",
+                  "spec": {
+                    "options": {
+                      "fields": {
+                        "project": {
+                          "aggregations": [],
+                          "operation": "groupby"
+                        },
+                        "experiment_name": {
+                          "aggregations": [],
+                          "operation": "groupby"
+                        },
+                        "metric.name": {
+                          "aggregations": [],
+                          "operation": "groupby"
+                        },
+                        "global_step": {
+                          "aggregations": [],
+                          "operation": "groupby"
+                        },
+                        "Value": {
+                          "aggregations": [
+                            "lastNotNull"
+                          ],
+                          "operation": "aggregate"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "organize",
+                  "spec": {
+                    "options": {
+                      "excludeByName": {
+                        "duration": true,
+                        "metric.value": true
+                      },
+                      "indexByName": {
+                        "project": 0,
+                        "experiment_name": 1,
+                        "metric.name": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "partitionByValues",
+                  "spec": {
+                    "options": {
+                      "fields": [
+                        "project",
+                        "experiment_name",
+                        "metric.name"
+                      ],
+                      "keepFields": false,
+                      "naming": {
+                        "asLabels": false,
+                        "append": false,
+                        "withNames": false,
+                        "separator2": "-"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "joinByField",
+                  "spec": {
+                    "options": {
+                      "byField": "global_step",
+                      "mode": "outer"
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "sortBy",
+                  "spec": {
+                    "options": {
+                      "sort": [
+                        {
+                          "field": "global_step",
+                          "desc": false
+                        }
+                      ]
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "trend",
+            "version": "13.0.2",
+            "spec": {
+              "options": {
+                "legend": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "displayMode": "table",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "single"
+                },
+                "xField": "global_step"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 0,
+                    "lineWidth": 2,
+                    "showPoints": "never"
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "global_step"
+                    },
+                    "properties": [
+                      {
+                        "id": "decimals",
+                        "value": 0
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "layout": {
@@ -7189,6 +7426,56 @@
                 "kind": "RowsLayout",
                 "spec": {
                   "rows": [
+                    {
+                      "kind": "RowsLayoutRow",
+                      "spec": {
+                        "title": "selected metrics",
+                        "collapse": false,
+                        "conditionalRendering": {
+                          "kind": "ConditionalRenderingGroup",
+                          "spec": {
+                            "visibility": "hide",
+                            "condition": "and",
+                            "items": [
+                              {
+                                "kind": "ConditionalRenderingVariable",
+                                "spec": {
+                                  "variable": "selected_metrics",
+                                  "operator": "equals",
+                                  "value": "$__all"
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "layout": {
+                          "kind": "GridLayout",
+                          "spec": {
+                            "items": [
+                              {
+                                "kind": "GridLayoutItem",
+                                "spec": {
+                                  "x": 0,
+                                  "y": 0,
+                                  "width": 8,
+                                  "height": 12,
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "selected-metric-panel"
+                                  },
+                                  "repeat": {
+                                    "mode": "variable",
+                                    "value": "selected_metrics",
+                                    "direction": "h",
+                                    "maxPerRow": 3
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
                     {
                       "kind": "RowsLayoutRow",
                       "spec": {
@@ -8289,6 +8576,54 @@
           "multi": true,
           "includeAll": true,
           "allValue": ".*",
+          "allowCustomValue": true
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "selected_metrics",
+          "current": {
+            "text": [
+              "None"
+            ],
+            "value": [
+              "$__all"
+            ]
+          },
+          "label": "training: Selected Metrics",
+          "hide": "dontHide",
+          "refresh": "onTimeRangeChanged",
+          "skipUrlSync": false,
+          "query": {
+            "kind": "DataQuery",
+            "group": "tempo",
+            "version": "v0",
+            "datasource": {
+              "name": "tempo"
+            },
+            "spec": {
+              "queryType": "traceql",
+              "refId": "StandardVariableQuery",
+              "type": 1,
+              "label": "metric.name",
+              "query": "{ resource.service.name = \"rl_insight_monitor\" && span.\"monitor.trace_segment\" = \"metric_log\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" && span.global_step != nil && span.\"metric.value\" != nil }"
+            }
+          },
+          "regex": "",
+          "regexApplyTo": "value",
+          "sort": "alphabeticalAsc",
+          "definition": "{ resource.service.name = \"rl_insight_monitor\" && span.\"monitor.trace_segment\" = \"metric_log\" && span.project =~ \"$project\" && span.experiment_name =~ \"$experiment_name\" && span.global_step != nil && span.\"metric.value\" != nil }",
+          "options": [],
+          "multi": true,
+          "includeAll": false,
+          "staticOptions": [
+            {
+              "text": "None",
+              "value": "$__all"
+            }
+          ],
+          "staticOptionsOrder": "before",
           "allowCustomValue": true
         }
       },
