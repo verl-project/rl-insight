@@ -117,3 +117,20 @@ def test_apply_event_should_submit_without_waiting_when_hub_is_verified(
     client.close()
     actor.flush.remote.assert_called_once_with()
     assert get.call_count == 2
+
+
+def test_apply_events_should_submit_one_batched_call_without_waiting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    actor = MagicMock()
+    monkeypatch.setattr(client_module.ray, "get", MagicMock(return_value=__version__))
+    client = client_module.MonitorRayClient(actor)
+    events = [
+        {"kind": "gauge", "name": "cpu", "value": 12.0},
+        {"kind": "gauge", "name": "mem", "value": 34.0},
+    ]
+
+    client.apply_events(events)
+
+    actor.apply_events.remote.assert_called_once_with(events)
+    actor.apply_event.remote.assert_not_called()

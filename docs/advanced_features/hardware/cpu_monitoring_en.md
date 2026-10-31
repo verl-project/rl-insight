@@ -1,5 +1,7 @@
 # CPU Hardware Monitoring
 
+> **Scheduled for removal:** Exporter-based hardware monitoring will be removed in version 0.5.0. Use the built-in [hardware monitoring guide](hardware_monitoring_en.md) instead. This document remains available for existing Prometheus deployments.
+
 Prometheus `node_exporter` provides CPU, memory, and network metrics. Run one node_exporter on every monitored node.
 
 Run Sections 1-3 on each monitored node. Run Section 4 on the host where RL-Insight Server is running.
@@ -92,6 +94,6 @@ rl-insight server start --detach
 rl-insight server targets add cpu_targets.yaml
 ```
 
-`targets add` only registers targets and reloads Prometheus; it does not manage node_exporter. After registration, view CPU, actual memory usage, and network throughput in the RL-Insight Grafana dashboards.
+`targets add` only registers targets and reloads Prometheus; it does not manage node_exporter. The RL-Insight hardware panels read only the built-in collector, so query the registered node_exporter series directly in Prometheus after registration.
 
 ![RL-Insight CPU hardware metrics](https://raw.githubusercontent.com/verl-project/rl-insight/main/assets/monitor/hardware/cpu_metrics.png)

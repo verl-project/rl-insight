@@ -99,6 +99,25 @@ export RL_INSIGHT_CONFIG=/absolute/path/to/client.yaml
 
 Alternatively, pass this structure to `init(config=...)`; see the [initialization example](python_api.md#initialize-and-finish).
 
+### Configure hardware monitoring
+
+Hardware monitoring is disabled by default. Enable it in `init(config=...)` or in the YAML file:
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `hardware.enable` | `false` | Starts the built-in hardware monitor. A Ray job runs one monitor per job node; outside Ray the monitor is a background thread in the calling process |
+| `hardware.interval_seconds` | `10` | Fixed period between sampling-round starts. An overrunning round skips missed slots instead of catching up |
+| `hardware.collectors` | `["host", "device"]` | Collectors to run: `host` (CPU, memory, network, disk), `device` (NVIDIA GPU or Ascend NPU), `ray_actor_process` (per-worker CPU and memory), `self_process` (monitor process) |
+
+```yaml
+hardware:
+  enable: true
+  interval_seconds: 10
+  collectors: [host, device]
+```
+
+These settings are resolved in the process that calls `init()`; Ray node actors receive the resolved values as constructor arguments. See [Hardware Monitoring](../../advanced_features/hardware/index.md) for metrics, Grafana panels, and troubleshooting.
+
 ### Override precedence
 
 From lowest to highest priority:
@@ -121,7 +140,7 @@ For the Ray backend, verify these paths:
 | Training processes | RL-Insight server API | `18080` |
 | Ray hub / trace exporters | Tempo OTLP HTTP | `4318` |
 | Prometheus | Ray hub metrics endpoint | `9092` |
-| Prometheus | Registered engine or hardware exporter | Endpoint-specific |
+| Prometheus | Registered engine exporter (legacy hardware exporters optional) | Endpoint-specific |
 | Browser | Grafana | `3000` |
 
 Use cluster-reachable addresses. For Ray job submission, propagate settings through the job's runtime environment:
@@ -134,4 +153,4 @@ env_vars:
 
 If using `RL_INSIGHT_CONFIG`, propagate it too and ensure the file exists at the same path on each worker node.
 
-Check discovery from the training host with `curl http://<server-ip>:18080/api/v1/services`, then inspect Prometheus **Status → Targets**. Check Tempo and OTLP connectivity separately for missing traces. See [Quick Start](../../tutorial/quick_start.md) for an end-to-end demo and [Hardware Monitoring](../../advanced_features/hardware/index.md) for exporter setup.
+Check discovery from the training host with `curl http://<server-ip>:18080/api/v1/services`, then inspect Prometheus **Status → Targets**. Check Tempo and OTLP connectivity separately for missing traces. See [Quick Start](../../tutorial/quick_start.md) for an end-to-end demo and [Hardware Monitoring](../../advanced_features/hardware/index.md) for the built-in hardware collector and the legacy exporter guides.

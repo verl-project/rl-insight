@@ -211,6 +211,40 @@ def test_apply_event_should_raise_value_error_when_event_is_invalid(
         hub.apply_event(event)
 
 
+def test_apply_events_should_dispatch_every_event_in_order(hub: Any) -> None:
+    events = [
+        {"kind": "counter", "name": "steps", "value": 1},
+        {"kind": "gauge", "name": "reward", "value": 2.5},
+    ]
+
+    hub.apply_events(events)
+
+    assert hub._events_applied == 2
+    hub._registry.count.assert_called_once_with(
+        "steps", "", 1.0, {}, {"project": "p", "experiment_name": "e"}
+    )
+    hub._registry.value.assert_called_once_with(
+        "reward", "", 2.5, {}, {"project": "p", "experiment_name": "e"}
+    )
+
+
+def test_apply_events_should_apply_events_one_by_one_so_errors_partial(
+    hub: Any,
+) -> None:
+    events = [
+        {"kind": "gauge", "name": "reward", "value": 1.0},
+        {"kind": "unknown", "name": "bad"},
+    ]
+
+    with pytest.raises(ValueError, match="Unknown event kind"):
+        hub.apply_events(events)
+
+    assert hub._events_applied == 2
+    hub._registry.value.assert_called_once_with(
+        "reward", "", 1.0, {}, {"project": "p", "experiment_name": "e"}
+    )
+
+
 def test_get_context_should_describe_identity_and_live_status(hub: Any) -> None:
     hub._node_ip = "10.0.0.8"
     hub._metrics_port = 9092

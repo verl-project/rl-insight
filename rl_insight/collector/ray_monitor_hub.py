@@ -229,6 +229,11 @@ class MonitorHubActor(MonitorCollector):
                     exc_info=True,
                 )
 
+    def apply_events(self, events: list[dict[str, Any]]) -> None:
+        """Dispatch a batch of events in order; see ``apply_event`` for the shape."""
+        for event in events:
+            self.apply_event(event)
+
     def flush(self) -> None:
         """Flush traces after earlier calls from the client have completed."""
         if self._initialized and not self._closed:
