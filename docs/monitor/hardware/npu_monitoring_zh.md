@@ -1,5 +1,7 @@
 # 昇腾 NPU 硬件监控
 
+> **即将移除：** 基于 exporter 的硬件监控将在 0.5.0 版本移除。请使用内置的[硬件监控指南](hardware_monitoring_zh.md)。本文档保留用于已有的 Prometheus 部署。
+
 昇腾 NPU 指标由 MindCluster NPU Exporter 提供。每个需要监控的 NPU 节点都要运行一个 NPU Exporter。
 
 第 1～3 节在需要监控的 NPU 节点上执行；第 4 节在运行 RL-Insight Server 的机器上执行。
@@ -104,6 +106,6 @@ rl-insight server start --detach
 rl-insight server targets add npu_targets.yaml
 ```
 
-`targets add` 只注册 target 并 reload Prometheus，不管理 NPU Exporter 的生命周期。注册成功后，在 RL-Insight Grafana 看板中查看 NPU 利用率、显存、功耗、温度和网络吞吐等指标。
+`targets add` 只注册 target 并 reload Prometheus，不管理 NPU Exporter 的生命周期。RL-Insight 硬件面板只读取内置采集，注册成功后请在 Prometheus 中直接查询 NPU Exporter 序列。
 
 ![RL-Insight NPU 硬件指标](https://raw.githubusercontent.com/verl-project/rl-insight/main/assets/monitor/hardware/npu_metrics.png)

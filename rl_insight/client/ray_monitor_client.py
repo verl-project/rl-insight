@@ -161,3 +161,10 @@ class MonitorRayClient(MonitorClient):
     def close(self) -> None:
         """Drain the shared Hub after event producers have stopped."""
         ray.get(self._actor.flush.remote(), timeout=self._timeout)
+
+    def apply_events(self, events: list[dict[str, Any]]) -> None:
+        """Submit one batched ``MonitorHubActor.apply_events`` call without waiting.
+
+        The hub applies events in order; hub-side errors are not surfaced here.
+        """
+        self._actor.apply_events.remote(list(events))

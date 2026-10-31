@@ -38,10 +38,16 @@ class MonitorPaths:
 
 
 class MonitorRayActor:
-    """Ray placement metadata for the detached monitor hub actor."""
+    """Ray placement metadata for the job-scoped monitor hub actor."""
 
     NAME = "RLInsightMonitorHub"
     NAMESPACE = "rl-insight-monitor"
+    # RL-Insight's own actors are excluded from job nodes and worker metrics.
+    INTERNAL_CLASSES = frozenset({"MonitorHubActor", "NodeHardwareActor"})
+    # Upper bound for cluster-wide actor queries. Ray's state API server
+    # rejects requests above ``RAY_MAX_LIMIT_FROM_API_SERVER`` (10000 by
+    # default) with HTTP 500, so this must stay within that default.
+    STATE_API_ACTOR_LIMIT = 10_000
 
 
 class MonitorEnv:
@@ -66,6 +72,22 @@ class MonitorBackend:
 
     RAY = "ray"
     PUSH = "push"
+
+
+class MonitorHardware:
+    """Defaults for hardware monitoring."""
+
+    ENABLED = False
+    INTERVAL_SECONDS = 10
+    MIN_INTERVAL_SECONDS = 5
+    COLLECTORS = (
+        # "host" covers CPU, memory, network and disk. "device" probes the
+        # available accelerator backend (Ascend NPU or NVIDIA GPU). The
+        # process collectors ("ray_actor_process", "self_process") are
+        # opt-in.
+        "host",
+        "device",
+    )
 
 
 class MonitorEventKind:
