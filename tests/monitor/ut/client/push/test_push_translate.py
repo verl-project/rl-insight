@@ -288,3 +288,54 @@ engine_max{engine="other"} 2.0
     )
     out = state.translate(text, rules)
     assert [(e.value, e.tags) for e in out] == [(0.5, {"model_name": "m1"})]
+
+
+def test_ratio_does_not_broadcast_a_labeled_single_denominator() -> None:
+    """A labeled single denominator must not be broadcast to other labels.
+
+    Regression: treating ``len(denominators) == 1`` as shareable divided
+    used{model_name="m2"} by max{model_name="m1"} and emitted 4.5, while
+    exact-label semantics emit only the matching series.
+    """
+    state = ScrapeState()
+    text = """
+# TYPE engine_used gauge
+engine_used{model_name="m1"} 10.0
+engine_used{model_name="m2"} 90.0
+# TYPE engine_max gauge
+engine_max{model_name="m1"} 20.0
+"""
+    rules = OmegaConf.create(
+        [
+            {
+                "numerator": "engine_used",
+                "denominator": "engine_max",
+                "type": "ratio",
+                "name": "cache_ratio",
+            }
+        ]
+    )
+    out = state.translate(text, rules)
+    assert [(e.value, e.tags) for e in out] == [(0.5, {"model_name": "m1"})]
+
+
+def test_ratio_single_numerator_and_denominator_with_different_labels() -> None:
+    """One numerator and one denominator whose labels differ: no emission."""
+    state = ScrapeState()
+    text = """
+# TYPE engine_used gauge
+engine_used{model_name="m1"} 10.0
+# TYPE engine_max gauge
+engine_max{model_name="m2"} 20.0
+"""
+    rules = OmegaConf.create(
+        [
+            {
+                "numerator": "engine_used",
+                "denominator": "engine_max",
+                "type": "ratio",
+                "name": "cache_ratio",
+            }
+        ]
+    )
+    assert state.translate(text, rules) == []

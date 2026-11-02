@@ -288,7 +288,17 @@ class ScrapeState:
         denominators = _value_samples(den_family)
         if not numerators or not denominators:
             return []
-        fallback = next(iter(denominators.values())) if len(denominators) == 1 else None
+        fallback = None
+        if len(denominators) == 1:
+            # A lone denominator may serve as the shared divisor, but only when
+            # it carries no labels. A labeled denominator is meaningful just for
+            # the numerator with the same label set: broadcasting m1's max to m2
+            # divides unrelated series (used{model_name="m2"}=90 by
+            # max{model_name="m1"}=20 gives 4.5), while the documented semantics
+            # are exact-label matching with unmatched numerators skipped.
+            only_key, only_sample = next(iter(denominators.items()))
+            if not dict(only_sample.labels):
+                fallback = only_sample
         out = []
         for key, numerator in numerators.items():
             denominator = denominators.get(key, fallback)
