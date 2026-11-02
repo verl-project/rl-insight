@@ -273,9 +273,11 @@ class ScrapeState:
         Families are joined on identical labels so a multi-series source (for
         example one series per ``model_name``) yields one ratio per series
         instead of dividing an arbitrary numerator series by an arbitrary
-        denominator series. A denominator that exposes a single series is used
-        as the shared divisor for every numerator series; a series whose own
-        denominator is zero is skipped without discarding the others.
+        denominator series. A denominator that exposes a single **label-free**
+        series is used as the shared divisor for every numerator series; a
+        labeled denominator only pairs with a numerator of the same label set.
+        A series whose own denominator is zero is skipped without discarding
+        the others.
         """
         numerator_source = str(_rule(rule, "numerator"))
         denominator_source = str(_rule(rule, "denominator"))
