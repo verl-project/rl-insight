@@ -16,7 +16,6 @@ on:
       - "rl_insight/config/services/**"
       - "tests/monitor/special_e2e/**"
       - "tests/monitor/test_monitor_stress.py"
-      - "docs/monitor/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
