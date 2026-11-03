@@ -279,6 +279,7 @@ def test_hub_targets_keep_registration_failures_for_explicit_retry(
     implementation = cast(Any, MonitorHubActor).__ray_metadata__.modified_class
     hub = implementation.__new__(implementation)
     hub._context = context
+    hub._targets = []
     hub._pending_targets = []
     item = (["host:9000"], "workers", None, False)
     post = MagicMock(return_value=MagicMock(status_code=409, text="identity conflict"))

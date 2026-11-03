@@ -2382,8 +2382,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "100 - avg by (node, instance, project, experiment_name) (rate(node_cpu_seconds_total{job=\"node-exporter\", mode=\"idle\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$__rate_interval])) * 100",
-                        "legendFormat": "{{experiment_name}} / {{node}} ({{instance}})",
+                        "expr": "100 - avg by (node, instance) (rate(node_cpu_seconds_total{job=\"node-exporter\", mode=\"idle\"}[$__rate_interval])) * 100",
+                        "legendFormat": "{{node}} ({{instance}})",
                         "range": true
                       },
                       "labels": {
@@ -2502,8 +2502,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "node_memory_MemTotal_bytes{job=\"node-exporter\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"} - node_memory_MemAvailable_bytes{job=\"node-exporter\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
-                        "legendFormat": "{{experiment_name}} / {{node}} ({{instance}})",
+                        "expr": "node_memory_MemTotal_bytes{job=\"node-exporter\"} - node_memory_MemAvailable_bytes{job=\"node-exporter\"}",
+                        "legendFormat": "{{node}} ({{instance}})",
                         "range": true
                       },
                       "labels": {
@@ -2621,8 +2621,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (node, instance, project, experiment_name) (rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$__rate_interval]))",
-                        "legendFormat": "{{experiment_name}} / {{node}} RX",
+                        "expr": "sum by (node, instance) (rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo\"}[$__rate_interval]))",
+                        "legendFormat": "{{node}} RX",
                         "range": true
                       },
                       "labels": {
@@ -2642,8 +2642,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (node, instance, project, experiment_name) (rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$__rate_interval]))",
-                        "legendFormat": "{{experiment_name}} / {{node}} TX",
+                        "expr": "sum by (node, instance) (rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo\"}[$__rate_interval]))",
+                        "legendFormat": "{{node}} TX",
                         "range": true
                       },
                       "labels": {
@@ -2761,8 +2761,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_utilization{job=\"npu-exporter\", instance=~\"$npu_instance\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
-                        "legendFormat": "{{experiment_name}} / NPU {{id}}",
+                        "expr": "npu_chip_info_utilization{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "legendFormat": "NPU {{id}}",
                         "range": true
                       },
                       "labels": {
@@ -2881,8 +2881,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_hbm_utilization{job=\"npu-exporter\", instance=~\"$npu_instance\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
-                        "legendFormat": "{{experiment_name}} / NPU {{id}}",
+                        "expr": "npu_chip_info_hbm_utilization{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "legendFormat": "NPU {{id}}",
                         "range": true
                       },
                       "labels": {
@@ -3001,8 +3001,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_hbm_used_memory{job=\"npu-exporter\", instance=~\"$npu_instance\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
-                        "legendFormat": "{{experiment_name}} / NPU {{id}}",
+                        "expr": "npu_chip_info_hbm_used_memory{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "legendFormat": "NPU {{id}}",
                         "range": true
                       },
                       "labels": {
@@ -3120,8 +3120,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_power{job=\"npu-exporter\", instance=~\"$npu_instance\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
-                        "legendFormat": "{{experiment_name}} / NPU {{id}}",
+                        "expr": "npu_chip_info_power{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "legendFormat": "NPU {{id}}",
                         "range": true
                       },
                       "labels": {
@@ -3239,8 +3239,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_temperature{job=\"npu-exporter\", instance=~\"$npu_instance\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
-                        "legendFormat": "{{experiment_name}} / NPU {{id}}",
+                        "expr": "npu_chip_info_temperature{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "legendFormat": "NPU {{id}}",
                         "range": true
                       },
                       "labels": {
@@ -3358,8 +3358,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_health_status{job=\"npu-exporter\", instance=~\"$npu_instance\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
-                        "legendFormat": "{{experiment_name}} / NPU {{id}}",
+                        "expr": "npu_chip_info_health_status{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "legendFormat": "NPU {{id}}",
                         "range": true
                       },
                       "labels": {
@@ -3477,8 +3477,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_hbm_bandwidth_utilization{job=\"npu-exporter\", instance=~\"$npu_instance\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
-                        "legendFormat": "{{experiment_name}} / NPU {{id}}",
+                        "expr": "npu_chip_info_hbm_bandwidth_utilization{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "legendFormat": "NPU {{id}}",
                         "range": true
                       },
                       "labels": {
@@ -3597,8 +3597,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_bandwidth_rx{job=\"npu-exporter\", instance=~\"$npu_instance\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
-                        "legendFormat": "{{experiment_name}} / NPU {{id}} RX",
+                        "expr": "npu_chip_info_bandwidth_rx{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "legendFormat": "NPU {{id}} RX",
                         "range": true
                       },
                       "labels": {
@@ -3618,8 +3618,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_bandwidth_tx{job=\"npu-exporter\", instance=~\"$npu_instance\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}",
-                        "legendFormat": "{{experiment_name}} / NPU {{id}} TX",
+                        "expr": "npu_chip_info_bandwidth_tx{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
+                        "legendFormat": "NPU {{id}} TX",
                         "range": true
                       },
                       "labels": {
@@ -4307,7 +4307,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_exec_s_sum{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]))\n/\nsum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_exec_s_count{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$experiment_name0\"}[$interval]))",
+                        "expr": "sum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_exec_s_sum{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]))\n/\nsum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_exec_s_count{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]))",
                         "interval": "",
                         "legendFormat": "{{experiment_name}} / Average - {{model_name}} stage {{stage}} replica {{replica}}",
                         "queryType": "randomWalk",
@@ -4456,7 +4456,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_exec_per_step_s_sum{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]))\n/\nsum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_exec_per_step_s_count{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$experiment_name0\"}[$interval]))",
+                        "expr": "sum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_exec_per_step_s_sum{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]))\n/\nsum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_exec_per_step_s_count{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]))",
                         "interval": "",
                         "legendFormat": "{{experiment_name}} / Average - {{model_name}} stage {{stage}} replica {{replica}}",
                         "queryType": "randomWalk",
@@ -4605,7 +4605,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_preprocess_s_sum{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]))\n/\nsum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_preprocess_s_count{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$experiment_name0\"}[$interval]))",
+                        "expr": "sum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_preprocess_s_sum{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]))\n/\nsum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_preprocess_s_count{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]))",
                         "interval": "",
                         "legendFormat": "{{experiment_name}} / Average - {{model_name}} stage {{stage}} replica {{replica}}",
                         "queryType": "randomWalk",
@@ -4754,7 +4754,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_postprocess_s_sum{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]))\n/\nsum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_postprocess_s_count{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$experiment_name0\"}[$interval]))",
+                        "expr": "sum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_postprocess_s_sum{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]))\n/\nsum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_postprocess_s_count{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]))",
                         "interval": "",
                         "legendFormat": "{{experiment_name}} / Average - {{model_name}} stage {{stage}} replica {{replica}}",
                         "queryType": "randomWalk",
@@ -4903,7 +4903,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_preprocess_s_sum{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval])) / sum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_preprocess_s_count{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$experiment_name0\"}[$interval]))",
+                        "expr": "sum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_preprocess_s_sum{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval])) / sum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_preprocess_s_count{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]))",
                         "interval": "",
                         "legendFormat": "{{experiment_name}} / preprocess - stage {{stage}} replica {{replica}}",
                         "queryType": "randomWalk",
@@ -4927,7 +4927,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_exec_s_sum{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval])) / sum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_exec_s_count{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$experiment_name0\"}[$interval]))",
+                        "expr": "sum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_exec_s_sum{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval])) / sum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_exec_s_count{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]))",
                         "interval": "",
                         "legendFormat": "{{experiment_name}} / exec - stage {{stage}} replica {{replica}}",
                         "queryType": "randomWalk",
@@ -4951,7 +4951,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_postprocess_s_sum{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval])) / sum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_postprocess_s_count{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$experiment_name0\"}[$interval]))",
+                        "expr": "sum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_postprocess_s_sum{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval])) / sum by (model_name, stage, replica, project, experiment_name) (rate(vllm_omni:diffusion_postprocess_s_count{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]))",
                         "interval": "",
                         "legendFormat": "{{experiment_name}} / postprocess - stage {{stage}} replica {{replica}}",
                         "queryType": "randomWalk",
@@ -5224,7 +5224,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by (model_name, stage, replica, project, experiment_name) (rate(vllm:time_to_first_token_seconds_sum{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]))\n/\nsum by (model_name, stage, replica, project, experiment_name) (rate(vllm:time_to_first_token_seconds_count{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$experiment_name0\"}[$interval]))",
+                        "expr": "sum by (model_name, stage, replica, project, experiment_name) (rate(vllm:time_to_first_token_seconds_sum{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]))\n/\nsum by (model_name, stage, replica, project, experiment_name) (rate(vllm:time_to_first_token_seconds_count{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]))",
                         "interval": "",
                         "legendFormat": "{{experiment_name}} / Average - {{model_name}} stage {{stage}} replica {{replica}}",
                         "queryType": "randomWalk",
@@ -5445,7 +5445,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "sum by (model_name, stage, replica, project, experiment_name) (rate(vllm:e2e_request_latency_seconds_sum{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]))\n/\nsum by (model_name, stage, replica, project, experiment_name) (rate(vllm:e2e_request_latency_seconds_count{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$experiment_name0\"}[$interval]))",
+                        "expr": "sum by (model_name, stage, replica, project, experiment_name) (rate(vllm:e2e_request_latency_seconds_sum{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]))\n/\nsum by (model_name, stage, replica, project, experiment_name) (rate(vllm:e2e_request_latency_seconds_count{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]))",
                         "interval": "",
                         "legendFormat": "{{experiment_name}} / Average - {{model_name}} stage {{stage}} replica {{replica}}",
                         "queryType": "randomWalk",
@@ -5963,7 +5963,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": true,
-                        "expr": "increase(vllm:prefix_cache_hits_total{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]) / increase(vllm:prefix_cache_queries_total{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$experiment_name0\"}[$interval])",
+                        "expr": "increase(vllm:prefix_cache_hits_total{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval]) / increase(vllm:prefix_cache_queries_total{model_name=~\"$omni_model_name\", experiment_name=~\"$experiment_name\", project=~\"$project\", stage=~\"$stage\", replica=~\"$replica\"}[$interval])",
                         "interval": "",
                         "legendFormat": "{{experiment_name}} / hit rate - stage {{stage}} replica {{replica}}",
                         "queryType": "randomWalk",

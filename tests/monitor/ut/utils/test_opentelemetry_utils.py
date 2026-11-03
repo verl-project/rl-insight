@@ -20,7 +20,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from opentelemetry.sdk.resources import SERVICE_NAME
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 from rl_insight.utils import opentelemetry_utils as otel_module
@@ -36,6 +36,7 @@ def test_init_should_disable_collection_when_endpoint_is_missing(
         namespace="trainer", endpoint=None
     )
     collector.record_span("ignored", 10, 20, attributes={"step": 1})
+    collector.flush()
 
     assert collector.enabled is False
     exporter.assert_not_called()
@@ -46,7 +47,11 @@ def test_record_span_should_export_timing_attributes_and_resource_when_enabled(
 ) -> None:
     exporter = InMemorySpanExporter()
     monkeypatch.setattr(otel_module, "OTLPSpanExporter", lambda endpoint: exporter)
-    monkeypatch.setattr(otel_module, "BatchSpanProcessor", SimpleSpanProcessor)
+    monkeypatch.setattr(
+        otel_module,
+        "BatchSpanProcessor",
+        lambda exporter: BatchSpanProcessor(exporter, schedule_delay_millis=60000),
+    )
     collector = otel_module.OpenTelemetryTraceCollector(
         namespace="trainer-monitor", endpoint="http://tempo:4318/v1/traces"
     )
@@ -55,6 +60,8 @@ def test_record_span_should_export_timing_attributes_and_resource_when_enabled(
         "rollout", 1_000_000, 2_500_000, attributes={"step": 7, "worker": "w0"}
     )
 
+    assert exporter.get_finished_spans() == ()
+    collector.flush()
     spans = exporter.get_finished_spans()
     assert collector.enabled is True
     assert len(spans) == 1

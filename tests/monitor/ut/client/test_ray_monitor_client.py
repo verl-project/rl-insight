@@ -77,7 +77,6 @@ def test_get_or_create_monitor_hub_should_create_actor_when_actor_is_missing(
     options.assert_called_once_with(
         name=_JOB_ACTOR_NAME,
         namespace=MonitorRayActor.NAMESPACE,
-        get_if_exists=True,
     )
     remote.assert_called_once_with()
 
@@ -88,7 +87,7 @@ def test_get_or_create_monitor_hub_should_reuse_winner_when_creation_races(
     _patch_actor_name(monkeypatch)
 
     winner = MagicMock()
-    get_actor = MagicMock(side_effect=[winner])
+    get_actor = MagicMock(side_effect=[ValueError("not found"), winner])
     remote = MagicMock(side_effect=ValueError)
     monkeypatch.setattr(client_module.ray, "get_actor", get_actor)
     monkeypatch.setattr(
@@ -107,14 +106,15 @@ def test_apply_event_should_submit_without_waiting_when_hub_is_verified(
     actor = MagicMock()
     client = client_module.MonitorRayClient(actor)
     event = {"kind": "counter", "name": "steps", "value": 1}
-    monkeypatch.setattr(
-        client_module.ray,
-        "get",
-        lambda *args, **kwargs: __version__,
-    )
+    get = MagicMock(return_value=__version__)
+    monkeypatch.setattr(client_module.ray, "get", get)
     client.initialize()
 
     client.apply_event(event)
 
     actor.connect.remote.assert_called_once_with(__version__)
     actor.apply_event.remote.assert_called_once_with(event)
+    assert get.call_count == 1
+    client.close()
+    actor.flush.remote.assert_called_once_with()
+    assert get.call_count == 2

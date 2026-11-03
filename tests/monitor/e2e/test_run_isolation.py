@@ -80,6 +80,8 @@ def stack(tmp_path):
                 state.span_attributes.extend(
                     {
                         "name": span.name,
+                        "start_time_ns": span.start_time_unix_nano,
+                        "end_time_ns": span.end_time_unix_nano,
                         "attributes": {
                             attribute.key: attribute.value.string_value
                             for attribute in span.attributes
@@ -159,99 +161,102 @@ def test_ray_workers_share_execution_name_and_registration_recovers(stack):
     config_file = stack.path / "training.yaml"
     config_file.write_text(json.dumps({"prometheus": {"metrics_report_port": port}}))
     script = r"""
-import json, os, sys, time, warnings
-import requests
-import ray
-import rl_insight as insight
-import yaml
+import json
+import os
+import sys
+import time
 from pathlib import Path
-from rl_insight.client.ray_monitor_client import _current_job_actor_name
-from rl_insight.utils.constants import MonitorRayActor
+import pytest
+import ray
+import requests
+import yaml
+import rl_insight as insight
+from prometheus_client.parser import text_string_to_metric_families
 from rl_insight.utils.protocol import RunError
 
 url = sys.argv[1]
 ray.init(num_cpus=2, include_dashboard=False, log_to_driver=False)
 try:
-    os.environ.pop("RL_INSIGHT_SERVER_URL", None)
-    insight.init()
-    assert insight.get_context() is None
-    insight.metric_gauge("before_init", 1)
-    assert insight.get_context() is None
-    os.environ["RL_INSIGHT_SERVER_URL"] = url
     try:
-        insight.init(config={})
+        insight.init()
     except RunError as exc:
         assert exc.status == 503
-        insight.init(config={})
+        insight.init()
     default = insight.get_context()
-    assert default.project == "default"
-    assert default.original_experiment_name == "default"
-    assert default.events_applied == 0
-    insight.metric_gauge("default_names", 1)
-    assert insight.get_context().events_applied == 1
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        insight.init(project="ignored")
-    assert caught and insight.get_context().experiment_name == default.experiment_name
-    insight.init(refresh=True)
+    assert (default.project, default.original_experiment_name) == ("default", "default")
+    insight.metric_gauge("identity", 1)
+    insight.init(project="completed")
     assert insight.get_context().experiment_name == default.experiment_name
+    insight.init(experiment_name="chosen")
+    completed = insight.get_context()
+    assert completed.project == "completed"
+    assert (
+        completed.experiment_name
+        == "chosen_" + default.experiment_name.removeprefix("default_")
+    )
+    assert completed.metrics_endpoint == default.metrics_endpoint
+    insight.metric_gauge("identity", 2)
+    metrics = requests.get(completed.metrics_endpoint, timeout=5).text
+    samples = [
+        sample
+        for family in text_string_to_metric_families(metrics)
+        for sample in family.samples
+    ]
+    for context, value in ((default, 1), (completed, 2)):
+        assert any(
+            sample.name == "rl_insight_monitor_identity"
+            and sample.labels == context.labels()
+            and sample.value == value
+            for sample in samples
+        )
+    with pytest.raises(RunError):
+        insight.init(project="other")
 finally:
     insight.finish()
     ray.shutdown()
 
 ray.init(num_cpus=2, include_dashboard=False, log_to_driver=False)
 try:
+
     @ray.remote(num_cpus=0)
     class Worker:
-        def trace_with_defaults(self):
-            insight.init()
+        def trace(self):
             with insight.trace_state("sleep", state_lane_id="early_replica"):
                 pass
             context = insight.get_context()
             return context.to_dict() if context else None
 
-        def refresh(self):
-            insight.init(refresh=True)
-            return insight.get_context().to_dict()
-
     @ray.remote
     def native(address):
         os.environ.pop("RL_INSIGHT_SERVER_URL", None)
-        insight.update_prometheus_config([address])
-        hub = ray.get_actor(_current_job_actor_name(), namespace=MonitorRayActor.NAMESPACE)
-        return hub._actor_id.hex()
-    early_actor = ray.get(native.remote("127.0.0.1:19999"))
+        insight.update_prometheus_config([address], labels=[{"rank": 0}])
+
+    ray.get(native.remote("127.0.0.1:19999"))
     targets = yaml.safe_load(Path(sys.argv[2]).read_text())
     assert not any("127.0.0.1:19999" in group["targets"] for group in targets)
     workers = [Worker.remote(), Worker.remote()]
-    assert ray.get([worker.trace_with_defaults.remote() for worker in workers], timeout=20) == [None, None]
+    early_start = time.time_ns()
+    assert ray.get([worker.trace.remote() for worker in workers], timeout=20) == [
+        None,
+        None,
+    ]
+    early_end = time.time_ns()
     insight.init(project="ray", experiment_name="same", config={"server": {"url": url}})
     first = insight.get_context()
-    actor = ray.get(native.remote("127.0.0.1:19998"))
-    assert actor == early_actor
-    with insight.trace_state("driver_prepare", state_lane_id="early_driver"):
-        pass
-    contexts = ray.get([worker.trace_with_defaults.remote() for worker in workers], timeout=20)
-    assert {context["experiment_name"] for context in contexts} == {first.experiment_name}
-    assert ray.get(workers[0].refresh.remote())["experiment_name"] == first.experiment_name
+    ray.get(native.remote("127.0.0.1:19998"))
+    contexts = ray.get([worker.trace.remote() for worker in workers], timeout=20)
+    assert {context["experiment_name"] for context in contexts} == {
+        first.experiment_name
+    }
     insight.metric_gauge("reward", 2)
-    @ray.remote
-    def worker():
-        insight.init(project="ray", experiment_name="same", config={"server": {"url": url}})
-        insight.metric_gauge("reward", 3)
-        now = time.time_ns()
-        insight.trace_span(name="actor_update", start_time_ns=now, end_time_ns=now + 1000, attributes={})
-        context = insight.get_context()
-        insight.finish()
-        return context.experiment_name
-    experiment_name = ray.get(worker.remote())
-    assert experiment_name == first.experiment_name
-    assert insight.get_context().events_applied > first.events_applied
     snapshot = insight.get_context().to_dict()
     snapshot["metrics"] = requests.get(snapshot["metrics_endpoint"], timeout=5).text
+    snapshot["early_trace_bounds"] = [early_start, early_end]
     print("RESULT=" + json.dumps(snapshot))
-    # Observe normal batch export; this test does not introduce a flush guarantee.
-    time.sleep(6)
+    now = time.time_ns()
+    insight.trace_span(
+        name="final_event", start_time_ns=now, end_time_ns=now + 1000, attributes={}
+    )
     insight.finish()
 finally:
     ray.shutdown()
@@ -281,7 +286,6 @@ finally:
             if line.startswith("RESULT=")
         )
     )
-    assert "run_id" not in context
     assert context["original_experiment_name"] == "same"
     assert re.fullmatch(
         r"same_[0-9]{8}-[0-9]{6}_[0-9a-f]{8}", context["experiment_name"]
@@ -289,24 +293,25 @@ finally:
     metrics = context["metrics"]
     assert 'experiment_name="' + context["experiment_name"] + '"' in metrics
     assert "rl_insight_monitor_experiment_info" in metrics
-    assert not re.search(r"[{,]run_id=", metrics)
-    assert any(
-        s["name"] == "actor_update"
-        and s["attributes"]["experiment_name"] == context["experiment_name"]
-        for s in stack.backend.span_attributes
+    assert 'experiment_name="default_' not in metrics
+    spans = stack.backend.span_attributes
+    assert any(span["name"] == "final_event" for span in spans)
+    states = [span for span in spans if span["name"] == "sleep"]
+    assert len(states) == 4
+    assert all(
+        span["attributes"]["project"] == "ray"
+        and span["attributes"]["experiment_name"] == context["experiment_name"]
+        for span in states
     )
-    for name, lane, count in (
-        ("sleep", "early_replica", 2),
-        ("driver_prepare", "early_driver", 1),
-    ):
-        spans = [s for s in stack.backend.span_attributes if s["name"] == name]
-        assert len(spans) == count
-        for span in spans:
-            assert {
-                "project": "ray",
-                "experiment_name": context["experiment_name"],
-                "state_lane_id": lane,
-            }.items() <= span["attributes"].items()
+    early_spans = [
+        span
+        for span in states
+        if context["early_trace_bounds"][0]
+        <= span["start_time_ns"]
+        <= span["end_time_ns"]
+        <= context["early_trace_bounds"][1]
+    ]
+    assert len(early_spans) == 2
     import yaml
 
     targets = yaml.safe_load(

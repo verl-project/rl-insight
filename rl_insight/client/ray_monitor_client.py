@@ -57,7 +57,7 @@ def _initialize_hub_connection(
 
 
 def get_or_create_monitor_hub() -> Any:
-    """Reuse the current job's Hub; Ray handles concurrent creation."""
+    """Get or create the current job's Hub, reusing concurrent creations."""
     actor_name = _current_job_actor_name()
     namespace = MonitorRayActor.NAMESPACE
     try:
@@ -74,9 +74,16 @@ def get_or_create_monitor_hub() -> Any:
     actor_options: dict[str, Any] = {
         "name": actor_name,
         "namespace": namespace,
-        "get_if_exists": True,
     }
-    hub = cast(Any, MonitorHubActor).options(**actor_options).remote()
+    try:
+        hub = cast(Any, MonitorHubActor).options(**actor_options).remote()
+    except ValueError:
+        logger.info(
+            "[rl-insight] Monitor hub actor %r was created concurrently; "
+            "connecting to it.",
+            actor_name,
+        )
+        return ray.get_actor(actor_name, namespace=namespace)
     _hub_owners.append(hub)
     return hub
 
@@ -113,9 +120,7 @@ class MonitorRayClient(MonitorClient):
         """
         self._actor = actor_handle
         self._lock = threading.Lock()
-        self._init_lock = threading.Lock()
         self._closed = False
-        self._compatibility_error: RunError | None = None
         self._initialized = False
         # Includes service discovery and actor scheduling during initialization.
         self._timeout = (
@@ -129,29 +134,15 @@ class MonitorRayClient(MonitorClient):
 
     def initialize(self, conf: DictConfig | None = None) -> None:
         """Establish and validate the Hub connection before collecting data."""
-        with self._init_lock:
-            if self._compatibility_error is not None:
-                raise self._compatibility_error
-            if self._initialized:
-                return
-            try:
-                _initialize_hub_connection(
-                    self._actor, timeout=self._timeout, conf=conf
-                )
-            except RunError as exc:
-                self._compatibility_error = exc
-                raise
-            self._initialized = True
+        if self._initialized:
+            return
+        _initialize_hub_connection(self._actor, timeout=self._timeout, conf=conf)
+        self._initialized = True
 
     def get_context(self) -> RunContext | None:
-        if self._compatibility_error is not None:
-            raise self._compatibility_error
         if not self._initialized:
             return None
-        context = ray.get(self._actor.get_context.remote(), timeout=self._timeout)
-        if context is not None and not isinstance(context, RunContext):
-            raise RunError("Ray Hub returned an invalid Context", 502)
-        return context
+        return ray.get(self._actor.get_context.remote(), timeout=self._timeout)
 
     def apply_event(self, event: dict[str, Any]) -> None:
         """Submit ``MonitorHubActor.apply_event`` on the actor (fire-and-forget; no ``ray.get``).
@@ -163,8 +154,6 @@ class MonitorRayClient(MonitorClient):
             Errors on the hub side are not surfaced here. Ordering follows Ray actor scheduling.
         """
         with self._lock:
-            if self._compatibility_error is not None:
-                raise self._compatibility_error
             if self._closed:
                 raise RunError("Monitor client is closed")
             if not self._initialized:
@@ -172,5 +161,10 @@ class MonitorRayClient(MonitorClient):
             self._actor.apply_event.remote(event)
 
     def close(self) -> None:
+        """Wait for submitted events and flush the shared Hub once."""
         with self._lock:
+            if self._closed:
+                return
             self._closed = True
+            if self._initialized:
+                ray.get(self._actor.flush.remote(), timeout=self._timeout)

@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-import re
 from typing import Any, cast
 from unittest.mock import MagicMock, call
 
@@ -86,11 +85,15 @@ def test_init_should_configure_collectors_and_register_scrape_target_when_create
     instance.register_targets(["10.0.0.9:1234"], "vllm", [{"replica": 0}])
     update_config.assert_not_called()
     assert instance.get_context() is None
+    instance.flush()
     instance.apply_event({"kind": "counter", "name": "early", "value": 1})
     registry.count.assert_not_called()
     assert instance._events_applied == 0
     conf.run_metadata = {"project": "p", "experiment_name": "chosen"}
     instance.init(conf)
+    registry.count.assert_called_once_with(
+        "early", "", 1.0, {}, instance._context.labels()
+    )
 
     registry_factory.assert_called_once_with(namespace="trainer")
     trace_factory.assert_called_once_with(
@@ -111,12 +114,10 @@ def test_init_should_configure_collectors_and_register_scrape_target_when_create
     assert instance._registry is registry
     assert instance._context.original_experiment_name == "chosen"
     assert instance._context.experiment_name == f"chosen_{suffix}"
-    assert re.fullmatch(
-        r"chosen_[0-9]{8}-[0-9]{6}_[0-9a-f]{8}", instance._context.experiment_name
-    )
     instance.init(conf)
     registry_factory.assert_called_once()
     start_server.assert_called_once()
+    registry.count.assert_called_once()
 
 
 @pytest.mark.parametrize(

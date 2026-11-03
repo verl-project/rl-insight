@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import logging
+from collections import deque
 from collections.abc import Mapping
 from dataclasses import replace
 from typing import Any
@@ -61,10 +62,12 @@ class MonitorHubActor(MonitorCollector):
     def __init__(self) -> None:
         self._execution_suffix = create_execution_suffix()
         self._context: RunContext | None = None
+        self._pending_events: deque[dict[str, Any]] = deque()
         self._events_applied = 0
-        self._pending_targets: list[
+        self._targets: list[
             tuple[list[str], str | None, list[Mapping[str, Any] | None] | None, bool]
         ] = []
+        self._pending_targets = self._targets.copy()
         self._event_handlers = {
             MonitorEventKind.COUNTER: self._handle_counter,
             MonitorEventKind.GAUGE: self._handle_gauge,
@@ -78,11 +81,12 @@ class MonitorHubActor(MonitorCollector):
         return __version__
 
     def init(self, conf: DictConfig) -> None:
-        """Apply task configuration and start collecting with the selected names."""
-        if self._context is not None:
-            self.register_targets([])
-            return
-        metadata = conf.get("run_metadata", {})
+        """Start collection or fill previously omitted task names."""
+        metadata = dict(self._conf.run_metadata) if self._context is not None else {}
+        for key, value in conf.get("run_metadata", {}).items():
+            if key in metadata and metadata[key] != value:
+                raise RunError("Experiment metadata conflicts with the existing Run")
+            metadata[key] = value
         project = str(metadata.get("project", MonitorDefaults.PROJECT_NAME))
         experiment_name = str(
             metadata.get("experiment_name", MonitorDefaults.EXPERIMENT_NAME)
@@ -90,14 +94,39 @@ class MonitorHubActor(MonitorCollector):
         context = RunContext.create(
             project,
             experiment_name,
-            str(conf.server.url),
+            self._context.server_url if self._context else str(conf.server.url),
             suffix=self._execution_suffix,
         )
+        if self._context is not None:
+            self._conf.run_metadata = metadata
+            if context.labels() != self._context.labels():
+                self._context = context
+                self._registry.value(
+                    "experiment_info",
+                    "Experiment execution identity.",
+                    1,
+                    {},
+                    context.labels(),
+                )
+                self._pending_targets = self._targets.copy()
+                logger.info(
+                    "[rl-insight] Completed experiment names: project=%r, experiment_name=%r",
+                    context.project,
+                    context.experiment_name,
+                )
+            self._flush_pending_events()
+            self.register_targets([])
+            return
         services = initialize_server_connection(str(conf.server.url))
-        self._conf = conf
+        self._conf: DictConfig = conf
+        self._conf.run_metadata = metadata
         self._services = services
         namespace = str(conf.server.namespace)
-        self._registry = MetricRegistry(namespace=namespace)
+        self._node_ip = ray.util.get_node_ip_address()
+        self._metrics_port = int(conf.prometheus.metrics_report_port)
+        # Bind before creating collectors so a failed bind can be retried.
+        start_metrics_http_server(self._metrics_port, addr=self._node_ip)
+        self._registry: MetricRegistry = MetricRegistry(namespace=namespace)
         self._registry.value(
             "experiment_info", "Experiment execution identity.", 1, {}, context.labels()
         )
@@ -107,10 +136,8 @@ class MonitorHubActor(MonitorCollector):
                 context.server_url, services.get("otlp_port"), "/v1/traces"
             ),
         )
-        self._node_ip = ray.util.get_node_ip_address()
-        self._metrics_port = int(conf.prometheus.metrics_report_port)
-        start_metrics_http_server(self._metrics_port, addr=self._node_ip)
         self._context = context
+        self._flush_pending_events()
         self.register_targets(
             [format_host_port(self._node_ip, self._metrics_port)],
             identity_in_metrics=True,
@@ -136,10 +163,15 @@ class MonitorHubActor(MonitorCollector):
         if labels is not None and len(labels) != len(addresses):
             raise RunError("labels length must match server_addresses length")
         item = (addresses, job_name, labels, identity_in_metrics)
-        if addresses and item not in self._pending_targets:
-            if len(self._pending_targets) >= 64:
+        if addresses:
+            if item in self._pending_targets:
+                self._pending_targets.remove(item)
+            elif len(self._pending_targets) >= 64:
                 raise RunError("Too many targets waiting for initialization")
             self._pending_targets.append(item)
+            if item in self._targets:
+                self._targets.remove(item)
+            self._targets.append(item)
         if self._context is None:
             return
         for pending in list(self._pending_targets):
@@ -147,7 +179,7 @@ class MonitorHubActor(MonitorCollector):
                 *pending[:3], self._context, identity_in_metrics=pending[3]
             ):
                 raise RunError(
-                    "Cannot register Prometheus targets; retry init(refresh=True)", 503
+                    "Cannot register Prometheus targets; retry target registration", 503
                 )
             self._pending_targets.remove(pending)
 
@@ -158,6 +190,7 @@ class MonitorHubActor(MonitorCollector):
             event: Must include ``kind``; metric kinds need ``name``/``value``; trace needs ``start_time_ns``/``end_time_ns``.
         """
         if self._context is None:
+            self._pending_events.append(dict(event))
             return
         self._events_applied += 1
         event = dict(event)
@@ -174,6 +207,16 @@ class MonitorHubActor(MonitorCollector):
         if handler is None:
             raise ValueError(f"Unknown event kind: {kind!r}")
         handler(event)
+
+    def _flush_pending_events(self) -> None:
+        while self._pending_events:
+            self.apply_event(self._pending_events[0])
+            self._pending_events.popleft()
+
+    def flush(self) -> None:
+        """Flush traces after earlier calls from the client have completed."""
+        if self._context is not None:
+            self._trace_collector.flush()
 
     def get_context(self) -> RunContext | None:
         if self._context is None:

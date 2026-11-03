@@ -60,7 +60,7 @@ def require_version(value: Any, component: str) -> None:
             f"the driver and all workers to >= {MIN_SUPPORTED_VERSION}, "
             "then restart the training job."
         )
-        logger.error(message)
+        logger.error("[rl-insight] %s", message)
         raise InvalidVersionError(message, 409)
 
 
@@ -98,26 +98,11 @@ class RunContext:
         )
 
     def __post_init__(self) -> None:
-        for field_name in (
-            "actor_name",
-            "namespace",
-            "node_ip",
-            "metrics_endpoint",
-            "otlp_endpoint",
-        ):
-            value = getattr(self, field_name)
-            if value is not None and not isinstance(value, str):
-                raise RunError("Invalid Context connection field")
-        for value in (self.prometheus_metrics_enabled, self.otel_traces_enabled):
-            if value is not None and type(value) is not bool:
-                raise RunError("Invalid Context status flag")
-        if self.events_applied is not None and (
-            type(self.events_applied) is not int or self.events_applied < 0
-        ):
-            raise RunError("Invalid Context event count")
         for name in (
             self.project,
-            self.original_experiment_name or self.experiment_name,
+            self.original_experiment_name
+            if self.original_experiment_name is not None
+            else self.experiment_name,
         ):
             if not isinstance(name, str) or not name.strip() or len(name) > 256:
                 raise RunError(
