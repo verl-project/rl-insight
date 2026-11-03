@@ -98,6 +98,33 @@ def _counter_samples(family: Any):
             yield sample
 
 
+def _value_samples(family: Any) -> dict[tuple, Any]:
+    """Map each label set of ``family`` to its single value sample.
+
+    Only families that expose one value sample per label set are usable as a
+    ratio operand; a label set seen twice (summary ``_sum``/``_count`` pairs,
+    histogram buckets) is ambiguous and therefore dropped instead of being
+    resolved by picking an arbitrary one.
+    """
+    names = {family.name, f"{family.name}_total"}
+    samples = [
+        sample
+        for sample in family.samples
+        if not sample.name.endswith(("_created", "_bucket"))
+    ]
+    preferred = [sample for sample in samples if sample.name in names]
+    out: dict[tuple, Any] = {}
+    ambiguous: set[tuple] = set()
+    for sample in preferred or samples:
+        key = _label_key(dict(sample.labels))
+        if key in out:
+            ambiguous.add(key)
+        out[key] = sample
+    for key in ambiguous:
+        out.pop(key, None)
+    return out
+
+
 def _summary_pair(family: Any):
     """Yield ``(labels, sum_value, count_value)`` for a summary family."""
     sums: dict[tuple, tuple[dict[str, str], float]] = {}
@@ -241,6 +268,17 @@ class ScrapeState:
         ]
 
     def _ratio(self, families: dict[str, Any], rule: Any) -> list[Emission]:
+        """Divide numerator by denominator per source label set.
+
+        Families are joined on identical labels so a multi-series source (for
+        example one series per ``model_name``) yields one ratio per series
+        instead of dividing an arbitrary numerator series by an arbitrary
+        denominator series. A denominator that exposes a single **label-free**
+        series is used as the shared divisor for every numerator series; a
+        labeled denominator only pairs with a numerator of the same label set.
+        A series whose own denominator is zero is skipped without discarding
+        the others.
+        """
         numerator_source = str(_rule(rule, "numerator"))
         denominator_source = str(_rule(rule, "denominator"))
         name = str(_rule(rule, "name"))
@@ -248,13 +286,38 @@ class ScrapeState:
         den_family = families.get(denominator_source)
         if num_family is None or den_family is None:
             return []
-        if not num_family.samples or not den_family.samples:
+        numerators = _value_samples(num_family)
+        denominators = _value_samples(den_family)
+        if not numerators or not denominators:
             return []
-        denominator = float(den_family.samples[0].value)
-        if denominator == 0:
-            return []
-        value = float(num_family.samples[0].value) / denominator
-        return [Emission(name, OP_STORE, value, _rule_tags(rule))]
+        fallback = None
+        if len(denominators) == 1:
+            # A lone denominator may serve as the shared divisor, but only when
+            # it carries no labels. A labeled denominator is meaningful just for
+            # the numerator with the same label set: broadcasting m1's max to m2
+            # divides unrelated series (used{model_name="m2"}=90 by
+            # max{model_name="m1"}=20 gives 4.5), while the documented semantics
+            # are exact-label matching with unmatched numerators skipped.
+            only_key, only_sample = next(iter(denominators.items()))
+            if not dict(only_sample.labels):
+                fallback = only_sample
+        out = []
+        for key, numerator in numerators.items():
+            denominator = denominators.get(key, fallback)
+            if denominator is None:
+                continue
+            divisor = float(denominator.value)
+            if divisor == 0:
+                continue
+            out.append(
+                Emission(
+                    name,
+                    OP_STORE,
+                    float(numerator.value) / divisor,
+                    self._tags(rule, dict(numerator.labels)),
+                )
+            )
+        return out
 
     def _histogram(self, families: dict[str, Any], rule: Any) -> list[Emission]:
         """Preserve interval bucket/sum/count increments and derive per-label quantiles.
