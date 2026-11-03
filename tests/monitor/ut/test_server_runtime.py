@@ -352,6 +352,29 @@ def test_auto_ports_and_rendered_config(tmp_path, udp):
         assert "stream_over_http_enabled" not in tempo
 
 
+def test_rendered_tempo_config_should_store_trace_filters_in_dedicated_columns(
+    tmp_path,
+):
+    conf = load_server_config_file()
+
+    rendered = runtime_module._render_tempo_config(conf, tmp_path, tmp_path, "2.6.1")
+    tempo = yaml.safe_load(rendered.read_text(encoding="utf-8"))
+
+    columns = tempo["storage"]["trace"]["block"]["parquet_dedicated_columns"]
+    assert {
+        (column["name"], column["scope"], column["type"]) for column in columns
+    } == {
+        ("project", "resource", "string"),
+        ("experiment_name", "resource", "string"),
+        ("replica", "resource", "string"),
+        ("sample", "span", "string"),
+    }
+
+    legacy = runtime_module._render_tempo_config(conf, tmp_path, tmp_path, "2.3.0")
+    legacy_tempo = yaml.safe_load(legacy.read_text(encoding="utf-8"))
+    assert "block" not in legacy_tempo["storage"]["trace"]
+
+
 @pytest.mark.parametrize("races", [0, 1, 3])
 def test_auto_port_real_start_retry_and_cleanup(tmp_path, monkeypatch, races):
     conf = load_server_config_file()

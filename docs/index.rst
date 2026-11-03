@@ -20,6 +20,7 @@ For CPU, memory, disk, network, or Ascend NPU metrics, see
    Getting Started <monitor/getting_started>
    Instrumentation <monitor/instrumentation>
    Operations <monitor/operations>
+   Inference Engine Tracing <monitor/inference_tracing>
    Hardware Monitoring <monitor/hardware/index>
 
 .. toctree::
