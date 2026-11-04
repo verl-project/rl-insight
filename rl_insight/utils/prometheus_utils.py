@@ -20,6 +20,7 @@ import logging
 import os
 import sys
 import threading
+import time
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -161,13 +162,25 @@ class PrometheusTargetStore:
         )
         try:
             tmp_path.write_text(payload, encoding="utf-8")
-            os.replace(tmp_path, self.targets_file)
+            self._replace_targets_file(tmp_path, self.targets_file)
         except BaseException:
             try:
                 tmp_path.unlink()
             except FileNotFoundError:
                 pass
             raise
+
+    @staticmethod
+    def _replace_targets_file(tmp_path: Path, targets_file: Path) -> None:
+        """Replace the target file, retrying transient Windows file locks."""
+        for attempt in range(5):
+            try:
+                os.replace(tmp_path, targets_file)
+                return
+            except PermissionError:
+                if attempt == 4:
+                    raise
+                time.sleep(0.1)
 
     def _read_targets(self) -> dict[tuple[str, str], dict[str, str]]:
         if not self.targets_file.exists():
