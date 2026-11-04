@@ -33,7 +33,6 @@ _DASHBOARD = (
 _TRACE_ROW_TITLE = "vLLM request traces"
 _TRACE_SPAN_NAME = "llm_request"
 
-_CORRELATION_ATTRIBUTES = ("project", "experiment_name", "replica")
 _NATIVE_LATENCY_ATTRIBUTES = (
     "gen_ai.latency.e2e",
     "gen_ai.latency.time_to_first_token",
@@ -154,8 +153,9 @@ def test_trace_query_should_filter_by_resource_attributes() -> None:
     for panel in _trace_panels(_load_spec()):
         query = _query_specs(panel)[0]["spec"]["query"]
         assert f'name = "{_TRACE_SPAN_NAME}"' in query
-        for attribute in _CORRELATION_ATTRIBUTES:
+        for attribute in ("project", "experiment_name"):
             assert f'resource.{attribute} =~ "$' in query
+        assert 'resource.replica =~ "^($trace_replica)$"' in query
 
 
 def test_trace_query_should_filter_by_correlation_attributes() -> None:
@@ -170,9 +170,13 @@ def test_trace_query_should_filter_by_correlation_attributes() -> None:
         # spans without the sample attribute visible in that case.
         assert 'span.sample =~ "^($sample)$"' in query
         assert '"$sample" = ".*"' in query
+        # The row-scoped Replica filter must not reuse the Prometheus vllm
+        # replica variable; it is sourced from Tempo tags instead.
+        assert 'resource.replica =~ "^($trace_replica)$"' in query
+        assert '"$trace_replica" = ".*"' in query
 
 
-def test_trace_row_should_expose_step_and_sample_filters() -> None:
+def test_trace_row_should_expose_step_sample_and_replica_filters() -> None:
     row = _find_row(_load_spec()["layout"], _TRACE_ROW_TITLE)
     assert row is not None, f"missing dashboard row: {_TRACE_ROW_TITLE}"
     variables = {
@@ -181,13 +185,19 @@ def test_trace_row_should_expose_step_and_sample_filters() -> None:
 
     # Trajectory and Session have no dropdowns: the raw trace covers them. The
     # span cap is fixed in the query, so there is no limit variable.
-    assert set(variables) == {"step", "sample"}
+    assert list(variables) == ["step", "trace_replica", "sample"]
     assert variables["step"]["label"] == "Step"
     assert variables["step"]["definition"] == "label_values(global_steps)"
     assert variables["step"]["multi"] is False
-    assert variables["step"]["includeAll"] is True
+    # Grafana selects All whenever includeAll is on and no value is saved, so
+    # step trades the built-in All option for a trailing static All option.
+    assert variables["step"]["includeAll"] is False
+    assert variables["step"]["staticOptions"] == [{"text": "All", "value": "-1"}]
+    assert variables["step"]["staticOptionsOrder"] == "after"
     assert variables["step"]["allValue"] == "-1"
-    assert variables["step"]["current"] == {"text": "All", "value": "-1"}
+    # No saved value: the newest step (first option after numericalDesc) is
+    # selected, so expanding the row does not load every step by default.
+    assert variables["step"]["current"] == {"text": "", "value": ""}
     assert variables["step"]["sort"] == "numericalDesc"
     assert variables["sample"]["label"] == "Sample"
     assert variables["sample"]["definition"] == "label_values(sample)"
@@ -195,6 +205,12 @@ def test_trace_row_should_expose_step_and_sample_filters() -> None:
     assert variables["sample"]["includeAll"] is True
     assert variables["sample"]["allValue"] == ".*"
     assert variables["sample"]["sort"] == "numericalAsc"
+    assert variables["trace_replica"]["label"] == "Replica"
+    assert variables["trace_replica"]["definition"] == "label_values(replica)"
+    assert variables["trace_replica"]["multi"] is True
+    assert variables["trace_replica"]["includeAll"] is True
+    assert variables["trace_replica"]["allValue"] == ".*"
+    assert variables["trace_replica"]["sort"] == "numericalAsc"
 
 
 def test_trace_query_should_select_native_vllm_attributes() -> None:

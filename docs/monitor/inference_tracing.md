@@ -129,7 +129,9 @@ Rules:
 Open Grafana → `verl_trainer_v1_with_vllm_engine` → **vLLM request traces**.
 The row is collapsed by default; expand it to load the single **Inference
 requests** table. It lists matching requests newest first, links each row to its
-raw trace, and sorts by **E2E (s)** when that header is clicked.
+raw trace, and sorts by **E2E (s)** when that header is clicked. **Step**
+defaults to the newest step, so expanding the row does not scan every request of
+the run; select **All** only when the full history is needed.
 
 The query has a fixed cap of 20000 spans. Tempo's search limit is numeric and
 Grafana cannot interpolate a dashboard variable into it, so the cap lives in the
@@ -139,21 +141,27 @@ sorts, so narrow the Step or time range when a run exceeds it; edit the query
 
 Filters:
 
-- **training: Project**, **training: Experiment Name**, and **vllm: Rollout
-  Replica** match the resource attributes.
-- **Step** is single-select; **Sample** is multi-select. Both include All.
-- Sample uses anchored regex matching, so selecting `100` does not also match
-  `1006`.
+- **training: Project** and **training: Experiment Name** match the resource
+  attributes.
+- **Step**, **Replica**, and **Sample** are row-scoped filters. Step is
+  single-select and defaults to the newest step; its **All** entry sits at the
+  end of the list. Replica and Sample are multi-select and default to All.
+- Replica and Sample use anchored regex matching, so selecting `100` does not
+  also match `1006`.
 - The dashboard time range limits the search.
 
 Step uses `-1` for All because TraceQL does not support regex matching on the
 integer `global_steps`; the query becomes
-`(span.global_steps = $step || $step = -1)`. Sample All expands to `.*`, and
+`(span.global_steps = $step || $step = -1)`. All is a static option rather than
+`includeAll`, because Grafana preselects the built-in All option whenever it is
+enabled and the variable has no saved value. The static entry keeps the newest
+step as the default while All stays one click away. Sample All expands to `.*`, and
 the query adds `|| "$sample" = ".*"` so requests written before the adapter
 attached `sample` stay visible. Selecting a specific sample still requires the
-attribute. The Sample dropdown lists values from the tag window
-(`timeRangeForTags`, the retention window); prefer the table's **Sample** column
-when it must match the current step.
+attribute. Replica All expands to `.*` and uses the same fallback, so spans
+without the resource attribute stay visible. The Sample and Replica dropdowns
+list values from the tag window (`timeRangeForTags`, the retention window);
+prefer the table's **Sample** column when it must match the current step.
 
 The correlation filters need the rollout adapter to attach the matching
 attributes. The adapter must emit `sample` as a string and `global_steps` as an
@@ -164,7 +172,7 @@ time range.
 The server provisions the Tempo datasource with
 `jsonData.timeRangeForTags` set to `tempo.retention_time` (30 days by default).
 Grafana's default `1800` is treated as "no range", so Tempo returns only
-intrinsic tags once the recent ingester data ages out and the Step/Sample
+intrinsic tags once the recent ingester data ages out and the Step/Sample/Replica
 variables fail with `Scope for tag ... not found`. Keep this setting on Tempo
 datasources that serve the trace dashboard.
 
@@ -184,11 +192,12 @@ against rollout logs.
 Tempo persists spans; Grafana caches panel data in memory only, so a new search
 scans the WAL and blocks for the selected range. Reopening the row with
 unchanged filters and time range reuses the cached frame. Refresh, time-range
-changes, and filter changes rerun the query; Step/Sample tag-value queries are
-separate.
+changes, and filter changes rerun the query; Step/Replica/Sample tag-value
+queries are separate.
 
-For large steps, select a Step first, narrow the time range, and use pagination
-or Sample filtering instead of raising the cap.
+The table starts on the newest step. Selecting Step All scans the whole run, so
+narrow the time range and use pagination or Replica/Sample filtering instead of
+raising the cap.
 
 The Tempo block config stores `project`, `experiment_name`, `replica`, and
 `sample` in dedicated Parquet columns, so TraceQL reads those columns instead of
@@ -207,8 +216,8 @@ If the row is empty, verify in this order:
 2. `curl $RL_INSIGHT_SERVER_URL/api/v1/services` returns a non-null
    `otlp_port`.
 3. The rollout node can reach `<server-host>:<otlp_port>` and Tempo is enabled.
-4. The Project, Experiment Name, Rollout Replica, Step, and Sample filters
-   match the run.
+4. The Project, Experiment Name, Replica, Step, and Sample filters match the
+   run.
 5. The engine version emits `llm_request` spans; open Tempo directly and search
    for `{ name = "llm_request" }` to confirm.
 

@@ -7391,7 +7391,7 @@
         "spec": {
           "id": 351,
           "title": "Inference requests",
-          "description": "Matching vLLM llm_request spans, newest first (max 20000). Timing values are native gen_ai.latency.* attributes in seconds; empty cells mean the engine did not export the field. Use Trace to inspect the raw span.",
+          "description": "Matching vLLM llm_request spans, newest first (max 20000). The Step filter defaults to the newest step; choose All to search every step. Timing values are native gen_ai.latency.* attributes in seconds; empty cells mean the engine did not export the field. Use Trace to inspect the raw span.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -7410,7 +7410,7 @@
                       "spec": {
                         "limit": 20000,
                         "metricsQueryType": "range",
-                        "query": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" && resource.replica =~ \"$replica\" && (span.global_steps = $step || $step = -1) && (span.sample =~ \"^($sample)$\" || \"$sample\" = \".*\") } | select(span.gen_ai.response.model, span.gen_ai.response.finish_reasons, span.gen_ai.latency.e2e, span.gen_ai.latency.time_to_first_token, span.gen_ai.latency.time_in_queue, span.gen_ai.latency.time_in_scheduler, span.gen_ai.latency.time_in_model_prefill, span.gen_ai.latency.time_in_model_forward, span.gen_ai.latency.time_in_model_execute, span.gen_ai.latency.time_in_model_decode, span.gen_ai.latency.time_in_model_inference, span.gen_ai.usage.prompt_tokens, span.gen_ai.usage.completion_tokens, span.gen_ai.request.max_tokens, span.global_steps, span.turn, span.sample, resource.replica)",
+                        "query": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" && (resource.replica =~ \"^($trace_replica)$\" || \"$trace_replica\" = \".*\") && (span.global_steps = $step || $step = -1) && (span.sample =~ \"^($sample)$\" || \"$sample\" = \".*\") } | select(span.gen_ai.response.model, span.gen_ai.response.finish_reasons, span.gen_ai.latency.e2e, span.gen_ai.latency.time_to_first_token, span.gen_ai.latency.time_in_queue, span.gen_ai.latency.time_in_scheduler, span.gen_ai.latency.time_in_model_prefill, span.gen_ai.latency.time_in_model_forward, span.gen_ai.latency.time_in_model_execute, span.gen_ai.latency.time_in_model_decode, span.gen_ai.latency.time_in_model_inference, span.gen_ai.usage.prompt_tokens, span.gen_ai.usage.completion_tokens, span.gen_ai.request.max_tokens, span.global_steps, span.turn, span.sample, resource.replica)",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 100,
@@ -8462,13 +8462,13 @@
                     "name": "step",
                     "label": "Step",
                     "current": {
-                      "text": "All",
-                      "value": "-1"
+                      "text": "",
+                      "value": ""
                     },
                     "hide": "dontHide",
                     "refresh": "onTimeRangeChanged",
                     "skipUrlSync": false,
-                    "description": "Trainer global step; All searches every step.",
+                    "description": "Trainer global step; defaults to the newest step, All searches every step.",
                     "query": {
                       "kind": "DataQuery",
                       "group": "tempo",
@@ -8489,8 +8489,53 @@
                     "definition": "label_values(global_steps)",
                     "options": [],
                     "multi": false,
-                    "includeAll": true,
+                    "includeAll": false,
                     "allValue": "-1",
+                    "staticOptions": [
+                      {
+                        "text": "All",
+                        "value": "-1"
+                      }
+                    ],
+                    "staticOptionsOrder": "after",
+                    "allowCustomValue": true
+                  }
+                },
+                {
+                  "kind": "QueryVariable",
+                  "spec": {
+                    "name": "trace_replica",
+                    "label": "Replica",
+                    "current": {
+                      "text": "All",
+                      "value": "$__all"
+                    },
+                    "hide": "dontHide",
+                    "refresh": "onTimeRangeChanged",
+                    "skipUrlSync": false,
+                    "description": "Rollout replica rank; All searches every replica.",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "tempo"
+                      },
+                      "spec": {
+                        "queryType": "traceql",
+                        "refId": "StandardVariableQuery",
+                        "type": 1,
+                        "label": "replica"
+                      }
+                    },
+                    "regex": "/.+/",
+                    "regexApplyTo": "value",
+                    "sort": "numericalAsc",
+                    "definition": "label_values(replica)",
+                    "options": [],
+                    "multi": true,
+                    "includeAll": true,
+                    "allValue": ".*",
                     "allowCustomValue": true
                   }
                 },
