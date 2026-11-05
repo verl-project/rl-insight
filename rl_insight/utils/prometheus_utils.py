@@ -20,7 +20,6 @@ import logging
 import os
 import sys
 import threading
-import time
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -49,6 +48,7 @@ __all__ = [
     "MetricRegistry",
     "PrometheusTarget",
     "PrometheusTargetStore",
+    "register_prometheus_targets",
     "start_metrics_http_server",
     "update_prometheus_config",
 ]
@@ -162,14 +162,7 @@ class PrometheusTargetStore:
         )
         try:
             tmp_path.write_text(payload, encoding="utf-8")
-            for attempt in range(5):
-                try:
-                    os.replace(tmp_path, self.targets_file)
-                    break
-                except OSError:
-                    if attempt == 4:
-                        raise
-                    time.sleep(0.05)
+            os.replace(tmp_path, self.targets_file)
         except BaseException:
             try:
                 tmp_path.unlink()
@@ -182,22 +175,24 @@ class PrometheusTargetStore:
             return {}
         groups = yaml.safe_load(self.targets_file.read_text(encoding="utf-8")) or []
         if not isinstance(groups, list):
-            raise ValueError("Prometheus file_sd targets must be a list")
+            raise ValueError("[rl-insight] Prometheus file_sd targets must be a list")
 
         target_map: dict[tuple[str, str], dict[str, str]] = {}
         for group in groups:
             if not isinstance(group, Mapping):
                 raise ValueError(
-                    "Each Prometheus file_sd target group must be an object"
+                    "[rl-insight] Each Prometheus file_sd target group must be an object"
                 )
             raw_labels = group.get("labels") or {}
             if not isinstance(raw_labels, Mapping):
-                raise ValueError("Prometheus file_sd target labels must be an object")
+                raise ValueError(
+                    "[rl-insight] Prometheus file_sd target labels must be an object"
+                )
             labels = {str(key): str(value) for key, value in raw_labels.items()}
             stored_job = labels.pop(PrometheusScrape.DYNAMIC_JOB_LABEL, "").strip()
             if not stored_job:
                 raise ValueError(
-                    "Prometheus file_sd target group is missing managed job label"
+                    "[rl-insight] Prometheus file_sd target group is missing managed job label"
                 )
             for target in group.get("targets") or []:
                 target_map[(stored_job, str(target))] = dict(labels)
@@ -435,7 +430,7 @@ def update_prometheus_config(
         return
     if labels is not None and len(labels) != len(server_addresses):
         raise ValueError(
-            "labels length must match server_addresses length: "
+            "[rl-insight] labels length must match server_addresses length: "
             f"{len(labels)} != {len(server_addresses)}"
         )
 
@@ -459,7 +454,7 @@ def update_prometheus_config(
         return
 
     if context is not None:
-        _register_targets(
+        register_prometheus_targets(
             server_addresses,
             job_name,
             labels,
@@ -471,8 +466,8 @@ def update_prometheus_config(
     import ray
 
     from ..client.ray_monitor_client import (
-        _initialize_hub_connection,
         get_or_create_monitor_hub,
+        initialize_hub_connection,
     )
 
     if not ray.is_initialized():
@@ -481,7 +476,7 @@ def update_prometheus_config(
         )
         return
     hub = get_or_create_monitor_hub()
-    _initialize_hub_connection(hub, timeout=30)
+    initialize_hub_connection(hub, timeout=30)
     ray.get(
         hub.register_targets.remote(
             server_addresses, job_name, labels, identity_in_metrics=identity_in_metrics
@@ -490,7 +485,7 @@ def update_prometheus_config(
     )
 
 
-def _register_targets(
+def register_prometheus_targets(
     server_addresses: list[str],
     job_name: str | None,
     labels: list[Mapping[str, Any] | None] | None,
@@ -527,7 +522,7 @@ def _register_targets(
         )
         if 400 <= response.status_code < 500 and response.status_code not in {408, 429}:
             raise RunError(
-                "Target registration rejected: " + response.text[:512],
+                "[rl-insight] Target registration rejected: " + response.text[:512],
                 response.status_code,
             )
         response.raise_for_status()

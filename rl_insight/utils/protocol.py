@@ -55,12 +55,12 @@ def require_version(value: Any, component: str) -> None:
         supported = False
     if not supported:
         message = (
-            f"RL-Insight requires {component} >= {MIN_SUPPORTED_VERSION}; "
+            f"[rl-insight] RL-Insight requires {component} >= {MIN_SUPPORTED_VERSION}; "
             f"received version {value!r}. Upgrade the RL-Insight server and SDK on "
             f"the driver and all workers to >= {MIN_SUPPORTED_VERSION}, "
             "then restart the training job."
         )
-        logger.error("[rl-insight] %s", message)
+        logger.error("%s", message)
         raise InvalidVersionError(message, 409)
 
 
@@ -104,12 +104,8 @@ class RunContext:
             if self.original_experiment_name is not None
             else self.experiment_name,
         ):
-            if not isinstance(name, str) or not name.strip() or len(name) > 256:
-                raise RunError(
-                    "Run names must be non-empty strings of at most 256 characters"
-                )
-            if any(ord(c) < 32 for c in name):
-                raise RunError("Run names cannot contain control characters")
+            if not isinstance(name, str) or not name.strip():
+                raise RunError("[rl-insight] Run names must be non-empty strings")
         try:
             url = urlsplit(self.server_url)
             if (
@@ -125,7 +121,7 @@ class RunContext:
             if url.port is not None and not 1 <= url.port <= 65535:
                 raise ValueError
         except (ValueError, TypeError, AttributeError) as exc:
-            raise RunError("Invalid server URL") from exc
+            raise RunError("[rl-insight] Invalid server URL") from exc
         object.__setattr__(self, "server_url", self.server_url.rstrip("/"))
 
     def to_dict(self) -> dict[str, Any]:

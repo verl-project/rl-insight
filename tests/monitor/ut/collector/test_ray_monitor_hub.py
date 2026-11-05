@@ -35,6 +35,8 @@ HubImplementation = cast(
 @pytest.fixture
 def hub() -> Any:
     instance = HubImplementation.__new__(HubImplementation)
+    instance.__init__()
+    instance._initialized = True
     instance._registry = MagicMock()
     instance._trace_collector = MagicMock(enabled=True)
     instance._events_applied = 0
@@ -65,7 +67,7 @@ def test_init_should_configure_collectors_and_register_scrape_target_when_create
     trace_factory = MagicMock(return_value=trace_collector)
     monkeypatch.setattr(hub_module, "OpenTelemetryTraceCollector", trace_factory)
     monkeypatch.setattr(hub_module, "start_metrics_http_server", start_server)
-    monkeypatch.setattr(hub_module, "_register_targets", update_config, raising=False)
+    monkeypatch.setattr(hub_module, "register_prometheus_targets", update_config)
     monkeypatch.setattr(hub_module.ray.util, "get_node_ip_address", lambda: "10.0.0.8")
     conf = OmegaConf.create(
         {
@@ -114,10 +116,12 @@ def test_init_should_configure_collectors_and_register_scrape_target_when_create
     assert instance._registry is registry
     assert instance._context.original_experiment_name == "chosen"
     assert instance._context.experiment_name == f"chosen_{suffix}"
-    instance.init(conf)
+    instance.init(OmegaConf.create({"run_metadata": {"project": "other"}}))
     registry_factory.assert_called_once()
     start_server.assert_called_once()
     registry.count.assert_called_once()
+    assert instance.get_context().project == "p"
+    assert instance.get_context().experiment_name == f"chosen_{suffix}"
 
 
 @pytest.mark.parametrize(

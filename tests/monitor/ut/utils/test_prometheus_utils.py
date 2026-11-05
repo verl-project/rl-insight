@@ -23,6 +23,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import yaml
+from omegaconf import OmegaConf
 from prometheus_client import CollectorRegistry, Gauge, make_wsgi_app
 
 from rl_insight.utils import prometheus_utils as prometheus_module
@@ -278,20 +279,22 @@ def test_hub_targets_keep_registration_failures_for_explicit_retry(
     context = RunContext.create("p", "e", "http://server")
     implementation = cast(Any, MonitorHubActor).__ray_metadata__.modified_class
     hub = implementation.__new__(implementation)
+    hub.__init__()
+    hub._initialized = True
     hub._context = context
-    hub._targets = []
-    hub._pending_targets = []
     item = (["host:9000"], "workers", None, False)
     post = MagicMock(return_value=MagicMock(status_code=409, text="identity conflict"))
     monkeypatch.setattr(prometheus_module.requests, "post", post)
     with pytest.raises(RunError, match="identity conflict"):
         hub.register_targets(*item[:3])
     assert hub._pending_targets == [item]
+    hub.init(OmegaConf.create({}))
+    post.assert_called_once()
     post.side_effect = prometheus_module.requests.ConnectionError("offline")
     with pytest.raises(RunError, match="Cannot register"):
-        hub.register_targets([])
+        hub.flush_pending_targets()
     assert hub._pending_targets == [item]
     post.side_effect = None
     post.return_value.status_code = 200
-    hub.register_targets([])
+    hub.flush_pending_targets()
     assert not hub._pending_targets

@@ -56,7 +56,9 @@ def get_server_services(base_url: str | None = None) -> dict[str, Any]:
             "[rl-insight] RL-Insight server URL is required; set %s",
             MonitorEnv.SERVER_URL,
         )
-        raise RunError(f"RL-Insight requires a Server URL; set {MonitorEnv.SERVER_URL}")
+        raise RunError(
+            f"[rl-insight] RL-Insight requires a Server URL; set {MonitorEnv.SERVER_URL}"
+        )
 
     url = f"{base_url}{MonitorServer.API_PREFIX}/services"
     last_error: requests.RequestException | ValueError | None = None
@@ -71,7 +73,7 @@ def get_server_services(base_url: str | None = None) -> dict[str, Any]:
             data = response.json()
             if not isinstance(data, dict):
                 raise ValueError(
-                    f"services response must be an object, got {type(data).__name__}"
+                    f"[rl-insight] services response must be an object, got {type(data).__name__}"
                 )
         except requests.HTTPError as exc:
             if (
@@ -80,7 +82,7 @@ def get_server_services(base_url: str | None = None) -> dict[str, Any]:
                 and exc.response.status_code not in {408, 429}
             ):
                 raise RunError(
-                    f"RL-Insight service discovery rejected at {url}: {exc.response.text[:512]}",
+                    f"[rl-insight] RL-Insight service discovery rejected at {url}: {exc.response.text[:512]}",
                     exc.response.status_code,
                 ) from exc
             last_error = exc
@@ -98,7 +100,7 @@ def get_server_services(base_url: str | None = None) -> dict[str, Any]:
         last_error,
     )
     raise RunError(
-        f"Cannot fetch RL-Insight services at {url}: {last_error}", 503
+        f"[rl-insight] Cannot fetch RL-Insight services at {url}: {last_error}", 503
     ) from last_error
 
 
@@ -159,19 +161,19 @@ def create_app(conf: DictConfig) -> FastAPI:
     def register_prometheus_targets(
         payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
-        """Register metric scrape targets into the runtime Prometheus config."""
+        """Register scrape targets for automatic file discovery."""
         raw_targets = payload.get("targets")
         if not isinstance(raw_targets, list) or not raw_targets:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="targets must be a non-empty list",
+                detail="[rl-insight] targets must be a non-empty list",
             )
 
         default_labels = payload.get("labels") or {}
         if not isinstance(default_labels, dict):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="labels must be an object",
+                detail="[rl-insight] labels must be an object",
             )
 
         targets: list[PrometheusTarget] = []
@@ -187,7 +189,7 @@ def create_app(conf: DictConfig) -> FastAPI:
                 if not isinstance(item_labels, dict):
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="target labels must be an object",
+                        detail="[rl-insight] target labels must be an object",
                     )
                 targets.append(
                     PrometheusTarget(
@@ -198,7 +200,7 @@ def create_app(conf: DictConfig) -> FastAPI:
                 continue
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="each target must be either a string or an object",
+                detail="[rl-insight] each target must be either a string or an object",
             )
 
         job_name = str(payload.get("job_name") or PrometheusScrape.TRAINER_METRICS_JOB)
@@ -210,15 +212,7 @@ def create_app(conf: DictConfig) -> FastAPI:
                 detail=str(exc),
             ) from exc
 
-        reloaded = False
-        try:
-            reloaded = store.reload()
-        except requests.RequestException as exc:
-            logger.warning(
-                "[rl-insight] Failed to reload Prometheus after target update: %s",
-                exc,
-            )
-        return {"status": "ok", "prometheus_reloaded": reloaded, **result}
+        return {"status": "ok", "prometheus_reloaded": False, **result}
 
     return app
 

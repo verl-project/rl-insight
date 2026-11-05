@@ -282,7 +282,6 @@ def _process_worker(
     try:
         hub_handle = _ray.get_actor(hub_actor_name, namespace=MonitorRayActor.NAMESPACE)
         client = MonitorRayClient(hub_handle)
-        client.initialize()
     except Exception:
         result_queue.put({"submitted": 0, "submitted_sum": 0.0, "latencies": []})
         return

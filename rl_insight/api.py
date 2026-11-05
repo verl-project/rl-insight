@@ -83,32 +83,22 @@ def init(
     experiment_name: str | None = None,
     config: Mapping[str, Any] | DictConfig | None = None,
 ) -> None:
-    """Initialize monitoring and fill previously omitted task names.
+    """Initialize monitoring once per process.
 
     Args:
         project: Optional project name attached to all metrics and traces as the ``project`` label/attribute.
         experiment_name: Optional experiment name attached to all metrics and traces as the
-            ``experiment_name`` label/attribute. The Ray Hub appends one execution ID;
+            ``experiment_name`` label/attribute. The Ray Hub appends one execution suffix;
             ``get_context().experiment_name`` returns the resulting telemetry name.
         config: Optional dict-like or ``DictConfig`` overrides merged into training defaults; see ``load_monitor_config``.
 
     Note:
-        Ray requires ``ray.init()`` first. Omitted names use defaults and may
-        later be filled by explicit arguments. Already specified names stay fixed.
-        Filling names affects subsequent telemetry; stored history is unchanged.
+        Ray requires ``ray.init()`` first. The first initialization fixes the
+        Hub's experiment names, using defaults if omitted. Repeated calls are
+        ignored with ``RuntimeWarning``.
     """
     global _STATE
-    overrides = (
-        OmegaConf.merge(_STATE.conf, config or {})
-        if _STATE.conf is not None
-        else config
-    )
-    monitor_conf = load_monitor_config(overrides)
-    backend = str(OmegaConf.select(monitor_conf, "server.backend") or "").strip()
-    if _STATE.enabled and (
-        backend != MonitorBackend.RAY
-        or all(value is None for value in (project, experiment_name, config))
-    ):
+    if _STATE.enabled:
         warnings.warn(
             "[rl-insight] monitor.init() called more than once; "
             "ignoring re-initialization.",
@@ -117,6 +107,8 @@ def init(
         )
         return
 
+    monitor_conf = load_monitor_config(config)
+    backend = str(OmegaConf.select(monitor_conf, "server.backend") or "").strip()
     metadata = {
         key: value
         for key, value in {

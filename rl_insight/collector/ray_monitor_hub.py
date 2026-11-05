@@ -35,7 +35,7 @@ from ..utils import (
     start_metrics_http_server,
 )
 from ..utils.constants import MonitorDefaults, MonitorRayActor
-from ..utils.prometheus_utils import _register_targets
+from ..utils.prometheus_utils import register_prometheus_targets
 from ..utils.protocol import (
     RunContext,
     RunError,
@@ -60,14 +60,15 @@ class MonitorHubActor(MonitorCollector):
     """
 
     def __init__(self) -> None:
+        self._initialized = False
+        self._closed = False
         self._execution_suffix = create_execution_suffix()
-        self._context: RunContext | None = None
+        self._context: RunContext
         self._pending_events: deque[dict[str, Any]] = deque()
         self._events_applied = 0
-        self._targets: list[
+        self._pending_targets: list[
             tuple[list[str], str | None, list[Mapping[str, Any] | None] | None, bool]
         ] = []
-        self._pending_targets = self._targets.copy()
         self._event_handlers = {
             MonitorEventKind.COUNTER: self._handle_counter,
             MonitorEventKind.GAUGE: self._handle_gauge,
@@ -77,16 +78,18 @@ class MonitorHubActor(MonitorCollector):
 
     def connect(self, client_version: str | None = None) -> str:
         """Verify the SDK without binding task names or starting collection."""
+        if self._closed:
+            raise RunError("[rl-insight] Monitor Hub is closed")
         require_version(client_version, "Client")
         return __version__
 
     def init(self, conf: DictConfig) -> None:
-        """Start collection or fill previously omitted task names."""
-        metadata = dict(self._conf.run_metadata) if self._context is not None else {}
-        for key, value in conf.get("run_metadata", {}).items():
-            if key in metadata and metadata[key] != value:
-                raise RunError("Experiment metadata conflicts with the existing Run")
-            metadata[key] = value
+        """Initialize the execution and start collection once per Hub."""
+        if self._closed:
+            raise RunError("[rl-insight] Monitor Hub is closed")
+        if self._initialized:
+            return
+        metadata = conf.get("run_metadata", {})
         project = str(metadata.get("project", MonitorDefaults.PROJECT_NAME))
         experiment_name = str(
             metadata.get("experiment_name", MonitorDefaults.EXPERIMENT_NAME)
@@ -94,32 +97,11 @@ class MonitorHubActor(MonitorCollector):
         context = RunContext.create(
             project,
             experiment_name,
-            self._context.server_url if self._context else str(conf.server.url),
+            str(conf.server.url),
             suffix=self._execution_suffix,
         )
-        if self._context is not None:
-            self._conf.run_metadata = metadata
-            if context.labels() != self._context.labels():
-                self._context = context
-                self._registry.value(
-                    "experiment_info",
-                    "Experiment execution identity.",
-                    1,
-                    {},
-                    context.labels(),
-                )
-                self._pending_targets = self._targets.copy()
-                logger.info(
-                    "[rl-insight] Completed experiment names: project=%r, experiment_name=%r",
-                    context.project,
-                    context.experiment_name,
-                )
-            self._flush_pending_events()
-            self.register_targets([])
-            return
         services = initialize_server_connection(str(conf.server.url))
         self._conf: DictConfig = conf
-        self._conf.run_metadata = metadata
         self._services = services
         namespace = str(conf.server.namespace)
         self._node_ip = ray.util.get_node_ip_address()
@@ -137,6 +119,7 @@ class MonitorHubActor(MonitorCollector):
             ),
         )
         self._context = context
+        self._initialized = True
         self._flush_pending_events()
         self.register_targets(
             [format_host_port(self._node_ip, self._metrics_port)],
@@ -160,26 +143,32 @@ class MonitorHubActor(MonitorCollector):
         identity_in_metrics: bool = False,
     ) -> None:
         """Save exporter addresses until formal init, then register them directly."""
+        if self._closed:
+            raise RunError("[rl-insight] Monitor Hub is closed")
         if labels is not None and len(labels) != len(addresses):
-            raise RunError("labels length must match server_addresses length")
+            raise RunError(
+                "[rl-insight] labels length must match server_addresses length"
+            )
         item = (addresses, job_name, labels, identity_in_metrics)
         if addresses:
             if item in self._pending_targets:
                 self._pending_targets.remove(item)
-            elif len(self._pending_targets) >= 64:
-                raise RunError("Too many targets waiting for initialization")
             self._pending_targets.append(item)
-            if item in self._targets:
-                self._targets.remove(item)
-            self._targets.append(item)
-        if self._context is None:
+        self.flush_pending_targets()
+
+    def flush_pending_targets(self) -> None:
+        """Publish queued targets, retaining failed registrations for explicit retry."""
+        if self._closed:
+            raise RunError("[rl-insight] Monitor Hub is closed")
+        if not self._initialized:
             return
         for pending in list(self._pending_targets):
-            if not _register_targets(
+            if not register_prometheus_targets(
                 *pending[:3], self._context, identity_in_metrics=pending[3]
             ):
                 raise RunError(
-                    "Cannot register Prometheus targets; retry target registration", 503
+                    "[rl-insight] Cannot register Prometheus targets; retry target registration",
+                    503,
                 )
             self._pending_targets.remove(pending)
 
@@ -189,7 +178,9 @@ class MonitorHubActor(MonitorCollector):
         Args:
             event: Must include ``kind``; metric kinds need ``name``/``value``; trace needs ``start_time_ns``/``end_time_ns``.
         """
-        if self._context is None:
+        if self._closed:
+            raise RunError("[rl-insight] Monitor Hub is closed")
+        if not self._initialized:
             self._pending_events.append(dict(event))
             return
         self._events_applied += 1
@@ -201,11 +192,11 @@ class MonitorHubActor(MonitorCollector):
         try:
             kind = event["kind"]
         except KeyError as e:
-            raise ValueError(f"Event missing required field: {e!r}") from e
+            raise ValueError(f"[rl-insight] Event missing required field: {e!r}") from e
 
         handler = self._event_handlers.get(kind)
         if handler is None:
-            raise ValueError(f"Unknown event kind: {kind!r}")
+            raise ValueError(f"[rl-insight] Unknown event kind: {kind!r}")
         handler(event)
 
     def _flush_pending_events(self) -> None:
@@ -215,11 +206,19 @@ class MonitorHubActor(MonitorCollector):
 
     def flush(self) -> None:
         """Flush traces after earlier calls from the client have completed."""
-        if self._context is not None:
+        if self._initialized and not self._closed:
             self._trace_collector.flush()
 
+    def close(self) -> None:
+        """Flush the shared Hub and stop accepting events and registrations."""
+        if self._closed:
+            return
+        self.flush()
+        self._closed = True
+        logger.info("[rl-insight] Monitor Hub is closed")
+
     def get_context(self) -> RunContext | None:
-        if self._context is None:
+        if not self._initialized:
             return None
         return replace(
             self._context,

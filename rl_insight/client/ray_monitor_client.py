@@ -17,7 +17,6 @@
 from __future__ import annotations
 
 import logging
-import threading
 from typing import Any, cast
 
 import ray
@@ -27,13 +26,18 @@ from .. import __version__
 from ..collector.ray_monitor_hub import MonitorHubActor
 from ..server.http_api import initialize_server_connection
 from ..utils.constants import MonitorRayActor, MonitorServer
-from ..utils.protocol import RunContext, RunError, require_version
+from ..utils.protocol import RunContext, require_version
 from .base import MonitorClient
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
-__all__ = ["MonitorRayClient", "create_ray_monitor_client", "get_or_create_monitor_hub"]
+__all__ = [
+    "MonitorRayClient",
+    "create_ray_monitor_client",
+    "get_or_create_monitor_hub",
+    "initialize_hub_connection",
+]
 
 # Named handles are weak; retain creating handles for the Ray job's lifetime.
 _hub_owners: list[Any] = []
@@ -46,7 +50,7 @@ def _current_job_actor_name() -> str:
     return f"{MonitorRayActor.NAME}_{job_id_str}"
 
 
-def _initialize_hub_connection(
+def initialize_hub_connection(
     hub: Any, *, timeout: float, conf: DictConfig | None = None
 ) -> None:
     """Verify the Hub version before applying task configuration."""
@@ -105,23 +109,19 @@ def create_ray_monitor_client(conf: DictConfig) -> MonitorRayClient | None:
     if task_conf is not None:
         initialize_server_connection(str(task_conf.server.url))
     handle = get_or_create_monitor_hub()
-    client = MonitorRayClient(handle)
-    client.initialize(task_conf)
-    return client
+    return MonitorRayClient(handle, task_conf)
 
 
 class MonitorRayClient(MonitorClient):
     """Ray facade: ``apply_event`` submits work to the hub without blocking on completion."""
 
-    def __init__(self, actor_handle: Any) -> None:
+    def __init__(self, actor_handle: Any, conf: DictConfig | None = None) -> None:
         """
         Args:
             actor_handle: Return value of ``get_or_create_monitor_hub``.
+            conf: Formal task configuration, or ``None`` to only connect.
         """
         self._actor = actor_handle
-        self._lock = threading.Lock()
-        self._closed = False
-        self._initialized = False
         # Includes service discovery and actor scheduling during initialization.
         self._timeout = (
             MonitorServer.SERVICE_DISCOVERY_RETRIES
@@ -132,16 +132,9 @@ class MonitorRayClient(MonitorClient):
             + 30
         )
 
-    def initialize(self, conf: DictConfig | None = None) -> None:
-        """Establish and validate the Hub connection before collecting data."""
-        if self._initialized:
-            return
-        _initialize_hub_connection(self._actor, timeout=self._timeout, conf=conf)
-        self._initialized = True
+        initialize_hub_connection(self._actor, timeout=self._timeout, conf=conf)
 
     def get_context(self) -> RunContext | None:
-        if not self._initialized:
-            return None
         return ray.get(self._actor.get_context.remote(), timeout=self._timeout)
 
     def apply_event(self, event: dict[str, Any]) -> None:
@@ -153,18 +146,8 @@ class MonitorRayClient(MonitorClient):
         Note:
             Errors on the hub side are not surfaced here. Ordering follows Ray actor scheduling.
         """
-        with self._lock:
-            if self._closed:
-                raise RunError("Monitor client is closed")
-            if not self._initialized:
-                raise RunError("Monitor client is not initialized")
-            self._actor.apply_event.remote(event)
+        self._actor.apply_event.remote(event)
 
     def close(self) -> None:
-        """Wait for submitted events and flush the shared Hub once."""
-        with self._lock:
-            if self._closed:
-                return
-            self._closed = True
-            if self._initialized:
-                ray.get(self._actor.flush.remote(), timeout=self._timeout)
+        """Drain the shared Hub after event producers have stopped."""
+        ray.get(self._actor.flush.remote(), timeout=self._timeout)

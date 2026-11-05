@@ -130,14 +130,14 @@ def stack(tmp_path):
 def test_same_named_executions_register_distinct_native_labels(stack):
     import yaml
 
-    from rl_insight.utils.prometheus_utils import _register_targets
+    from rl_insight.utils.prometheus_utils import register_prometheus_targets
 
     contexts = [
         RunContext.create(project, "same", stack.url) for project in ("p", "p", "other")
     ]
     assert len({context.experiment_name for context in contexts}) == 3
     for i, context in enumerate(contexts):
-        assert _register_targets(
+        assert register_prometheus_targets(
             [f"host{i}:9000"], "workers", [{"experiment_name": "same"}], context
         )
     targets_file = stack.path / "data/targets/prometheus-targets.yml"
@@ -172,6 +172,7 @@ import requests
 import yaml
 import rl_insight as insight
 from prometheus_client.parser import text_string_to_metric_families
+from rl_insight.client.ray_monitor_client import get_or_create_monitor_hub
 from rl_insight.utils.protocol import RunError
 
 url = sys.argv[1]
@@ -181,36 +182,27 @@ try:
         insight.init()
     except RunError as exc:
         assert exc.status == 503
+        hub = get_or_create_monitor_hub()
+        ray.get(hub.flush_pending_targets.remote(), timeout=20)
         insight.init()
     default = insight.get_context()
     assert (default.project, default.original_experiment_name) == ("default", "default")
-    insight.metric_gauge("identity", 1)
-    insight.init(project="completed")
-    assert insight.get_context().experiment_name == default.experiment_name
-    insight.init(experiment_name="chosen")
-    completed = insight.get_context()
-    assert completed.project == "completed"
-    assert (
-        completed.experiment_name
-        == "chosen_" + default.experiment_name.removeprefix("default_")
-    )
-    assert completed.metrics_endpoint == default.metrics_endpoint
-    insight.metric_gauge("identity", 2)
-    metrics = requests.get(completed.metrics_endpoint, timeout=5).text
+    with pytest.warns(RuntimeWarning, match="ignoring re-initialization"):
+        insight.init(project="other", experiment_name="ignored")
+    assert insight.get_context().labels() == default.labels()
+    insight.metric_gauge("identity", 42)
+    metrics = requests.get(insight.get_context().metrics_endpoint, timeout=5).text
     samples = [
         sample
         for family in text_string_to_metric_families(metrics)
         for sample in family.samples
     ]
-    for context, value in ((default, 1), (completed, 2)):
-        assert any(
-            sample.name == "rl_insight_monitor_identity"
-            and sample.labels == context.labels()
-            and sample.value == value
-            for sample in samples
-        )
-    with pytest.raises(RunError):
-        insight.init(project="other")
+    assert any(
+        sample.name == "rl_insight_monitor_identity"
+        and sample.labels == default.labels()
+        and sample.value == 42
+        for sample in samples
+    )
 finally:
     insight.finish()
     ray.shutdown()

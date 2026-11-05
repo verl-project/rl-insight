@@ -104,11 +104,10 @@ def test_apply_event_should_submit_without_waiting_when_hub_is_verified(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     actor = MagicMock()
-    client = client_module.MonitorRayClient(actor)
     event = {"kind": "counter", "name": "steps", "value": 1}
     get = MagicMock(return_value=__version__)
     monkeypatch.setattr(client_module.ray, "get", get)
-    client.initialize()
+    client = client_module.MonitorRayClient(actor)
 
     client.apply_event(event)
 

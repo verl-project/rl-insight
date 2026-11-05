@@ -68,7 +68,7 @@ class OpenTelemetryTraceCollector:
     def flush(self) -> None:
         """Wait for queued spans without shutting down the shared provider."""
         if self._provider is not None and not self._provider.force_flush():
-            raise TimeoutError("Timed out flushing OpenTelemetry traces")
+            raise TimeoutError("[rl-insight] Timed out flushing OpenTelemetry traces")
 
     def record_span(
         self,
