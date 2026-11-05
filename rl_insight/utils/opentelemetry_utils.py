@@ -45,6 +45,7 @@ class OpenTelemetryTraceCollector:
 
     def __init__(self, namespace: str = "", endpoint: str | None = None) -> None:
         self._tracer = None
+        self._provider: TracerProvider | None = None
         if not endpoint:
             logger.warning(
                 "[rl-insight] OpenTelemetry trace export is disabled because no OTLP endpoint "
@@ -54,6 +55,7 @@ class OpenTelemetryTraceCollector:
 
         _reduce_otel_export_log_noise()
         provider = TracerProvider(resource=Resource.create({SERVICE_NAME: namespace}))
+        self._provider = provider
         provider.add_span_processor(
             BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint))
         )
@@ -62,6 +64,11 @@ class OpenTelemetryTraceCollector:
     @property
     def enabled(self) -> bool:
         return self._tracer is not None
+
+    def flush(self) -> None:
+        """Wait for queued spans without shutting down the shared provider."""
+        if self._provider is not None and not self._provider.force_flush():
+            raise TimeoutError("[rl-insight] Timed out flushing OpenTelemetry traces")
 
     def record_span(
         self,

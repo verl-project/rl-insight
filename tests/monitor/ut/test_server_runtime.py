@@ -398,3 +398,35 @@ def test_auto_port_real_start_retry_and_cleanup(tmp_path, monkeypatch, races):
         finally:
             for process in processes:
                 runtime_module._terminate_process(process)
+
+
+def test_provisioning_uses_direct_sources_and_execution_filters(tmp_path):
+    import json
+
+    conf = load_server_config_file()
+    conf.server.runtime_dir = str(tmp_path / "runtime")
+    conf.server.data_dir = str(tmp_path / "data")
+    runtime = runtime_module.LocalServiceRuntime(conf, tmp_path / "install")
+    files = runtime.prepare_files()
+    provisioning = files.grafana_config.parent / "provisioning/datasources/default.yml"
+    sources = yaml.safe_load(provisioning.read_text())["datasources"]
+    assert {s["uid"] for s in sources} == {"prometheus", "tempo"}
+    assert all("/api/v1/" not in s["url"] for s in sources)
+    dashboards = list((files.grafana_config.parent / "dashboards").rglob("*.json"))
+    assert len(dashboards) >= 5
+    for path in dashboards:
+        dashboard = json.loads(path.read_text())
+        assert "run_id" not in json.dumps(dashboard)
+        for element in dashboard["spec"]["elements"].values():
+            panel = element.get("spec", {})
+            if panel.get("title") in {"state timeline", "state_timeline"}:
+                query = panel["data"]["spec"]["queries"][0]["spec"]["query"]["spec"][
+                    "query"
+                ]
+                assert '"state_interval"' in query and "span.experiment_name" in query
+                partition = next(
+                    t
+                    for t in panel["data"]["spec"]["transformations"]
+                    if t["group"] == "partitionByValues"
+                )
+                assert "experiment_name" in partition["spec"]["options"]["fields"]

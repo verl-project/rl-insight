@@ -25,7 +25,7 @@ from rl_insight.server.http_api import create_app
 from rl_insight.utils.prometheus_utils import PrometheusTargetStore
 
 
-def test_register_targets_should_persist_file_sd_targets_and_reload_prometheus(
+def test_register_targets_should_persist_file_sd_targets_without_reloading_prometheus(
     monkeypatch, tmp_path
 ) -> None:
     conf = OmegaConf.create(
@@ -55,6 +55,6 @@ def test_register_targets_should_persist_file_sd_targets_and_reload_prometheus(
     )
 
     assert result["status"] == "ok"
-    assert result["prometheus_reloaded"] is True
-    reload_prometheus.assert_called_once_with()
+    assert result["prometheus_reloaded"] is False
+    reload_prometheus.assert_not_called()
     assert (tmp_path / "data" / "targets" / "prometheus-targets.yml").exists()

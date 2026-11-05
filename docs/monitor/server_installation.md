@@ -8,6 +8,8 @@ RL-Insight Monitor needs three services before online monitoring can run:
 | Tempo      | stores and queries RL state traces  | `>= 2.0.0`     | `2.6.1`         |
 | Grafana    | shows dashboards and trace views    | `>= 13.0.0`    | `13.0.0`        |
 
+If initialization reports an incompatible version, upgrade the RL-Insight Server and SDK on all training nodes to version 0.4.0 or later, then restart the training job.
+
 Choose one of the three approaches below depending on your network environment. To run the same stack in a container instead of installing services on the host, see the **Run with Docker** section below.
 
 ## Supported Platforms
@@ -38,7 +40,7 @@ Then start the stack:
 rl-insight server start
 ```
 
-Use `rl-insight server start --auto-port` (optionally with `--detach`) to retain available configured ports and replace occupied ports with OS-assigned ports. This includes Tempo's internal gRPC and memberlist ports. Automatic mode waits for readiness and makes up to three startup attempts if a port is taken meanwhile. Actual ports are saved in the runtime config for service discovery, Grafana, and `server targets add`; original YAML is unchanged. Use the printed server and Grafana URLs, which may change between starts. Fixed-port mode is unchanged.
+Use `rl-insight server start --auto-port` (optionally with `--detach`) to retain available configured ports and automatically replace occupied ports. Connect using the printed server and Grafana URLs, which may change between starts.
 
 To use a custom data directory, pass `--log-dir`:
 
@@ -277,6 +279,8 @@ server:
   data_dir: /path/to/rl-insight/data
 ```
 
-## Next Step
+## Selecting experiment executions
 
-Continue with [Quick Start](./quick_start.md) to start the stack, instrument training code, and open Grafana.
+Keep the original project and experiment names in your training configuration. In Grafana, select **Project**, then choose the execution you want from **Experiment**. Each entry includes the configured experiment name, a UTC timestamp and a short suffix, for example `gsm8k_20261028-101530_a1b2c3d4`, so repeated jobs with the same configured name can be selected separately.
+
+Choose multiple executions or **All** to compare runs. Set the dashboard time range to cover the executions you want to inspect.

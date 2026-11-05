@@ -31,14 +31,17 @@ from typing import Any
 from omegaconf import DictConfig, OmegaConf
 
 from .client import create_monitor_client
-from .utils.monitor_config_loader import load_monitor_config
 from .utils import MonitorBackend, MonitorEventKind
+from .utils.constants import MonitorDefaults
+from .utils.monitor_config_loader import load_monitor_config
+from .utils.protocol import RunContext
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
 __all__ = [
     "finish",
+    "get_context",
     "init",
     "metric_count",
     "metric_gauge",
@@ -69,6 +72,7 @@ class _MonitorState:
     namespace: str = ""
     process_id: str = field(default_factory=lambda: str(os.getpid()))
     labels: dict[str, Any] = field(default_factory=dict)
+    context: RunContext | None = None
 
 
 _STATE = _MonitorState()
@@ -79,16 +83,19 @@ def init(
     experiment_name: str | None = None,
     config: Mapping[str, Any] | DictConfig | None = None,
 ) -> None:
-    """Load merged monitor config, create backend client, enable metric/trace helpers (once per process).
+    """Initialize monitoring once per process.
 
     Args:
         project: Optional project name attached to all metrics and traces as the ``project`` label/attribute.
         experiment_name: Optional experiment name attached to all metrics and traces as the
-            ``experiment_name`` label/attribute.
+            ``experiment_name`` label/attribute. The Ray Hub appends one execution suffix;
+            ``get_context().experiment_name`` returns the resulting telemetry name.
         config: Optional dict-like or ``DictConfig`` overrides merged into training defaults; see ``load_monitor_config``.
 
     Note:
-        Repeated calls are ignored with ``RuntimeWarning``. Ray backend requires ``ray.init()`` first.
+        Ray requires ``ray.init()`` first. The first initialization fixes the
+        Hub's experiment names, using defaults if omitted. Repeated calls are
+        ignored with ``RuntimeWarning``.
     """
     global _STATE
     if _STATE.enabled:
@@ -102,6 +109,14 @@ def init(
 
     monitor_conf = load_monitor_config(config)
     backend = str(OmegaConf.select(monitor_conf, "server.backend") or "").strip()
+    metadata = {
+        key: value
+        for key, value in {
+            "project": project,
+            "experiment_name": experiment_name,
+        }.items()
+        if value is not None
+    }
     # Only the Ray backend talks to the external RL-Insight server; direct-emit
     # backends (e.g. push) intentionally run without a server URL.
     if backend == MonitorBackend.RAY and not str(monitor_conf.server.url).strip():
@@ -110,30 +125,45 @@ def init(
             "or server.url in init config."
         )
         return
+    OmegaConf.update(monitor_conf, "run_metadata", metadata, force_add=True)
     client = create_monitor_client(monitor_conf)
+    if client is None:
+        return
+    context = getattr(client, "get_context", lambda: None)()
     labels = {
         key: value
         for key, value in {
-            "project": project,
-            "experiment_name": experiment_name,
+            "project": context.project
+            if context
+            else metadata.get("project", MonitorDefaults.PROJECT_NAME),
+            "experiment_name": context.experiment_name
+            if context
+            else metadata.get("experiment_name", MonitorDefaults.EXPERIMENT_NAME),
         }.items()
         if value is not None
     }
+    previous = _STATE.client
     _STATE = _MonitorState(
         enabled=client is not None,
         client=client,
         conf=monitor_conf,
         namespace=str(monitor_conf.server.namespace),
         labels=labels,
+        context=context,
     )
+    if previous is not None and previous is not client and hasattr(previous, "close"):
+        previous.close()
+
+
+def get_context() -> RunContext | None:
+    """Return an immutable snapshot of the current Run identity and live status."""
+    return _STATE.client.get_context() if _STATE.client else None
 
 
 def finish() -> None:
-    """Clear in-process monitor state so further emits are no-ops.
+    """Flush submitted traces and release the local monitor client.
 
-    Asks the active client to release resources (stop pollers, flush sinks)
-    when it supports ``close``. Does not stop the hub HTTP server or kill the
-    detached Ray actor.
+    The shared Ray Hub remains available until its job exits.
     """
     global _STATE
     client = _STATE.client
@@ -141,7 +171,10 @@ def finish() -> None:
         try:
             client.close()
         except Exception:  # noqa: BLE001 - shutdown must never raise
-            logger.debug("[rl-insight] client.close() failed", exc_info=True)
+            logger.warning(
+                "[rl-insight] Failed to flush monitoring data during finish()",
+                exc_info=True,
+            )
     _STATE = _MonitorState()
     _LANES.clear()
 
@@ -279,7 +312,12 @@ def trace_state(
         Control during the covered code block; the span is emitted on exit.
     """
 
-    if not _STATE.enabled or _STATE.client is None:
+    if _STATE.client is None:
+        conf = load_monitor_config()
+        if str(conf.server.backend).strip() == MonitorBackend.RAY:
+            conf.pop("run_metadata", None)
+            _STATE.client = create_monitor_client(conf)
+    if _STATE.client is None:
         yield
         return
 
@@ -328,6 +366,7 @@ def trace_state(
                 start_time_ns=emit_args[1],
                 end_time_ns=emit_args[2],
                 attributes=emit_args[3],
+                client=_STATE.client,
             )
 
 
@@ -509,7 +548,11 @@ def _emit(
         "name": name,
         "documentation": documentation,
         "value": value,
-        "labels": {**_STATE.labels, **labels},
+        "labels": (
+            _STATE.context.labels({**_STATE.labels, **labels})
+            if _STATE.context
+            else {**_STATE.labels, **labels}
+        ),
     }
     _STATE.client.apply_event(event)
 
@@ -520,6 +563,7 @@ def _emit_trace_span(
     start_time_ns: int,
     end_time_ns: int,
     attributes: dict[str, Any],
+    client: Any | None = None,
 ) -> None:
     """If monitoring is on, send one OTLP root span event (hub may no-op if OTLP is disabled).
 
@@ -529,7 +573,9 @@ def _emit_trace_span(
         end_time_ns: Span end (nanoseconds).
         attributes: Span attributes; ``process_id`` and init-level labels are merged in before send.
     """
-    if not _STATE.enabled or _STATE.client is None:
+    if client is None and _STATE.enabled:
+        client = _STATE.client
+    if client is None:
         return
 
     merged_attributes: dict[str, Any] = {
@@ -537,6 +583,8 @@ def _emit_trace_span(
         **_STATE.labels,
     }
     merged_attributes.update(attributes)
+    if _STATE.context:
+        merged_attributes = _STATE.context.labels(merged_attributes)
 
     event = {
         "kind": MonitorEventKind.TRACE,
@@ -545,4 +593,4 @@ def _emit_trace_span(
         "end_time_ns": int(end_time_ns),
         "attributes": merged_attributes,
     }
-    _STATE.client.apply_event(event)
+    client.apply_event(event)

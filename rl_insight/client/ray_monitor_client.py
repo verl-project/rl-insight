@@ -22,14 +22,25 @@ from typing import Any, cast
 import ray
 from omegaconf import DictConfig
 
+from .. import __version__
 from ..collector.ray_monitor_hub import MonitorHubActor
-from ..utils.constants import MonitorEnv, MonitorRayActor
+from ..server.http_api import initialize_server_connection
+from ..utils.constants import MonitorRayActor, MonitorServer
+from ..utils.protocol import RunContext, require_version
 from .base import MonitorClient
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
-__all__ = ["MonitorRayClient", "create_ray_monitor_client", "get_or_create_monitor_hub"]
+__all__ = [
+    "MonitorRayClient",
+    "create_ray_monitor_client",
+    "get_or_create_monitor_hub",
+    "initialize_hub_connection",
+]
+
+# Named handles are weak; retain creating handles for the Ray job's lifetime.
+_hub_owners: list[Any] = []
 
 
 def _current_job_actor_name() -> str:
@@ -39,26 +50,20 @@ def _current_job_actor_name() -> str:
     return f"{MonitorRayActor.NAME}_{job_id_str}"
 
 
-def get_or_create_monitor_hub(conf: DictConfig) -> Any:
-    """Get or create a job-scoped MonitorHubActor with health check.
+def initialize_hub_connection(
+    hub: Any, *, timeout: float, conf: DictConfig | None = None
+) -> None:
+    """Verify the Hub version before applying task configuration."""
+    version = ray.get(hub.connect.remote(__version__), timeout=timeout)
+    require_version(version, "Ray Hub")
+    if conf is not None:
+        ray.get(hub.init.remote(conf), timeout=timeout)
 
-    Each Ray job gets its own hub actor named
-    ``MonitorRayActor.NAME_{job_id}``. The actor is not detached, so it
-    cleans up automatically when the job exits.
 
-    Args:
-        conf: Merged trainer monitor config passed to the actor constructor.
-
-    Returns:
-        Ray actor handle for ``MonitorHubActor``.
-
-    Raises:
-        RuntimeError: If Ray is not initialized.
-    """
-
+def get_or_create_monitor_hub() -> Any:
+    """Get or create the current job's Hub, reusing concurrent creations."""
     actor_name = _current_job_actor_name()
     namespace = MonitorRayActor.NAMESPACE
-
     try:
         handle = ray.get_actor(actor_name, namespace=namespace)
         logger.info(
@@ -74,15 +79,8 @@ def get_or_create_monitor_hub(conf: DictConfig) -> Any:
         "name": actor_name,
         "namespace": namespace,
     }
-    server_url = str(conf.server.url).strip()
-    if server_url:
-        actor_options["runtime_env"] = {
-            "env_vars": {MonitorEnv.SERVER_URL: server_url},
-        }
-
     try:
-        actor_cls = cast(Any, MonitorHubActor)
-        return actor_cls.options(**actor_options).remote(conf)
+        hub = cast(Any, MonitorHubActor).options(**actor_options).remote()
     except ValueError:
         logger.info(
             "[rl-insight] Monitor hub actor %r was created concurrently; "
@@ -90,6 +88,8 @@ def get_or_create_monitor_hub(conf: DictConfig) -> Any:
             actor_name,
         )
         return ray.get_actor(actor_name, namespace=namespace)
+    _hub_owners.append(hub)
+    return hub
 
 
 def create_ray_monitor_client(conf: DictConfig) -> MonitorRayClient | None:
@@ -105,19 +105,37 @@ def create_ray_monitor_client(conf: DictConfig) -> MonitorRayClient | None:
         logger.warning("[rl-insight] Ray is not initialized; monitoring is disabled.")
         return None
 
-    handle = get_or_create_monitor_hub(conf)
-    return MonitorRayClient(handle)
+    task_conf = conf if conf.get("run_metadata") is not None else None
+    if task_conf is not None:
+        initialize_server_connection(str(task_conf.server.url))
+    handle = get_or_create_monitor_hub()
+    return MonitorRayClient(handle, task_conf)
 
 
 class MonitorRayClient(MonitorClient):
     """Ray facade: ``apply_event`` submits work to the hub without blocking on completion."""
 
-    def __init__(self, actor_handle: Any) -> None:
+    def __init__(self, actor_handle: Any, conf: DictConfig | None = None) -> None:
         """
         Args:
             actor_handle: Return value of ``get_or_create_monitor_hub``.
+            conf: Formal task configuration, or ``None`` to only connect.
         """
         self._actor = actor_handle
+        # Includes service discovery and actor scheduling during initialization.
+        self._timeout = (
+            MonitorServer.SERVICE_DISCOVERY_RETRIES
+            * (
+                MonitorServer.SERVICE_DISCOVERY_TIMEOUT_SECONDS
+                + MonitorServer.SERVICE_DISCOVERY_RETRY_DELAY_SECONDS
+            )
+            + 30
+        )
+
+        initialize_hub_connection(self._actor, timeout=self._timeout, conf=conf)
+
+    def get_context(self) -> RunContext | None:
+        return ray.get(self._actor.get_context.remote(), timeout=self._timeout)
 
     def apply_event(self, event: dict[str, Any]) -> None:
         """Submit ``MonitorHubActor.apply_event`` on the actor (fire-and-forget; no ``ray.get``).
@@ -129,3 +147,7 @@ class MonitorRayClient(MonitorClient):
             Errors on the hub side are not surfaced here. Ordering follows Ray actor scheduling.
         """
         self._actor.apply_event.remote(event)
+
+    def close(self) -> None:
+        """Drain the shared Hub after event producers have stopped."""
+        ray.get(self._actor.flush.remote(), timeout=self._timeout)
