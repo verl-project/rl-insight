@@ -54,6 +54,18 @@ class _SmokeTrajectory:
     num_turns: int
 
 
+def _otlp_string(key: str, value: str) -> dict[str, Any]:
+    return {"key": key, "value": {"stringValue": value}}
+
+
+def _otlp_double(key: str, value: float) -> dict[str, Any]:
+    return {"key": key, "value": {"doubleValue": value}}
+
+
+def _otlp_int(key: str, value: int) -> dict[str, Any]:
+    return {"key": key, "value": {"intValue": str(value)}}
+
+
 def _wait_for_json(
     url: str,
     *,
@@ -210,6 +222,135 @@ def test_monitor_trace_state_should_be_queryable_when_interval_is_reported(
 
     assert trace_name in serialized_trace
     assert TEST_RUN_ID in serialized_trace
+
+
+def test_engine_request_trace_should_preserve_native_attributes(
+    monitor_stack: dict[str, str],
+) -> None:
+    """Post a vLLM-shaped llm_request span and verify Tempo keeps every field."""
+    trace_id = uuid.uuid5(uuid.NAMESPACE_URL, f"inference-{TEST_RUN_ID}").hex
+    span_id = uuid.uuid4().hex[:16]
+    request_id = f"req-{TEST_RUN_ID}"
+    start_ns = time.time_ns()
+    end_ns = start_ns + 1_250_000_000
+    expected_attributes = (
+        "gen_ai.request.id",
+        "gen_ai.latency.e2e",
+        "gen_ai.latency.time_to_first_token",
+        "gen_ai.latency.time_in_queue",
+        "gen_ai.latency.time_in_model_prefill",
+        "gen_ai.latency.time_in_model_decode",
+        "gen_ai.latency.time_in_model_inference",
+        "gen_ai.usage.prompt_tokens",
+        "gen_ai.usage.completion_tokens",
+        "gen_ai.response.finish_reasons",
+        # Defined by vLLM but not emitted by every release; must stay raw.
+        "gen_ai.latency.time_in_scheduler",
+        "gen_ai.latency.time_in_model_forward",
+        "gen_ai.latency.time_in_model_execute",
+        # Correlation attributes added by the rollout adapter.
+        "global_steps",
+        "turn",
+        "traj",
+        "sample",
+        "session",
+    )
+
+    payload = {
+        "resourceSpans": [
+            {
+                "resource": {
+                    "attributes": [
+                        _otlp_string("project", "rl-insight-e2e"),
+                        _otlp_string("experiment_name", EXPERIMENT_NAME),
+                        _otlp_string("replica", "0"),
+                    ]
+                },
+                "scopeSpans": [
+                    {
+                        "scope": {"name": "vllm.engine_core"},
+                        "spans": [
+                            {
+                                "traceId": trace_id,
+                                "spanId": span_id,
+                                "name": "llm_request",
+                                "kind": 2,
+                                "startTimeUnixNano": str(start_ns),
+                                "endTimeUnixNano": str(end_ns),
+                                "attributes": [
+                                    _otlp_string("gen_ai.request.id", request_id),
+                                    _otlp_string(
+                                        "gen_ai.response.finish_reasons", "stop"
+                                    ),
+                                    _otlp_double("gen_ai.latency.e2e", 1.25),
+                                    _otlp_double(
+                                        "gen_ai.latency.time_to_first_token", 0.2
+                                    ),
+                                    _otlp_double("gen_ai.latency.time_in_queue", 0.01),
+                                    _otlp_double(
+                                        "gen_ai.latency.time_in_model_prefill", 0.15
+                                    ),
+                                    _otlp_double(
+                                        "gen_ai.latency.time_in_model_decode", 1.0
+                                    ),
+                                    _otlp_double(
+                                        "gen_ai.latency.time_in_model_inference", 1.15
+                                    ),
+                                    _otlp_double(
+                                        "gen_ai.latency.time_in_scheduler", 0.02
+                                    ),
+                                    _otlp_double(
+                                        "gen_ai.latency.time_in_model_forward", 0.12
+                                    ),
+                                    _otlp_double(
+                                        "gen_ai.latency.time_in_model_execute", 0.18
+                                    ),
+                                    _otlp_int("gen_ai.usage.prompt_tokens", 16),
+                                    _otlp_int("gen_ai.usage.completion_tokens", 8),
+                                    _otlp_int("global_steps", 2),
+                                    _otlp_int("turn", 0),
+                                    _otlp_int("traj", 0),
+                                    _otlp_string("sample", "0"),
+                                    _otlp_string("session", "0"),
+                                    _otlp_string("test_run", TEST_RUN_ID),
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+
+    response = requests.post(
+        f"{monitor_stack['otlp']}/v1/traces", json=payload, timeout=5
+    )
+    assert response.ok, response.text
+
+    search = _wait_for_json(
+        f"{monitor_stack['tempo']}/api/search",
+        params={
+            "q": (
+                '{ name = "llm_request" && '
+                'resource.project = "rl-insight-e2e" && '
+                f'resource.experiment_name = "{EXPERIMENT_NAME}" && '
+                'resource.replica = "0" && '
+                "span.global_steps = 2 && "
+                "span.traj = 0 && "
+                'span.sample = "0" && '
+                'span.session = "0" && '
+                f'span.test_run = "{TEST_RUN_ID}" }}'
+            )
+        },
+        ready=lambda data: bool(data.get("traces")),
+    )
+    assert search["traces"][0]["traceID"] == trace_id
+
+    trace = _wait_for_json(f"{monitor_stack['tempo']}/api/traces/{trace_id}")
+    serialized_trace = json.dumps(trace)
+    assert request_id in serialized_trace
+    for attribute in expected_attributes:
+        assert attribute in serialized_trace, attribute
 
 
 def test_agent_loop_dashboard_should_query_generated_protocol_data(

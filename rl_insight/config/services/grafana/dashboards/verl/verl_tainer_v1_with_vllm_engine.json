@@ -4238,7 +4238,7 @@
                       "spec": {
                         "limit": 10000,
                         "metricsQueryType": "range",
-                        "query": "{span.state_lane_id!=\"\"}",
+                        "query": "{span.monitor.trace_segment=\"state_interval\"} | select(span.state_lane_id)",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 100,
@@ -4368,7 +4368,8 @@
                         "Trace Service": true,
                         "traceIdHidden": true,
                         "state_lane_prefix": true,
-                        "state_lane_num": true
+                        "state_lane_num": true,
+                        "monitor.trace_segment": true
                       },
                       "includeByName": {},
                       "indexByName": {},
@@ -7384,6 +7385,639 @@
             }
           }
         }
+      },
+      "panel-351": {
+        "kind": "Panel",
+        "spec": {
+          "id": 351,
+          "title": "Inference requests",
+          "description": "Matching vLLM llm_request spans, newest first (max 20000). The Step filter defaults to the newest step; choose All to search every step. Timing values are native gen_ai.latency.* attributes in seconds; empty cells mean the engine did not export the field. Use Trace to inspect the raw span.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "tempo"
+                      },
+                      "spec": {
+                        "limit": 20000,
+                        "metricsQueryType": "range",
+                        "query": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" && (resource.replica =~ \"^($trace_replica)$\" || \"$trace_replica\" = \".*\") && (span.global_steps = $step || $step = -1) && (span.sample =~ \"^($sample)$\" || \"$sample\" = \".*\") } | select(span.gen_ai.response.model, span.gen_ai.response.finish_reasons, span.gen_ai.latency.e2e, span.gen_ai.latency.time_to_first_token, span.gen_ai.latency.time_in_queue, span.gen_ai.latency.time_in_scheduler, span.gen_ai.latency.time_in_model_prefill, span.gen_ai.latency.time_in_model_forward, span.gen_ai.latency.time_in_model_execute, span.gen_ai.latency.time_in_model_decode, span.gen_ai.latency.time_in_model_inference, span.gen_ai.usage.prompt_tokens, span.gen_ai.usage.completion_tokens, span.gen_ai.request.max_tokens, span.global_steps, span.turn, span.sample, resource.replica)",
+                        "queryType": "traceql",
+                        "serviceMapUseNativeHistograms": false,
+                        "spss": 100,
+                        "tableType": "spans"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [
+                {
+                  "kind": "Transformation",
+                  "group": "convertFieldType",
+                  "spec": {
+                    "options": {
+                      "conversions": [
+                        {
+                          "destinationType": "number",
+                          "targetField": "gen_ai.latency.e2e"
+                        },
+                        {
+                          "destinationType": "number",
+                          "targetField": "gen_ai.latency.time_to_first_token"
+                        },
+                        {
+                          "destinationType": "number",
+                          "targetField": "gen_ai.latency.time_in_queue"
+                        },
+                        {
+                          "destinationType": "number",
+                          "targetField": "gen_ai.latency.time_in_scheduler"
+                        },
+                        {
+                          "destinationType": "number",
+                          "targetField": "gen_ai.latency.time_in_model_prefill"
+                        },
+                        {
+                          "destinationType": "number",
+                          "targetField": "gen_ai.latency.time_in_model_forward"
+                        },
+                        {
+                          "destinationType": "number",
+                          "targetField": "gen_ai.latency.time_in_model_execute"
+                        },
+                        {
+                          "destinationType": "number",
+                          "targetField": "gen_ai.latency.time_in_model_decode"
+                        },
+                        {
+                          "destinationType": "number",
+                          "targetField": "gen_ai.latency.time_in_model_inference"
+                        },
+                        {
+                          "destinationType": "number",
+                          "targetField": "gen_ai.usage.prompt_tokens"
+                        },
+                        {
+                          "destinationType": "number",
+                          "targetField": "gen_ai.usage.completion_tokens"
+                        },
+                        {
+                          "destinationType": "number",
+                          "targetField": "gen_ai.request.max_tokens"
+                        },
+                        {
+                          "destinationType": "number",
+                          "targetField": "global_steps"
+                        },
+                        {
+                          "destinationType": "number",
+                          "targetField": "turn"
+                        }
+                      ],
+                      "fields": {}
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "calculateField",
+                  "spec": {
+                    "options": {
+                      "alias": "Decode tok/s",
+                      "binary": {
+                        "left": {
+                          "matcher": {
+                            "id": "byName",
+                            "options": "gen_ai.usage.completion_tokens"
+                          }
+                        },
+                        "operator": "/",
+                        "right": {
+                          "matcher": {
+                            "id": "byName",
+                            "options": "gen_ai.latency.time_in_model_decode"
+                          }
+                        }
+                      },
+                      "mode": "binary",
+                      "reduce": {
+                        "reducer": "sum"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "organize",
+                  "spec": {
+                    "options": {
+                      "excludeByName": {
+                        "traceService": true,
+                        "traceName": true,
+                        "service.name": true,
+                        "name": true,
+                        "duration": true,
+                        "project": true,
+                        "experiment_name": true
+                      },
+                      "includeByName": {},
+                      "indexByName": {
+                        "Start time": 0,
+                        "Span ID": 1,
+                        "replica": 2,
+                        "global_steps": 3,
+                        "turn": 4,
+                        "sample": 5,
+                        "gen_ai.latency.e2e": 6,
+                        "gen_ai.latency.time_to_first_token": 7,
+                        "gen_ai.latency.time_in_queue": 8,
+                        "gen_ai.latency.time_in_model_prefill": 9,
+                        "gen_ai.latency.time_in_model_decode": 10,
+                        "Decode tok/s": 11,
+                        "gen_ai.usage.prompt_tokens": 12,
+                        "gen_ai.usage.completion_tokens": 13,
+                        "gen_ai.request.max_tokens": 14,
+                        "gen_ai.response.finish_reasons": 15,
+                        "gen_ai.latency.time_in_model_inference": 16,
+                        "gen_ai.latency.time_in_scheduler": 17,
+                        "gen_ai.latency.time_in_model_forward": 18,
+                        "gen_ai.latency.time_in_model_execute": 19,
+                        "gen_ai.response.model": 20
+                      },
+                      "renameByName": {
+                        "Start time": "Start",
+                        "Span ID": "Trace",
+                        "gen_ai.response.model": "Model",
+                        "gen_ai.response.finish_reasons": "Finish reasons",
+                        "replica": "Replica",
+                        "gen_ai.latency.e2e": "E2E (s)",
+                        "gen_ai.latency.time_to_first_token": "TTFT (s)",
+                        "gen_ai.latency.time_in_queue": "Queue wait (s)",
+                        "gen_ai.latency.time_in_scheduler": "Scheduler wait (s)",
+                        "gen_ai.latency.time_in_model_prefill": "Prefill (s)",
+                        "gen_ai.latency.time_in_model_forward": "Forward (s)",
+                        "gen_ai.latency.time_in_model_execute": "Execute (s)",
+                        "gen_ai.latency.time_in_model_decode": "Decode (s)",
+                        "gen_ai.latency.time_in_model_inference": "Model inference (s)",
+                        "gen_ai.usage.prompt_tokens": "Prompt tokens",
+                        "gen_ai.usage.completion_tokens": "Completion tokens",
+                        "gen_ai.request.max_tokens": "Max tokens",
+                        "global_steps": "Step",
+                        "turn": "Turn",
+                        "sample": "Sample"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "sortBy",
+                  "spec": {
+                    "options": {
+                      "fields": {},
+                      "sort": [
+                        {
+                          "field": "Start",
+                          "desc": true
+                        }
+                      ]
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "version": "13.0.2",
+            "spec": {
+              "options": {
+                "cellHeight": "sm",
+                "enablePagination": true,
+                "showHeader": true,
+                "frozenColumns": {
+                  "left": 2
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "inspect": false
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "noValue": "-"
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "E2E (s)"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "s"
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 110
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "gauge",
+                          "mode": "gradient",
+                          "valueDisplayMode": "text"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "TTFT (s)"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "s"
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 110
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "gauge",
+                          "mode": "gradient",
+                          "valueDisplayMode": "text"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Queue wait (s)"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "s"
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 110
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "gauge",
+                          "mode": "gradient",
+                          "valueDisplayMode": "text"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Scheduler wait (s)"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "s"
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 110
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "gauge",
+                          "mode": "gradient",
+                          "valueDisplayMode": "text"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Prefill (s)"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "s"
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 110
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "gauge",
+                          "mode": "gradient",
+                          "valueDisplayMode": "text"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Forward (s)"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "s"
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 110
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "gauge",
+                          "mode": "gradient",
+                          "valueDisplayMode": "text"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Execute (s)"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "s"
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 110
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "gauge",
+                          "mode": "gradient",
+                          "valueDisplayMode": "text"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Decode (s)"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "s"
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 110
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "gauge",
+                          "mode": "gradient",
+                          "valueDisplayMode": "text"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Model inference (s)"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "s"
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 110
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "gauge",
+                          "mode": "gradient",
+                          "valueDisplayMode": "text"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Prompt tokens"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 130
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Completion tokens"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 130
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Max tokens"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 130
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Replica"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 80
+                      },
+                      {
+                        "id": "unit",
+                        "value": "none"
+                      },
+                      {
+                        "id": "decimals",
+                        "value": 0
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Model"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 200
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Finish reasons"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 140
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Start"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 170
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Trace"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 130
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Decode tok/s"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "cps"
+                      },
+                      {
+                        "id": "decimals",
+                        "value": 1
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 120
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Step"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 70
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Turn"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 70
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Sample"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 90
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "layout": {
@@ -7811,6 +8445,174 @@
                         "element": {
                           "kind": "ElementReference",
                           "name": "panel-36"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "kind": "RowsLayoutRow",
+            "spec": {
+              "title": "vLLM request traces",
+              "collapse": true,
+              "variables": [
+                {
+                  "kind": "QueryVariable",
+                  "spec": {
+                    "name": "step",
+                    "label": "Step",
+                    "current": {
+                      "text": "",
+                      "value": ""
+                    },
+                    "hide": "dontHide",
+                    "refresh": "onTimeRangeChanged",
+                    "skipUrlSync": false,
+                    "description": "Trainer global step for the selected project and experiment; defaults to the newest step, All searches every step.",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "tempo"
+                      },
+                      "spec": {
+                        "queryType": "traceql",
+                        "refId": "StandardVariableQuery",
+                        "type": 1,
+                        "label": "global_steps",
+                        "query": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" }"
+                      }
+                    },
+                    "regex": "/^[0-9]+$/",
+                    "regexApplyTo": "value",
+                    "sort": "numericalDesc",
+                    "definition": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" }",
+                    "options": [],
+                    "multi": false,
+                    "includeAll": false,
+                    "allValue": "-1",
+                    "staticOptions": [
+                      {
+                        "text": "All",
+                        "value": "-1"
+                      }
+                    ],
+                    "staticOptionsOrder": "after",
+                    "allowCustomValue": true
+                  }
+                },
+                {
+                  "kind": "QueryVariable",
+                  "spec": {
+                    "name": "trace_replica",
+                    "label": "Replica",
+                    "current": {
+                      "text": "All",
+                      "value": "$__all"
+                    },
+                    "hide": "dontHide",
+                    "refresh": "onTimeRangeChanged",
+                    "skipUrlSync": false,
+                    "description": "Rollout replica rank for the selected project and experiment; All searches every replica.",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "tempo"
+                      },
+                      "spec": {
+                        "queryType": "traceql",
+                        "refId": "StandardVariableQuery",
+                        "type": 1,
+                        "label": "replica",
+                        "query": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" }"
+                      }
+                    },
+                    "regex": "/.+/",
+                    "regexApplyTo": "value",
+                    "sort": "numericalAsc",
+                    "definition": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" }",
+                    "options": [],
+                    "multi": true,
+                    "includeAll": true,
+                    "allValue": ".*",
+                    "allowCustomValue": true
+                  }
+                },
+                {
+                  "kind": "QueryVariable",
+                  "spec": {
+                    "name": "sample",
+                    "label": "Sample",
+                    "current": {
+                      "text": "All",
+                      "value": "$__all"
+                    },
+                    "hide": "dontHide",
+                    "refresh": "onTimeRangeChanged",
+                    "skipUrlSync": false,
+                    "description": "Dataset sample id for the selected project and experiment; one sample has rollout.n trajectories. Prefer the Sample column when the step matters.",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "tempo"
+                      },
+                      "spec": {
+                        "queryType": "traceql",
+                        "refId": "StandardVariableQuery",
+                        "type": 1,
+                        "label": "sample",
+                        "query": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" }"
+                      }
+                    },
+                    "regex": "/.+/",
+                    "regexApplyTo": "value",
+                    "sort": "numericalAsc",
+                    "definition": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" }",
+                    "options": [],
+                    "multi": true,
+                    "includeAll": true,
+                    "allValue": ".*",
+                    "allowCustomValue": true
+                  }
+                }
+              ],
+              "layout": {
+                "kind": "RowsLayout",
+                "spec": {
+                  "rows": [
+                    {
+                      "kind": "RowsLayoutRow",
+                      "spec": {
+                        "title": "",
+                        "hideHeader": true,
+                        "collapse": false,
+                        "layout": {
+                          "kind": "AutoGridLayout",
+                          "spec": {
+                            "maxColumnCount": 1,
+                            "columnWidthMode": "standard",
+                            "rowHeightMode": "custom",
+                            "rowHeight": 864,
+                            "items": [
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-351"
+                                  }
+                                }
+                              }
+                            ]
+                          }
                         }
                       }
                     }
@@ -8773,14 +9575,14 @@
             "version": "v0",
             "spec": {
               "qryType": 1,
-              "query": "label_values(vllm:request_prompt_tokens_sum,replica)",
+              "query": "label_values({__name__=~\"vllm:.*\", replica=~\".+\"}, replica)",
               "refId": "PrometheusVariableQueryEditor-VariableQuery"
             }
           },
           "regex": "",
           "regexApplyTo": "value",
           "sort": "disabled",
-          "definition": "label_values(vllm:request_prompt_tokens_sum,replica)",
+          "definition": "label_values({__name__=~\"vllm:.*\", replica=~\".+\"}, replica)",
           "options": [],
           "multi": false,
           "includeAll": true,

@@ -15,3 +15,21 @@ storage:
       path: /tmp/tempo/traces
     wal:
       path: /tmp/tempo/wal
+    block:
+      # Store dashboard filter attributes in dedicated Parquet columns so a
+      # TraceQL search reads those columns instead of decoding all generic
+      # attributes. Dedicated columns require vParquet3 or newer; this project
+      # configures string columns only.
+      parquet_dedicated_columns:
+        - name: project
+          type: string
+          scope: resource
+        - name: experiment_name
+          type: string
+          scope: resource
+        - name: replica
+          type: string
+          scope: resource
+        - name: sample
+          type: string
+          scope: span
