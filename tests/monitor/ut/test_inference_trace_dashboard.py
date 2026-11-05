@@ -32,6 +32,10 @@ _DASHBOARD = (
 )
 _TRACE_ROW_TITLE = "vLLM request traces"
 _TRACE_SPAN_NAME = "llm_request"
+_ROW_VARIABLE_QUERY = (
+    '{ name = "llm_request" && resource.project =~ "$project" '
+    '&& resource.experiment_name =~ "$experiment_name" }'
+)
 
 _NATIVE_LATENCY_ATTRIBUTES = (
     "gen_ai.latency.e2e",
@@ -184,10 +188,11 @@ def test_trace_row_should_expose_step_sample_and_replica_filters() -> None:
     }
 
     # Trajectory and Session have no dropdowns: the raw trace covers them. The
-    # span cap is fixed in the query, so there is no limit variable.
+    # result cap is fixed in the query, so there is no limit variable.
     assert list(variables) == ["step", "trace_replica", "sample"]
     assert variables["step"]["label"] == "Step"
-    assert variables["step"]["definition"] == "label_values(global_steps)"
+    assert variables["step"]["definition"] == _ROW_VARIABLE_QUERY
+    assert variables["step"]["query"]["spec"]["query"] == _ROW_VARIABLE_QUERY
     assert variables["step"]["multi"] is False
     # Grafana selects All whenever includeAll is on and no value is saved, so
     # step trades the built-in All option for a trailing static All option.
@@ -200,13 +205,15 @@ def test_trace_row_should_expose_step_sample_and_replica_filters() -> None:
     assert variables["step"]["current"] == {"text": "", "value": ""}
     assert variables["step"]["sort"] == "numericalDesc"
     assert variables["sample"]["label"] == "Sample"
-    assert variables["sample"]["definition"] == "label_values(sample)"
+    assert variables["sample"]["definition"] == _ROW_VARIABLE_QUERY
+    assert variables["sample"]["query"]["spec"]["query"] == _ROW_VARIABLE_QUERY
     assert variables["sample"]["multi"] is True
     assert variables["sample"]["includeAll"] is True
     assert variables["sample"]["allValue"] == ".*"
     assert variables["sample"]["sort"] == "numericalAsc"
     assert variables["trace_replica"]["label"] == "Replica"
-    assert variables["trace_replica"]["definition"] == "label_values(replica)"
+    assert variables["trace_replica"]["definition"] == _ROW_VARIABLE_QUERY
+    assert variables["trace_replica"]["query"]["spec"]["query"] == _ROW_VARIABLE_QUERY
     assert variables["trace_replica"]["multi"] is True
     assert variables["trace_replica"]["includeAll"] is True
     assert variables["trace_replica"]["allValue"] == ".*"
@@ -260,10 +267,10 @@ def test_state_timeline_should_only_query_state_interval_spans() -> None:
     assert organize["excludeByName"]["monitor.trace_segment"] is True
 
 
-def test_trace_table_should_use_a_fixed_span_limit() -> None:
+def test_trace_table_should_use_a_fixed_result_limit() -> None:
     # Tempo requires a numeric limit and does not interpolate dashboard
-    # variables into that field, so the row has one table with a fixed cap and
-    # no limit selector.
+    # variables into that field, so the row has one table with a fixed result
+    # cap and no limit selector.
     spec = _load_spec()
     panels = _trace_tables(spec)
     assert len(panels) == 1
@@ -280,6 +287,13 @@ def test_trace_row_should_be_collapsed_by_default() -> None:
     assert row is not None, f"missing dashboard row: {_TRACE_ROW_TITLE}"
 
     assert row["collapse"] is True
+
+
+def test_trace_table_should_freeze_start_and_trace_columns() -> None:
+    for panel in _trace_tables(_load_spec()):
+        options = panel["vizConfig"]["spec"]["options"]
+
+        assert options["frozenColumns"] == {"left": 2}
 
 
 def test_trace_tables_should_use_gauge_cells() -> None:

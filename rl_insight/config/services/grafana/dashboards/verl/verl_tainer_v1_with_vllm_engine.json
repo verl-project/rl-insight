@@ -7608,7 +7608,10 @@
               "options": {
                 "cellHeight": "sm",
                 "enablePagination": true,
-                "showHeader": true
+                "showHeader": true,
+                "frozenColumns": {
+                  "left": 2
+                }
               },
               "fieldConfig": {
                 "defaults": {
@@ -8468,7 +8471,7 @@
                     "hide": "dontHide",
                     "refresh": "onTimeRangeChanged",
                     "skipUrlSync": false,
-                    "description": "Trainer global step; defaults to the newest step, All searches every step.",
+                    "description": "Trainer global step for the selected project and experiment; defaults to the newest step, All searches every step.",
                     "query": {
                       "kind": "DataQuery",
                       "group": "tempo",
@@ -8480,13 +8483,14 @@
                         "queryType": "traceql",
                         "refId": "StandardVariableQuery",
                         "type": 1,
-                        "label": "global_steps"
+                        "label": "global_steps",
+                        "query": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" }"
                       }
                     },
                     "regex": "/^[0-9]+$/",
                     "regexApplyTo": "value",
                     "sort": "numericalDesc",
-                    "definition": "label_values(global_steps)",
+                    "definition": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" }",
                     "options": [],
                     "multi": false,
                     "includeAll": false,
@@ -8513,7 +8517,7 @@
                     "hide": "dontHide",
                     "refresh": "onTimeRangeChanged",
                     "skipUrlSync": false,
-                    "description": "Rollout replica rank; All searches every replica.",
+                    "description": "Rollout replica rank for the selected project and experiment; All searches every replica.",
                     "query": {
                       "kind": "DataQuery",
                       "group": "tempo",
@@ -8525,13 +8529,14 @@
                         "queryType": "traceql",
                         "refId": "StandardVariableQuery",
                         "type": 1,
-                        "label": "replica"
+                        "label": "replica",
+                        "query": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" }"
                       }
                     },
                     "regex": "/.+/",
                     "regexApplyTo": "value",
                     "sort": "numericalAsc",
-                    "definition": "label_values(replica)",
+                    "definition": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" }",
                     "options": [],
                     "multi": true,
                     "includeAll": true,
@@ -8551,7 +8556,7 @@
                     "hide": "dontHide",
                     "refresh": "onTimeRangeChanged",
                     "skipUrlSync": false,
-                    "description": "Dataset sample id; one sample has rollout.n trajectories. Prefer the Sample column when the step matters.",
+                    "description": "Dataset sample id for the selected project and experiment; one sample has rollout.n trajectories. Prefer the Sample column when the step matters.",
                     "query": {
                       "kind": "DataQuery",
                       "group": "tempo",
@@ -8563,13 +8568,14 @@
                         "queryType": "traceql",
                         "refId": "StandardVariableQuery",
                         "type": 1,
-                        "label": "sample"
+                        "label": "sample",
+                        "query": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" }"
                       }
                     },
                     "regex": "/.+/",
                     "regexApplyTo": "value",
                     "sort": "numericalAsc",
-                    "definition": "label_values(sample)",
+                    "definition": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" }",
                     "options": [],
                     "multi": true,
                     "includeAll": true,

@@ -1148,7 +1148,7 @@ def _select_str(conf: DictConfig, key: str) -> str:
 
 
 def _tempo_supports_dedicated_columns(version: str) -> bool:
-    """Dedicated columns need vParquet3, which Tempo 2.4+ writes by default."""
+    """Dedicated columns need vParquet3, the default block format from Tempo 2.4."""
     match = re.search(r"(\d+)\.(\d+)", version.strip())
     if match is None:
         # A custom binary may report no version; keep the template as-is.

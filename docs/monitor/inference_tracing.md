@@ -16,8 +16,10 @@ verl rollout replica (vLLM)
 ```
 
 The rollout replica discovers the Tempo OTLP endpoint from the RL-Insight server
-(`GET /api/v1/services` → `otlp_port`), so there is no separate Tempo URL to
-configure for verl.
+(`GET /api/v1/services` → `otlp_port`), so the default setup has no separate
+Tempo URL to configure for verl. Set
+`actor_rollout_ref.rollout.engine_kwargs.vllm.otlp_traces_endpoint` to override
+the discovered endpoint.
 
 ## Enable tracing
 
@@ -26,8 +28,8 @@ Prerequisites:
 - The RL-Insight server stack is running with Tempo enabled (`rl-insight server start`).
 - `RL_INSIGHT_SERVER_URL` points at the RL-Insight server in every rollout worker.
 - `trainer.logger` contains `rl_insight`.
-- verl includes the `actor_rollout_ref.rollout.trace.enable_otel` switch
-  ([verl PR #8158](https://github.com/verl-project/verl/pull/8158)).
+- The verl build includes the `actor_rollout_ref.rollout.trace.enable_otel`
+  switch. The switch is implemented for the vLLM rollout engine only.
 
 ```bash
 export RL_INSIGHT_SERVER_URL=http://<server-ip>:18080
@@ -38,7 +40,7 @@ python3 -m verl.trainer.main_ppo \
     ...
 ```
 
-When the switch is enabled, each rollout replica:
+With endpoint discovery, each rollout replica:
 
 1. Reads `otlp_port` from `GET /api/v1/services` and exports to
    `http://<server-host>:<otlp_port>/v1/traces`.
@@ -48,8 +50,8 @@ When the switch is enabled, each rollout replica:
    `replica`. The first two default to `trainer.project_name` and
    `trainer.experiment_name`.
 
-Tracing is opt-in. If the server is disabled, the status has no OTLP port, or the
-export fails, rollout continues without tracing.
+With endpoint discovery, tracing is opt-in. If the server is disabled, the
+status has no OTLP port, or the export fails, rollout continues without tracing.
 
 ## Correlation schema
 
@@ -67,8 +69,10 @@ These attributes are attached to every span exported by the replica.
 
 ### Per-request correlation attributes
 
-The rollout adapter attaches these attributes when it has the information.
-RL-Insight displays them when present and never fabricates them.
+These attributes are not part of vLLM's native span schema. They are optional:
+RL-Insight displays them when the tracing integration supplies them and never
+fabricates them; when they are absent, the Step, Sample, and Turn columns stay
+empty and the Step filter offers only All.
 
 | Attribute | Type | Meaning |
 |---|---|---|
@@ -113,7 +117,8 @@ native attribute names and units; it does not rename or reinterpret them.
 | `gen_ai.response.finish_reasons` | string | Finish reason, when supplied |
 
 Version-dependent fields are absent when the running engine does not supply
-them. The dashboard shows `-` and never derives or back-fills a value.
+them. The dashboard shows `-` for missing native fields; its only derived column
+is **decode tok/s**.
 
 Rules:
 
@@ -130,22 +135,24 @@ Open Grafana → `verl_trainer_v1_with_vllm_engine` → **vLLM request traces**.
 The row is collapsed by default; expand it to load the single **Inference
 requests** table. It lists matching requests newest first, links each row to its
 raw trace, and sorts by **E2E (s)** when that header is clicked. **Step**
-defaults to the newest step, so expanding the row does not scan every request of
-the run; select **All** only when the full history is needed.
+defaults to the newest step when its correlation attribute is present, so
+expanding the row does not scan every request of the run; select **All** only
+when the full history is needed.
 
-The query has a fixed cap of 20000 spans. Tempo's search limit is numeric and
-Grafana cannot interpolate a dashboard variable into it, so the cap lives in the
-query and the table paginates the result. Tempo applies the cap before Grafana
-sorts, so narrow the Step or time range when a run exceeds it; edit the query
-`limit` to change the cap.
+The query sets Tempo's search limit to 20000 results. Tempo's search limit is
+numeric and Grafana cannot interpolate a dashboard variable into it, so the
+limit lives in the query and the table paginates the result. Tempo applies the
+limit before Grafana sorts, so narrow the Step or time range when a run exceeds
+it; edit the query `limit` to change the cap.
 
 Filters:
 
 - **training: Project** and **training: Experiment Name** match the resource
   attributes.
 - **Step**, **Replica**, and **Sample** are row-scoped filters. Step is
-  single-select and defaults to the newest step; its **All** entry sits at the
-  end of the list. Replica and Sample are multi-select and default to All.
+  single-select and defaults to the newest step when `global_steps` is present;
+  its **All** entry sits at the end of the list. Replica and Sample are
+  multi-select and default to All.
 - Replica and Sample use anchored regex matching, so selecting `100` does not
   also match `1006`.
 - The dashboard time range limits the search.
@@ -155,18 +162,19 @@ integer `global_steps`; the query becomes
 `(span.global_steps = $step || $step = -1)`. All is a static option rather than
 `includeAll`, because Grafana preselects the built-in All option whenever it is
 enabled and the variable has no saved value. The static entry keeps the newest
-step as the default while All stays one click away. Sample All expands to `.*`, and
-the query adds `|| "$sample" = ".*"` so requests written before the adapter
-attached `sample` stay visible. Selecting a specific sample still requires the
-attribute. Replica All expands to `.*` and uses the same fallback, so spans
-without the resource attribute stay visible. The Sample and Replica dropdowns
-list values from the tag window (`timeRangeForTags`, the retention window);
-prefer the table's **Sample** column when it must match the current step.
+step as the default while All stays one click away. Sample All expands to `.*`,
+and the query adds `|| "$sample" = ".*"` so requests that predate `sample` stay
+visible. Selecting a specific sample still requires the attribute. Replica All
+expands to `.*` and uses the same fallback, so spans without the resource
+attribute stay visible. The Step, Sample, and Replica dropdowns list values from
+the selected project and experiment inside the tag window (`timeRangeForTags`,
+the retention window); prefer the table's **Sample** column when it must match
+the current step.
 
-The correlation filters need the rollout adapter to attach the matching
-attributes. The adapter must emit `sample` as a string and `global_steps` as an
-integer; other types break exact or regex matching. If a filter has no options,
-the attribute is absent from the queried spans; fix the adapter or widen the
+The correlation filters require the tracing integration to attach the matching
+attributes. It must emit `sample` as a string and `global_steps` as an integer;
+other types break exact or regex matching. If a filter has no options, the
+attribute is absent from the queried spans; check the integration or widen the
 time range.
 
 The server provisions the Tempo datasource with
@@ -195,17 +203,17 @@ unchanged filters and time range reuses the cached frame. Refresh, time-range
 changes, and filter changes rerun the query; Step/Replica/Sample tag-value
 queries are separate.
 
-The table starts on the newest step. Selecting Step All scans the whole run, so
-narrow the time range and use pagination or Replica/Sample filtering instead of
-raising the cap.
+When `global_steps` is present, the table starts on the newest step. Selecting
+Step All scans the whole run, so narrow the time range and use pagination or
+Replica/Sample filtering instead of raising the cap.
 
 The Tempo block config stores `project`, `experiment_name`, `replica`, and
 `sample` in dedicated Parquet columns, so TraceQL reads those columns instead of
 decoding generic attributes. Dedicated columns require a vParquet3 or newer
-block; Tempo 2.4+ uses vParquet3 by default. They apply to blocks written after
-the change, and the server removes the setting for older versions. Restart the
-server after editing the packaged `tempo.yaml`; the runtime copy is regenerated
-on start.
+block; Tempo 2.4+ writes vParquet3 or newer blocks by default. They apply to
+blocks written after the change, and the server removes the setting for older
+versions. Restart the server after editing the packaged `tempo.yaml`; the
+runtime copy is regenerated on start.
 
 ### Empty row
 
@@ -220,25 +228,14 @@ If the row is empty, verify in this order:
    run.
 5. The engine version emits `llm_request` spans; open Tempo directly and search
    for `{ name = "llm_request" }` to confirm.
+6. If requests appear but Step, Sample, or Turn is empty, the tracing integration
+   is not attaching the correlation attributes.
 
-## Text, sampling, and retention controls
+## Text and retention
 
 Engine-native `llm_request` spans contain request metadata and token counts, not
-prompt or response text. The emitter therefore owns the text policy; RL-Insight
-stores what the exporter sends and cannot redact text that was never sent.
-
-When a rollout adapter attaches turn or sentence text, it must apply:
-
-- **Mode**: `off` (default) keeps metadata only; `redacted` removes configured
-  secret and credential patterns; `full` keeps text subject to a byte cap.
-- **Length limit**: cap text per span and set `text_truncated=true` plus a
-  `text_hash` when truncated.
-- **Sampling budget**: apply a per-worker and per-step span budget, and keep
-  failed requests when the budget is exceeded.
-- **No Prometheus labels**: text and per-request ids stay in Tempo only.
-- **No fabricated sentence latency**: sentence rows use engine request or token
-  timing; if token timestamps are unavailable, show turn-level timing without
-  inventing sentence latency.
+prompt or response text. RL-Insight stores exactly what the exporter sends and
+does not add, infer, or redact text.
 
 Detailed timings add measurable overhead, so tracing stays opt-in. Tempo
 retention defaults to 30 days and is controlled by `tempo.retention_time` in the
@@ -248,12 +245,16 @@ server config.
 
 | Engine | Status | Notes |
 |---|---|---|
-| vLLM 0.32 (the release pinned by verl) | Supported | `llm_request` with e2e, queue, TTFT, prefill, decode, inference, tokens, and request id |
+| vLLM 0.32 (the version pinned by verl) | Supported | `llm_request` with e2e, queue, TTFT, prefill, decode, inference, tokens, and request id |
 | Newer vLLM releases | Best effort | Additional `gen_ai.latency.*` fields appear automatically in the raw trace |
 | SGLang | Not yet mapped | Add an allowlist entry and dashboard query when the engine exposes equivalent spans |
 
-## See also
+The vLLM exporter emits the native request attributes; the verl launcher adds
+the `project`, `experiment_name`, and `replica` resource attributes. Step,
+sample, turn, and trajectory correlation attributes come from the tracing
+integration, not from vLLM.
+
+## Related documentation
 
 - [Quick Start](./quick_start.md)
 - [Agent Loop Protocol](./agent_loop_protocol.md)
-- [verl PR #8158](https://github.com/verl-project/verl/pull/8158)

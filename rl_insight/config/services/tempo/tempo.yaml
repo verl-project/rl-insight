@@ -18,7 +18,8 @@ storage:
     block:
       # Store dashboard filter attributes in dedicated Parquet columns so a
       # TraceQL search reads those columns instead of decoding all generic
-      # attributes. Tempo 2.6 supports string columns only.
+      # attributes. Dedicated columns require vParquet3 or newer; this project
+      # configures string columns only.
       parquet_dedicated_columns:
         - name: project
           type: string
