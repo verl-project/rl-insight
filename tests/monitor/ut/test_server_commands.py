@@ -98,7 +98,15 @@ jobs:
 """.strip(),
         encoding="utf-8",
     )
-    runtime_config = OmegaConf.create({"prometheus": {"prometheus_port": 54321}})
+    runtime_config = OmegaConf.create(
+        {
+            "server": {
+                "data_dir": str(tmp_path / "data"),
+                "runtime_dir": str(tmp_path),
+            },
+            "prometheus": {"prometheus_port": 54321},
+        }
+    )
     OmegaConf.save(runtime_config, tmp_path / "server.yaml")
     monkeypatch.setattr(
         commands_module.ServerServiceManager,

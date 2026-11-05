@@ -2332,8 +2332,8 @@
         "kind": "Panel",
         "spec": {
           "id": 325,
-          "title": "CPU Utilization",
-          "description": "CPU utilization for all node_exporter targets",
+          "title": "Node CPU Utilization",
+          "description": "Whole-node CPU utilization: every process on the node, not only this training job.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -2348,8 +2348,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "100 - avg by (node, instance) (rate(node_cpu_seconds_total{job=\"node-exporter\", mode=\"idle\"}[$__rate_interval])) * 100",
-                        "legendFormat": "{{node}} ({{instance}})",
+                        "expr": "rl_insight_monitor_rlinsight_cpu_utilization_percent{project=~\"$project\", experiment_name=~\"$experiment_name\", node=~\"$node\"}",
+                        "legendFormat": "{{node}}",
                         "range": true
                       },
                       "labels": {
@@ -2358,6 +2358,27 @@
                     },
                     "refId": "A",
                     "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "100 - avg by (node, instance) (rate(node_cpu_seconds_total{job=\"node-exporter\", mode=\"idle\", instance=~\"\\\\[?$node\\\\]?(?::.*)?\"}[$__rate_interval])) * 100",
+                        "legendFormat": "{{node}}",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "B",
+                    "hidden": true
                   }
                 }
               ],
@@ -2452,8 +2473,8 @@
         "kind": "Panel",
         "spec": {
           "id": 326,
-          "title": "Memory Used",
-          "description": "Used memory for all node_exporter targets",
+          "title": "Node Memory Used",
+          "description": "Whole-node used memory: every process on the node, not only this training job.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -2468,8 +2489,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "node_memory_MemTotal_bytes{job=\"node-exporter\"} - node_memory_MemAvailable_bytes{job=\"node-exporter\"}",
-                        "legendFormat": "{{node}} ({{instance}})",
+                        "expr": "rl_insight_monitor_rlinsight_memory_used_bytes{project=~\"$project\", experiment_name=~\"$experiment_name\", node=~\"$node\"}",
+                        "legendFormat": "{{node}}",
                         "range": true
                       },
                       "labels": {
@@ -2478,6 +2499,27 @@
                     },
                     "refId": "A",
                     "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "node_memory_MemTotal_bytes{job=\"node-exporter\", instance=~\"\\\\[?$node\\\\]?(?::.*)?\"} - node_memory_MemAvailable_bytes{job=\"node-exporter\", instance=~\"\\\\[?$node\\\\]?(?::.*)?\"}",
+                        "legendFormat": "{{node}}",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "B",
+                    "hidden": true
                   }
                 }
               ],
@@ -2571,8 +2613,8 @@
         "kind": "Panel",
         "spec": {
           "id": 328,
-          "title": "Network Throughput",
-          "description": "Receive and transmit throughput for all node_exporter targets",
+          "title": "Node Network Throughput",
+          "description": "Whole-node non-loopback network throughput, including traffic from other processes.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -2587,7 +2629,7 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (node, instance) (rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo\"}[$__rate_interval]))",
+                        "expr": "rl_insight_monitor_rlinsight_network_receive_bytes_per_second{project=~\"$project\", experiment_name=~\"$experiment_name\", node=~\"$node\"}",
                         "legendFormat": "{{node}} RX",
                         "range": true
                       },
@@ -2608,8 +2650,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (node, instance) (rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo\"}[$__rate_interval]))",
-                        "legendFormat": "{{node}} TX",
+                        "expr": "sum by (node, instance) (rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo\", instance=~\"\\\\[?$node\\\\]?(?::.*)?\"}[$__rate_interval]))",
+                        "legendFormat": "{{node}} RX",
                         "range": true
                       },
                       "labels": {
@@ -2617,7 +2659,49 @@
                       }
                     },
                     "refId": "B",
+                    "hidden": true
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "rl_insight_monitor_rlinsight_network_transmit_bytes_per_second{project=~\"$project\", experiment_name=~\"$experiment_name\", node=~\"$node\"}",
+                        "legendFormat": "{{node}} TX",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "C",
                     "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "sum by (node, instance) (rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo\", instance=~\"\\\\[?$node\\\\]?(?::.*)?\"}[$__rate_interval]))",
+                        "legendFormat": "{{node}} TX",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "D",
+                    "hidden": true
                   }
                 }
               ],
@@ -2727,8 +2811,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_utilization{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
-                        "legendFormat": "NPU {{id}}",
+                        "expr": "label_replace(rl_insight_monitor_rlinsight_npu_chip_info_utilization{project=~\"$project\", experiment_name=~\"$experiment_name\", device_index=~\"$device_index\", node=~\"$node\"}, \"id\", \"$1\", \"device_index\", \"(.+)\")",
+                        "legendFormat": "{{node}} NPU {{id}}",
                         "range": true
                       },
                       "labels": {
@@ -2737,6 +2821,27 @@
                     },
                     "refId": "A",
                     "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_replace(npu_chip_info_utilization{job=\"npu-exporter\", instance=~\"\\\\[?$node\\\\]?(?::.*)?\"}, \"node\", \"$1$2\", \"instance\", \"^(?:\\\\[([^\\\\]]+)\\\\]|([^:]+))(?::.*)?$\")",
+                        "legendFormat": "{{node}} NPU {{id}}",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "B",
+                    "hidden": true
                   }
                 }
               ],
@@ -2847,8 +2952,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_hbm_utilization{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
-                        "legendFormat": "NPU {{id}}",
+                        "expr": "label_replace(rl_insight_monitor_rlinsight_npu_chip_info_hbm_utilization{project=~\"$project\", experiment_name=~\"$experiment_name\", device_index=~\"$device_index\", node=~\"$node\"}, \"id\", \"$1\", \"device_index\", \"(.+)\")",
+                        "legendFormat": "{{node}} NPU {{id}}",
                         "range": true
                       },
                       "labels": {
@@ -2857,6 +2962,27 @@
                     },
                     "refId": "A",
                     "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_replace(npu_chip_info_hbm_utilization{job=\"npu-exporter\", instance=~\"\\\\[?$node\\\\]?(?::.*)?\"}, \"node\", \"$1$2\", \"instance\", \"^(?:\\\\[([^\\\\]]+)\\\\]|([^:]+))(?::.*)?$\")",
+                        "legendFormat": "{{node}} NPU {{id}}",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "B",
+                    "hidden": true
                   }
                 }
               ],
@@ -2967,8 +3093,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_hbm_used_memory{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
-                        "legendFormat": "NPU {{id}}",
+                        "expr": "label_replace(rl_insight_monitor_rlinsight_npu_chip_info_hbm_used_memory{project=~\"$project\", experiment_name=~\"$experiment_name\", device_index=~\"$device_index\", node=~\"$node\"}, \"id\", \"$1\", \"device_index\", \"(.+)\")",
+                        "legendFormat": "{{node}} NPU {{id}}",
                         "range": true
                       },
                       "labels": {
@@ -2977,6 +3103,27 @@
                     },
                     "refId": "A",
                     "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_replace(npu_chip_info_hbm_used_memory{job=\"npu-exporter\", instance=~\"\\\\[?$node\\\\]?(?::.*)?\"}, \"node\", \"$1$2\", \"instance\", \"^(?:\\\\[([^\\\\]]+)\\\\]|([^:]+))(?::.*)?$\")",
+                        "legendFormat": "{{node}} NPU {{id}}",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "B",
+                    "hidden": true
                   }
                 }
               ],
@@ -3086,8 +3233,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_power{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
-                        "legendFormat": "NPU {{id}}",
+                        "expr": "label_replace(rl_insight_monitor_rlinsight_npu_chip_info_power{project=~\"$project\", experiment_name=~\"$experiment_name\", device_index=~\"$device_index\", node=~\"$node\"}, \"id\", \"$1\", \"device_index\", \"(.+)\")",
+                        "legendFormat": "{{node}} NPU {{id}}",
                         "range": true
                       },
                       "labels": {
@@ -3096,6 +3243,27 @@
                     },
                     "refId": "A",
                     "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_replace(npu_chip_info_power{job=\"npu-exporter\", instance=~\"\\\\[?$node\\\\]?(?::.*)?\"}, \"node\", \"$1$2\", \"instance\", \"^(?:\\\\[([^\\\\]]+)\\\\]|([^:]+))(?::.*)?$\")",
+                        "legendFormat": "{{node}} NPU {{id}}",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "B",
+                    "hidden": true
                   }
                 }
               ],
@@ -3205,8 +3373,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_temperature{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
-                        "legendFormat": "NPU {{id}}",
+                        "expr": "label_replace(rl_insight_monitor_rlinsight_npu_chip_info_temperature{project=~\"$project\", experiment_name=~\"$experiment_name\", device_index=~\"$device_index\", node=~\"$node\"}, \"id\", \"$1\", \"device_index\", \"(.+)\")",
+                        "legendFormat": "{{node}} NPU {{id}}",
                         "range": true
                       },
                       "labels": {
@@ -3215,6 +3383,27 @@
                     },
                     "refId": "A",
                     "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_replace(npu_chip_info_temperature{job=\"npu-exporter\", instance=~\"\\\\[?$node\\\\]?(?::.*)?\"}, \"node\", \"$1$2\", \"instance\", \"^(?:\\\\[([^\\\\]]+)\\\\]|([^:]+))(?::.*)?$\")",
+                        "legendFormat": "{{node}} NPU {{id}}",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "B",
+                    "hidden": true
                   }
                 }
               ],
@@ -3309,7 +3498,7 @@
         "spec": {
           "id": 334,
           "title": "NPU Health Status",
-          "description": "Health status code reported by NPU Exporter",
+          "description": "Ascend NPU health (1=healthy, 0=unhealthy)",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -3324,8 +3513,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_health_status{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
-                        "legendFormat": "NPU {{id}}",
+                        "expr": "label_replace(rl_insight_monitor_rlinsight_npu_chip_info_health_status{project=~\"$project\", experiment_name=~\"$experiment_name\", device_index=~\"$device_index\", node=~\"$node\"}, \"id\", \"$1\", \"device_index\", \"(.+)\")",
+                        "legendFormat": "{{node}} NPU {{id}}",
                         "range": true
                       },
                       "labels": {
@@ -3334,6 +3523,27 @@
                     },
                     "refId": "A",
                     "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_replace(npu_chip_info_health_status{job=\"npu-exporter\", instance=~\"\\\\[?$node\\\\]?(?::.*)?\"}, \"node\", \"$1$2\", \"instance\", \"^(?:\\\\[([^\\\\]]+)\\\\]|([^:]+))(?::.*)?$\")",
+                        "legendFormat": "{{node}} NPU {{id}}",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "B",
+                    "hidden": true
                   }
                 }
               ],
@@ -3443,8 +3653,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_hbm_bandwidth_utilization{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
-                        "legendFormat": "NPU {{id}}",
+                        "expr": "label_replace(rl_insight_monitor_rlinsight_npu_chip_info_hbm_bandwidth_utilization{project=~\"$project\", experiment_name=~\"$experiment_name\", device_index=~\"$device_index\", node=~\"$node\"}, \"id\", \"$1\", \"device_index\", \"(.+)\")",
+                        "legendFormat": "{{node}} NPU {{id}}",
                         "range": true
                       },
                       "labels": {
@@ -3453,6 +3663,27 @@
                     },
                     "refId": "A",
                     "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_replace(npu_chip_info_hbm_bandwidth_utilization{job=\"npu-exporter\", instance=~\"\\\\[?$node\\\\]?(?::.*)?\"}, \"node\", \"$1$2\", \"instance\", \"^(?:\\\\[([^\\\\]]+)\\\\]|([^:]+))(?::.*)?$\")",
+                        "legendFormat": "{{node}} NPU {{id}}",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "B",
+                    "hidden": true
                   }
                 }
               ],
@@ -3543,12 +3774,12 @@
           }
         }
       },
-      "panel-336": {
+      "panel-337": {
         "kind": "Panel",
         "spec": {
-          "id": 336,
-          "title": "NPU Network Throughput",
-          "description": "NPU network receive and transmit throughput",
+          "id": 337,
+          "title": "GPU Utilization",
+          "description": "GPU utilization by device.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -3563,8 +3794,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_bandwidth_rx{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
-                        "legendFormat": "NPU {{id}} RX",
+                        "expr": "label_replace(rl_insight_monitor_rlinsight_gpu_utilization_percent{project=~\"$project\", experiment_name=~\"$experiment_name\", device_index=~\"$device_index\", node=~\"$node\"}, \"id\", \"$1\", \"device_index\", \"(.+)\")",
+                        "legendFormat": "{{node}} GPU {{id}}",
                         "range": true
                       },
                       "labels": {
@@ -3584,8 +3815,8 @@
                       "version": "v0",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "npu_chip_info_bandwidth_tx{job=\"npu-exporter\", instance=~\"$npu_instance\"}",
-                        "legendFormat": "NPU {{id}} TX",
+                        "expr": "label_replace(label_replace(DCGM_FI_DEV_GPU_UTIL{instance=~\"\\\\[?$node\\\\]?(?::.*)?\"}, \"id\", \"$1\", \"gpu\", \"(.+)\"), \"node\", \"$1$2\", \"instance\", \"^(?:\\\\[([^\\\\]]+)\\\\]|([^:]+))(?::.*)?$\")",
+                        "legendFormat": "{{node}} GPU {{id}}",
                         "range": true
                       },
                       "labels": {
@@ -3593,7 +3824,7 @@
                       }
                     },
                     "refId": "B",
-                    "hidden": false
+                    "hidden": true
                   }
                 }
               ],
@@ -3628,7 +3859,569 @@
               },
               "fieldConfig": {
                 "defaults": {
-                  "unit": "MBs",
+                  "unit": "percent",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 20,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 2,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  },
+                  "min": 0,
+                  "max": 100
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-338": {
+        "kind": "Panel",
+        "spec": {
+          "id": 338,
+          "title": "GPU Memory Utilization",
+          "description": "GPU memory utilization by device.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_replace(rl_insight_monitor_rlinsight_gpu_memory_utilization_percent{project=~\"$project\", experiment_name=~\"$experiment_name\", device_index=~\"$device_index\", node=~\"$node\"}, \"id\", \"$1\", \"device_index\", \"(.+)\")",
+                        "legendFormat": "{{node}} GPU {{id}}",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_replace(label_replace(DCGM_FI_DEV_FB_USED{instance=~\"\\\\[?$node\\\\]?(?::.*)?\"} / (DCGM_FI_DEV_FB_USED{instance=~\"\\\\[?$node\\\\]?(?::.*)?\"} + DCGM_FI_DEV_FB_FREE{instance=~\"\\\\[?$node\\\\]?(?::.*)?\"}) * 100, \"id\", \"$1\", \"gpu\", \"(.+)\"), \"node\", \"$1$2\", \"instance\", \"^(?:\\\\[([^\\\\]]+)\\\\]|([^:]+))(?::.*)?$\")",
+                        "legendFormat": "{{node}} GPU {{id}}",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "B",
+                    "hidden": true
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.0.2",
+            "spec": {
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [
+                    "mean",
+                    "max"
+                  ],
+                  "displayMode": "table",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "multi",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "percent",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 20,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 2,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  },
+                  "min": 0,
+                  "max": 100
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-339": {
+        "kind": "Panel",
+        "spec": {
+          "id": 339,
+          "title": "GPU Memory Used",
+          "description": "Used GPU memory by device.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_replace(rl_insight_monitor_rlinsight_gpu_memory_used_bytes{project=~\"$project\", experiment_name=~\"$experiment_name\", device_index=~\"$device_index\", node=~\"$node\"} / 1048576, \"id\", \"$1\", \"device_index\", \"(.+)\")",
+                        "legendFormat": "{{node}} GPU {{id}}",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_replace(label_replace(DCGM_FI_DEV_FB_USED{instance=~\"\\\\[?$node\\\\]?(?::.*)?\"}, \"id\", \"$1\", \"gpu\", \"(.+)\"), \"node\", \"$1$2\", \"instance\", \"^(?:\\\\[([^\\\\]]+)\\\\]|([^:]+))(?::.*)?$\")",
+                        "legendFormat": "{{node}} GPU {{id}}",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "B",
+                    "hidden": true
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.0.2",
+            "spec": {
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [
+                    "mean",
+                    "max"
+                  ],
+                  "displayMode": "table",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "multi",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "decmbytes",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 20,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 2,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  },
+                  "min": 0
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-340": {
+        "kind": "Panel",
+        "spec": {
+          "id": 340,
+          "title": "GPU Power",
+          "description": "Power consumption by GPU.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_replace(rl_insight_monitor_rlinsight_gpu_power_watts{project=~\"$project\", experiment_name=~\"$experiment_name\", device_index=~\"$device_index\", node=~\"$node\"}, \"id\", \"$1\", \"device_index\", \"(.+)\")",
+                        "legendFormat": "{{node}} GPU {{id}}",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_replace(label_replace(DCGM_FI_DEV_POWER_USAGE{instance=~\"\\\\[?$node\\\\]?(?::.*)?\"}, \"id\", \"$1\", \"gpu\", \"(.+)\"), \"node\", \"$1$2\", \"instance\", \"^(?:\\\\[([^\\\\]]+)\\\\]|([^:]+))(?::.*)?$\")",
+                        "legendFormat": "{{node}} GPU {{id}}",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "B",
+                    "hidden": true
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.0.2",
+            "spec": {
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [
+                    "mean",
+                    "max"
+                  ],
+                  "displayMode": "table",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "multi",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "watt",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 20,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 2,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  },
+                  "min": 0
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-341": {
+        "kind": "Panel",
+        "spec": {
+          "id": 341,
+          "title": "GPU Temperature",
+          "description": "GPU temperature by device.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_replace(rl_insight_monitor_rlinsight_gpu_temperature_celsius{project=~\"$project\", experiment_name=~\"$experiment_name\", device_index=~\"$device_index\", node=~\"$node\"}, \"id\", \"$1\", \"device_index\", \"(.+)\")",
+                        "legendFormat": "{{node}} GPU {{id}}",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_replace(label_replace(DCGM_FI_DEV_GPU_TEMP{instance=~\"\\\\[?$node\\\\]?(?::.*)?\"}, \"id\", \"$1\", \"gpu\", \"(.+)\"), \"node\", \"$1$2\", \"instance\", \"^(?:\\\\[([^\\\\]]+)\\\\]|([^:]+))(?::.*)?$\")",
+                        "legendFormat": "{{node}} GPU {{id}}",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "B",
+                    "hidden": true
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.0.2",
+            "spec": {
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [
+                    "mean",
+                    "max"
+                  ],
+                  "displayMode": "table",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "multi",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "celsius",
                   "thresholds": {
                     "mode": "absolute",
                     "steps": [
@@ -6460,6 +7253,664 @@
             }
           }
         }
+      },
+      "panel-344": {
+        "kind": "Panel",
+        "spec": {
+          "id": 344,
+          "title": "Node Disk Throughput",
+          "description": "Whole-node disk read/write throughput, including IO from other processes.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "rl_insight_monitor_rlinsight_disk_read_bytes_per_second{project=~\"$project\", experiment_name=~\"$experiment_name\", node=~\"$node\"}",
+                        "legendFormat": "{{node}} read",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "sum by (node, instance) (rate(node_disk_read_bytes_total{job=\"node-exporter\", instance=~\"\\\\[?$node\\\\]?(?::.*)?\"}[$__rate_interval]))",
+                        "legendFormat": "{{node}} read",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "B",
+                    "hidden": true
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "rl_insight_monitor_rlinsight_disk_write_bytes_per_second{project=~\"$project\", experiment_name=~\"$experiment_name\", node=~\"$node\"}",
+                        "legendFormat": "{{node}} write",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "C",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "sum by (node, instance) (rate(node_disk_written_bytes_total{job=\"node-exporter\", instance=~\"\\\\[?$node\\\\]?(?::.*)?\"}[$__rate_interval]))",
+                        "legendFormat": "{{node}} write",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "D",
+                    "hidden": true
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.0.2",
+            "spec": {
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [
+                    "mean",
+                    "max"
+                  ],
+                  "displayMode": "table",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "multi",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "Bps",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 20,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 2,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  },
+                  "min": 0
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-345": {
+        "kind": "Panel",
+        "spec": {
+          "id": 345,
+          "title": "Ray Actor Process CPU",
+          "description": "CPU percent per Ray worker process on this node; can exceed 100 on multi-core hosts.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "rl_insight_monitor_rlinsight_ray_process_cpu_percent{project=~\"$project\", experiment_name=~\"$experiment_name\", worker_role=~\"$worker_role\", device_index=~\"$device_index\", node=~\"$node\"}",
+                        "legendFormat": "{{node}} {{device_index}} {{worker_role}} {{pid}}",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.0.2",
+            "spec": {
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [
+                    "mean",
+                    "max"
+                  ],
+                  "displayMode": "table",
+                  "placement": "bottom",
+                  "showLegend": true,
+                  "sortBy": "Max",
+                  "sortDesc": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "multi",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "percent",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 20,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 2,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-346": {
+        "kind": "Panel",
+        "spec": {
+          "id": 346,
+          "title": "Ray Actor Process Memory",
+          "description": "Resident memory per Ray worker process on this node.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "rl_insight_monitor_rlinsight_ray_process_rss_bytes{project=~\"$project\", experiment_name=~\"$experiment_name\", worker_role=~\"$worker_role\", device_index=~\"$device_index\", node=~\"$node\"}",
+                        "legendFormat": "{{node}} {{device_index}} {{worker_role}} {{pid}}",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.0.2",
+            "spec": {
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [
+                    "mean",
+                    "max"
+                  ],
+                  "displayMode": "table",
+                  "placement": "bottom",
+                  "showLegend": true,
+                  "sortBy": "Max",
+                  "sortDesc": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "multi",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "bytes",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 20,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 2,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-347": {
+        "kind": "Panel",
+        "spec": {
+          "id": 347,
+          "title": "Self Process CPU",
+          "description": "CPU percent of the process hosting the hardware monitor.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "rl_insight_monitor_rlinsight_process_cpu_percent{project=~\"$project\", experiment_name=~\"$experiment_name\", worker_role=~\"$worker_role\", node=~\"$node\"}",
+                        "legendFormat": "{{node}} {{worker_role}} {{pid}}",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.0.2",
+            "spec": {
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [
+                    "mean",
+                    "max"
+                  ],
+                  "displayMode": "table",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "multi",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "percent",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 20,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 2,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-348": {
+        "kind": "Panel",
+        "spec": {
+          "id": 348,
+          "title": "Self Process Memory",
+          "description": "Resident memory of the process hosting the hardware monitor.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "rl_insight_monitor_rlinsight_process_rss_bytes{project=~\"$project\", experiment_name=~\"$experiment_name\", worker_role=~\"$worker_role\", node=~\"$node\"}",
+                        "legendFormat": "{{node}} {{worker_role}} {{pid}}",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.0.2",
+            "spec": {
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [
+                    "mean",
+                    "max"
+                  ],
+                  "displayMode": "table",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "multi",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "bytes",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 20,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 2,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
       }
     },
     "layout": {
@@ -7281,6 +8732,126 @@
                                     }
                                   }
                                 }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-344"
+                                  },
+                                  "conditionalRendering": {
+                                    "kind": "ConditionalRenderingGroup",
+                                    "spec": {
+                                      "visibility": "hide",
+                                      "condition": "and",
+                                      "items": [
+                                        {
+                                          "kind": "ConditionalRenderingData",
+                                          "spec": {
+                                            "value": false
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-345"
+                                  },
+                                  "conditionalRendering": {
+                                    "kind": "ConditionalRenderingGroup",
+                                    "spec": {
+                                      "visibility": "hide",
+                                      "condition": "and",
+                                      "items": [
+                                        {
+                                          "kind": "ConditionalRenderingData",
+                                          "spec": {
+                                            "value": false
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-346"
+                                  },
+                                  "conditionalRendering": {
+                                    "kind": "ConditionalRenderingGroup",
+                                    "spec": {
+                                      "visibility": "hide",
+                                      "condition": "and",
+                                      "items": [
+                                        {
+                                          "kind": "ConditionalRenderingData",
+                                          "spec": {
+                                            "value": false
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-347"
+                                  },
+                                  "conditionalRendering": {
+                                    "kind": "ConditionalRenderingGroup",
+                                    "spec": {
+                                      "visibility": "hide",
+                                      "condition": "and",
+                                      "items": [
+                                        {
+                                          "kind": "ConditionalRenderingData",
+                                          "spec": {
+                                            "value": false
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-348"
+                                  },
+                                  "conditionalRendering": {
+                                    "kind": "ConditionalRenderingGroup",
+                                    "spec": {
+                                      "visibility": "hide",
+                                      "condition": "and",
+                                      "items": [
+                                        {
+                                          "kind": "ConditionalRenderingData",
+                                          "spec": {
+                                            "value": false
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
                               }
                             ]
                           }
@@ -7293,219 +8864,349 @@
                         "title": "Ascend NPU Metrics",
                         "collapse": true,
                         "layout": {
-                          "kind": "TabsLayout",
+                          "kind": "AutoGridLayout",
                           "spec": {
-                            "tabs": [
+                            "maxColumnCount": 2,
+                            "columnWidthMode": "standard",
+                            "rowHeightMode": "standard",
+                            "items": [
                               {
-                                "kind": "TabsLayoutTab",
+                                "kind": "AutoGridLayoutItem",
                                 "spec": {
-                                  "title": "$npu_instance",
-                                  "repeat": {
-                                    "mode": "variable",
-                                    "value": "npu_instance"
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-329"
                                   },
-                                  "layout": {
-                                    "kind": "AutoGridLayout",
+                                  "conditionalRendering": {
+                                    "kind": "ConditionalRenderingGroup",
                                     "spec": {
-                                      "maxColumnCount": 2,
-                                      "columnWidthMode": "standard",
-                                      "rowHeightMode": "standard",
+                                      "visibility": "hide",
+                                      "condition": "and",
                                       "items": [
                                         {
-                                          "kind": "AutoGridLayoutItem",
+                                          "kind": "ConditionalRenderingData",
                                           "spec": {
-                                            "element": {
-                                              "kind": "ElementReference",
-                                              "name": "panel-329"
-                                            },
-                                            "conditionalRendering": {
-                                              "kind": "ConditionalRenderingGroup",
-                                              "spec": {
-                                                "visibility": "hide",
-                                                "condition": "and",
-                                                "items": [
-                                                  {
-                                                    "kind": "ConditionalRenderingData",
-                                                    "spec": {
-                                                      "value": false
-                                                    }
-                                                  }
-                                                ]
-                                              }
-                                            }
-                                          }
-                                        },
-                                        {
-                                          "kind": "AutoGridLayoutItem",
-                                          "spec": {
-                                            "element": {
-                                              "kind": "ElementReference",
-                                              "name": "panel-330"
-                                            },
-                                            "conditionalRendering": {
-                                              "kind": "ConditionalRenderingGroup",
-                                              "spec": {
-                                                "visibility": "hide",
-                                                "condition": "and",
-                                                "items": [
-                                                  {
-                                                    "kind": "ConditionalRenderingData",
-                                                    "spec": {
-                                                      "value": false
-                                                    }
-                                                  }
-                                                ]
-                                              }
-                                            }
-                                          }
-                                        },
-                                        {
-                                          "kind": "AutoGridLayoutItem",
-                                          "spec": {
-                                            "element": {
-                                              "kind": "ElementReference",
-                                              "name": "panel-331"
-                                            },
-                                            "conditionalRendering": {
-                                              "kind": "ConditionalRenderingGroup",
-                                              "spec": {
-                                                "visibility": "hide",
-                                                "condition": "and",
-                                                "items": [
-                                                  {
-                                                    "kind": "ConditionalRenderingData",
-                                                    "spec": {
-                                                      "value": false
-                                                    }
-                                                  }
-                                                ]
-                                              }
-                                            }
-                                          }
-                                        },
-                                        {
-                                          "kind": "AutoGridLayoutItem",
-                                          "spec": {
-                                            "element": {
-                                              "kind": "ElementReference",
-                                              "name": "panel-332"
-                                            },
-                                            "conditionalRendering": {
-                                              "kind": "ConditionalRenderingGroup",
-                                              "spec": {
-                                                "visibility": "hide",
-                                                "condition": "and",
-                                                "items": [
-                                                  {
-                                                    "kind": "ConditionalRenderingData",
-                                                    "spec": {
-                                                      "value": false
-                                                    }
-                                                  }
-                                                ]
-                                              }
-                                            }
-                                          }
-                                        },
-                                        {
-                                          "kind": "AutoGridLayoutItem",
-                                          "spec": {
-                                            "element": {
-                                              "kind": "ElementReference",
-                                              "name": "panel-333"
-                                            },
-                                            "conditionalRendering": {
-                                              "kind": "ConditionalRenderingGroup",
-                                              "spec": {
-                                                "visibility": "hide",
-                                                "condition": "and",
-                                                "items": [
-                                                  {
-                                                    "kind": "ConditionalRenderingData",
-                                                    "spec": {
-                                                      "value": false
-                                                    }
-                                                  }
-                                                ]
-                                              }
-                                            }
-                                          }
-                                        },
-                                        {
-                                          "kind": "AutoGridLayoutItem",
-                                          "spec": {
-                                            "element": {
-                                              "kind": "ElementReference",
-                                              "name": "panel-334"
-                                            },
-                                            "conditionalRendering": {
-                                              "kind": "ConditionalRenderingGroup",
-                                              "spec": {
-                                                "visibility": "hide",
-                                                "condition": "and",
-                                                "items": [
-                                                  {
-                                                    "kind": "ConditionalRenderingData",
-                                                    "spec": {
-                                                      "value": false
-                                                    }
-                                                  }
-                                                ]
-                                              }
-                                            }
-                                          }
-                                        },
-                                        {
-                                          "kind": "AutoGridLayoutItem",
-                                          "spec": {
-                                            "element": {
-                                              "kind": "ElementReference",
-                                              "name": "panel-335"
-                                            },
-                                            "conditionalRendering": {
-                                              "kind": "ConditionalRenderingGroup",
-                                              "spec": {
-                                                "visibility": "hide",
-                                                "condition": "and",
-                                                "items": [
-                                                  {
-                                                    "kind": "ConditionalRenderingData",
-                                                    "spec": {
-                                                      "value": false
-                                                    }
-                                                  }
-                                                ]
-                                              }
-                                            }
-                                          }
-                                        },
-                                        {
-                                          "kind": "AutoGridLayoutItem",
-                                          "spec": {
-                                            "element": {
-                                              "kind": "ElementReference",
-                                              "name": "panel-336"
-                                            },
-                                            "conditionalRendering": {
-                                              "kind": "ConditionalRenderingGroup",
-                                              "spec": {
-                                                "visibility": "hide",
-                                                "condition": "and",
-                                                "items": [
-                                                  {
-                                                    "kind": "ConditionalRenderingData",
-                                                    "spec": {
-                                                      "value": false
-                                                    }
-                                                  }
-                                                ]
-                                              }
-                                            }
+                                            "value": false
                                           }
                                         }
                                       ]
                                     }
                                   }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-330"
+                                  },
+                                  "conditionalRendering": {
+                                    "kind": "ConditionalRenderingGroup",
+                                    "spec": {
+                                      "visibility": "hide",
+                                      "condition": "and",
+                                      "items": [
+                                        {
+                                          "kind": "ConditionalRenderingData",
+                                          "spec": {
+                                            "value": false
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-331"
+                                  },
+                                  "conditionalRendering": {
+                                    "kind": "ConditionalRenderingGroup",
+                                    "spec": {
+                                      "visibility": "hide",
+                                      "condition": "and",
+                                      "items": [
+                                        {
+                                          "kind": "ConditionalRenderingData",
+                                          "spec": {
+                                            "value": false
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-332"
+                                  },
+                                  "conditionalRendering": {
+                                    "kind": "ConditionalRenderingGroup",
+                                    "spec": {
+                                      "visibility": "hide",
+                                      "condition": "and",
+                                      "items": [
+                                        {
+                                          "kind": "ConditionalRenderingData",
+                                          "spec": {
+                                            "value": false
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-333"
+                                  },
+                                  "conditionalRendering": {
+                                    "kind": "ConditionalRenderingGroup",
+                                    "spec": {
+                                      "visibility": "hide",
+                                      "condition": "and",
+                                      "items": [
+                                        {
+                                          "kind": "ConditionalRenderingData",
+                                          "spec": {
+                                            "value": false
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-334"
+                                  },
+                                  "conditionalRendering": {
+                                    "kind": "ConditionalRenderingGroup",
+                                    "spec": {
+                                      "visibility": "hide",
+                                      "condition": "and",
+                                      "items": [
+                                        {
+                                          "kind": "ConditionalRenderingData",
+                                          "spec": {
+                                            "value": false
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-335"
+                                  },
+                                  "conditionalRendering": {
+                                    "kind": "ConditionalRenderingGroup",
+                                    "spec": {
+                                      "visibility": "hide",
+                                      "condition": "and",
+                                      "items": [
+                                        {
+                                          "kind": "ConditionalRenderingData",
+                                          "spec": {
+                                            "value": false
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "conditionalRendering": {
+                          "kind": "ConditionalRenderingGroup",
+                          "spec": {
+                            "visibility": "show",
+                            "condition": "and",
+                            "items": [
+                              {
+                                "kind": "ConditionalRenderingVariable",
+                                "spec": {
+                                  "variable": "npu_vendor",
+                                  "operator": "equals",
+                                  "value": "ascend"
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "kind": "RowsLayoutRow",
+                      "spec": {
+                        "title": "NVIDIA GPU Metrics",
+                        "collapse": false,
+                        "layout": {
+                          "kind": "AutoGridLayout",
+                          "spec": {
+                            "maxColumnCount": 2,
+                            "columnWidthMode": "standard",
+                            "rowHeightMode": "standard",
+                            "items": [
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-337"
+                                  },
+                                  "conditionalRendering": {
+                                    "kind": "ConditionalRenderingGroup",
+                                    "spec": {
+                                      "visibility": "hide",
+                                      "condition": "and",
+                                      "items": [
+                                        {
+                                          "kind": "ConditionalRenderingData",
+                                          "spec": {
+                                            "value": false
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-338"
+                                  },
+                                  "conditionalRendering": {
+                                    "kind": "ConditionalRenderingGroup",
+                                    "spec": {
+                                      "visibility": "hide",
+                                      "condition": "and",
+                                      "items": [
+                                        {
+                                          "kind": "ConditionalRenderingData",
+                                          "spec": {
+                                            "value": false
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-339"
+                                  },
+                                  "conditionalRendering": {
+                                    "kind": "ConditionalRenderingGroup",
+                                    "spec": {
+                                      "visibility": "hide",
+                                      "condition": "and",
+                                      "items": [
+                                        {
+                                          "kind": "ConditionalRenderingData",
+                                          "spec": {
+                                            "value": false
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-340"
+                                  },
+                                  "conditionalRendering": {
+                                    "kind": "ConditionalRenderingGroup",
+                                    "spec": {
+                                      "visibility": "hide",
+                                      "condition": "and",
+                                      "items": [
+                                        {
+                                          "kind": "ConditionalRenderingData",
+                                          "spec": {
+                                            "value": false
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-341"
+                                  },
+                                  "conditionalRendering": {
+                                    "kind": "ConditionalRenderingGroup",
+                                    "spec": {
+                                      "visibility": "hide",
+                                      "condition": "and",
+                                      "items": [
+                                        {
+                                          "kind": "ConditionalRenderingData",
+                                          "spec": {
+                                            "value": false
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "conditionalRendering": {
+                          "kind": "ConditionalRenderingGroup",
+                          "spec": {
+                            "visibility": "show",
+                            "condition": "and",
+                            "items": [
+                              {
+                                "kind": "ConditionalRenderingVariable",
+                                "spec": {
+                                  "variable": "gpu_vendor",
+                                  "operator": "equals",
+                                  "value": "nvidia"
                                 }
                               }
                             ]
@@ -7935,14 +9636,15 @@
       {
         "kind": "QueryVariable",
         "spec": {
-          "name": "npu_instance",
+          "name": "node",
           "current": {
             "text": "All",
             "value": "$__all"
           },
-          "label": "hardware: NPU Node",
-          "hide": "hideVariable",
-          "refresh": "onDashboardLoad",
+          "label": "hardware: Node",
+          "description": "Node tabs of the hardware section; also scopes the Ray worker process panels.",
+          "hide": "dontHide",
+          "refresh": "onTimeRangeChanged",
           "skipUrlSync": false,
           "query": {
             "kind": "DataQuery",
@@ -7952,18 +9654,158 @@
               "name": "${datasource}"
             },
             "spec": {
-              "query": "label_values(npu_chip_info_name{job=\"npu-exporter\"}, instance)",
+              "query": "query_result(count by (node) ({__name__=~\"rl_insight_monitor_rlinsight_cpu_utilization_percent|rl_insight_monitor_rlinsight_npu_chip_info_name|rl_insight_monitor_rlinsight_gpu_info|npu_chip_info_name|DCGM_FI_DEV_GPU_UTIL\", node=~\".+\"} or label_replace({__name__=~\"rl_insight_monitor_rlinsight_cpu_utilization_percent|rl_insight_monitor_rlinsight_npu_chip_info_name|rl_insight_monitor_rlinsight_gpu_info|npu_chip_info_name|DCGM_FI_DEV_GPU_UTIL\", node!~\".+\"}, \"node\", \"$1$2\", \"instance\", \"^(?:\\\\[([^\\\\]]+)\\\\]|([^:]+))(?::.*)?$\")))",
+              "refId": "StandardVariableQuery"
+            }
+          },
+          "regex": "/node=\"(?<value>[^\"]+)\"/",
+          "regexApplyTo": "value",
+          "sort": "alphabeticalAsc",
+          "definition": "query_result(count by (node) ({__name__=~\"rl_insight_monitor_rlinsight_cpu_utilization_percent|rl_insight_monitor_rlinsight_npu_chip_info_name|rl_insight_monitor_rlinsight_gpu_info|npu_chip_info_name|DCGM_FI_DEV_GPU_UTIL\", node=~\".+\"} or label_replace({__name__=~\"rl_insight_monitor_rlinsight_cpu_utilization_percent|rl_insight_monitor_rlinsight_npu_chip_info_name|rl_insight_monitor_rlinsight_gpu_info|npu_chip_info_name|DCGM_FI_DEV_GPU_UTIL\", node!~\".+\"}, \"node\", \"$1$2\", \"instance\", \"^(?:\\\\[([^\\\\]]+)\\\\]|([^:]+))(?::.*)?$\")))",
+          "options": [],
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*",
+          "allowCustomValue": false
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "worker_role",
+          "current": {
+            "text": "All",
+            "value": "$__all"
+          },
+          "label": "hardware: Worker Role",
+          "description": "Role of the reporting process, inferred from the Ray actor name.",
+          "hide": "dontHide",
+          "refresh": "onTimeRangeChanged",
+          "skipUrlSync": false,
+          "query": {
+            "kind": "DataQuery",
+            "group": "prometheus",
+            "version": "v0",
+            "datasource": {
+              "name": "${datasource}"
+            },
+            "spec": {
+              "query": "label_values({__name__=~\"rl_insight_monitor_rlinsight_ray_process_cpu_percent|rl_insight_monitor_rlinsight_process_cpu_percent\"}, worker_role)",
               "refId": "StandardVariableQuery"
             }
           },
           "regex": "",
           "regexApplyTo": "value",
           "sort": "alphabeticalAsc",
-          "definition": "label_values(npu_chip_info_name{job=\"npu-exporter\"}, instance)",
+          "definition": "label_values({__name__=~\"rl_insight_monitor_rlinsight_ray_process_cpu_percent|rl_insight_monitor_rlinsight_process_cpu_percent\"}, worker_role)",
           "options": [],
           "multi": true,
           "includeAll": true,
           "allValue": ".*",
+          "allowCustomValue": true
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "device_index",
+          "current": {
+            "text": "All",
+            "value": "$__all"
+          },
+          "label": "hardware: Device",
+          "description": "Card the series belongs to; filters the Ray worker processes and the NPU/GPU panels together.",
+          "hide": "dontHide",
+          "refresh": "onTimeRangeChanged",
+          "skipUrlSync": false,
+          "query": {
+            "kind": "DataQuery",
+            "group": "prometheus",
+            "version": "v0",
+            "datasource": {
+              "name": "${datasource}"
+            },
+            "spec": {
+              "query": "label_values({__name__=~\"rl_insight_monitor_rlinsight_.*\"}, device_index)",
+              "refId": "StandardVariableQuery"
+            }
+          },
+          "regex": "",
+          "regexApplyTo": "value",
+          "sort": "alphabeticalAsc",
+          "definition": "label_values({__name__=~\"rl_insight_monitor_rlinsight_.*\"}, device_index)",
+          "options": [],
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*",
+          "allowCustomValue": true
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "npu_vendor",
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "label": "hardware: NPU Vendor",
+          "hide": "hideVariable",
+          "refresh": "onTimeRangeChanged",
+          "skipUrlSync": true,
+          "query": {
+            "kind": "DataQuery",
+            "group": "prometheus",
+            "version": "v0",
+            "datasource": {
+              "name": "${datasource}"
+            },
+            "spec": {
+              "query": "query_result(count by (device_vendor) (label_replace(last_over_time({__name__=~\"rl_insight_monitor_rlinsight_npu_chip_info_name|rl_insight_monitor_rlinsight_npu_info\"}[$__range]), \"device_vendor\", \"ascend\", \"__name__\", \".+\") or label_replace(last_over_time({__name__=~\"npu_chip_info_name\", job=\"npu-exporter\"}[$__range]), \"device_vendor\", \"ascend\", \"__name__\", \".+\")))",
+              "refId": "StandardVariableQuery"
+            }
+          },
+          "regex": "/device_vendor=\"(?<value>[^\"]+)\"/",
+          "regexApplyTo": "value",
+          "sort": "disabled",
+          "definition": "query_result(count by (device_vendor) (label_replace(last_over_time({__name__=~\"rl_insight_monitor_rlinsight_npu_chip_info_name|rl_insight_monitor_rlinsight_npu_info\"}[$__range]), \"device_vendor\", \"ascend\", \"__name__\", \".+\") or label_replace(last_over_time({__name__=~\"npu_chip_info_name\", job=\"npu-exporter\"}[$__range]), \"device_vendor\", \"ascend\", \"__name__\", \".+\")))",
+          "options": [],
+          "multi": false,
+          "includeAll": false,
+          "allowCustomValue": false
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "gpu_vendor",
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "label": "hardware: GPU Vendor",
+          "hide": "hideVariable",
+          "refresh": "onTimeRangeChanged",
+          "skipUrlSync": true,
+          "query": {
+            "kind": "DataQuery",
+            "group": "prometheus",
+            "version": "v0",
+            "datasource": {
+              "name": "${datasource}"
+            },
+            "spec": {
+              "query": "query_result(count by (device_vendor) (label_replace(last_over_time({__name__=~\"rl_insight_monitor_rlinsight_gpu_info\"}[$__range]), \"device_vendor\", \"nvidia\", \"__name__\", \".+\") or label_replace(last_over_time({__name__=~\"DCGM_FI_DEV_GPU_UTIL\"}[$__range]), \"device_vendor\", \"nvidia\", \"__name__\", \".+\")))",
+              "refId": "StandardVariableQuery"
+            }
+          },
+          "regex": "/device_vendor=\"(?<value>[^\"]+)\"/",
+          "regexApplyTo": "value",
+          "sort": "disabled",
+          "definition": "query_result(count by (device_vendor) (label_replace(last_over_time({__name__=~\"rl_insight_monitor_rlinsight_gpu_info\"}[$__range]), \"device_vendor\", \"nvidia\", \"__name__\", \".+\") or label_replace(last_over_time({__name__=~\"DCGM_FI_DEV_GPU_UTIL\"}[$__range]), \"device_vendor\", \"nvidia\", \"__name__\", \".+\")))",
+          "options": [],
+          "multi": false,
+          "includeAll": false,
           "allowCustomValue": false
         }
       }

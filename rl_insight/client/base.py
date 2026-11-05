@@ -37,13 +37,26 @@ class MonitorClient(ABC):
 
     A client runs inside trainer / worker processes, collects metric and trace
     events locally, and forwards them to a collector backend in a separate
-    process over RPC. The collector then handles centralized processing such as
-    Prometheus export, trace aggregation, or data parsing.
+    process over RPC. The collector then handles centralized processing such
+    as Prometheus export, trace aggregation, or data parsing.
     """
 
     @abstractmethod
     def apply_event(self, event: dict[str, Any]) -> None:
         """Forward one monitor event to the collector backend."""
+
+    def apply_events(self, events: list[dict[str, Any]]) -> None:
+        """Forward a batch of monitor events in order.
+
+        Backends that support batching should override this with a single
+        RPC; the default loops :meth:`apply_event` so every client keeps
+        working unchanged.
+
+        Args:
+            events: Ordered monitor events (same shape as :meth:`apply_event`).
+        """
+        for event in events:
+            self.apply_event(event)
 
 
 def register_monitor_client(backend: str, factory: MonitorClientFactory) -> None:

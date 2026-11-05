@@ -1,5 +1,7 @@
 # Ascend NPU Hardware Monitoring
 
+> **Deprecated:** Exporter-based hardware monitoring is deprecated. Use the built-in [hardware monitoring guide](hardware_monitoring_en.md) instead. This document remains available for existing Prometheus deployments.
+
 MindCluster NPU Exporter provides Ascend NPU metrics. Run one exporter on every monitored NPU node.
 
 Run Sections 1-3 on each monitored NPU node. Run Section 4 on the host where RL-Insight Server is running.
