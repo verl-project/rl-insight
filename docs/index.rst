@@ -28,6 +28,7 @@ For CPU, memory, disk, network, or Ascend NPU metrics, see
 
    verl <monitor/integrations/verl>
    verl-omni <monitor/integrations/verl-omni>
+   slime-ascend <monitor/integrations/slime-ascend>
 
 .. toctree::
    :maxdepth: 2
