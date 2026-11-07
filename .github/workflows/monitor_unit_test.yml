@@ -15,6 +15,8 @@ on:
       - "pyproject.toml"
       - "rl_insight/client/**"
       - "rl_insight/collector/**"
+      - "rl_insight/grafana/**"
+      - "rl_insight/config/services/grafana/**"
       - "rl_insight/utils/**"
       - "tests/monitor/ut/**"
       - ".github/workflows/monitor_unit_test.yml"
