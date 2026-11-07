@@ -16,12 +16,16 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 from omegaconf import OmegaConf
 
 from rl_insight.server import runtime as runtime_module
+from rl_insight.utils.constants import MonitorPaths
+
+_BUNDLED_DASHBOARDS = Path(MonitorPaths.GRAFANA_DASHBOARDS_DIR)
 
 
 def _conf(builtin: Path, extra: Path | None = None):
@@ -106,3 +110,73 @@ def test_stage_rejects_invalid_extra_directory(
         runtime_module._stage_grafana_dashboards(
             _conf(builtin, extra), tmp_path / "runtime"
         )
+
+
+def _bundled_dashboard_files() -> list[Path]:
+    return sorted(_BUNDLED_DASHBOARDS.rglob("*.json"))
+
+
+def _iter_element_references(node: object):
+    """Yield every ``ElementReference`` name in a layout subtree."""
+    if isinstance(node, dict):
+        if node.get("kind") == "ElementReference":
+            yield node.get("name")
+        for value in node.values():
+            yield from _iter_element_references(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _iter_element_references(value)
+
+
+@pytest.mark.parametrize(
+    "dashboard_path", _bundled_dashboard_files(), ids=lambda p: p.name
+)
+def test_bundled_dashboard_should_place_every_element_in_its_layout(
+    dashboard_path: Path,
+) -> None:
+    """Every layout reference resolves, no element is orphaned, panel ids are unique."""
+    dashboard = json.loads(dashboard_path.read_text(encoding="utf-8"))
+    elements = dashboard["spec"]["elements"]
+
+    references = list(_iter_element_references(dashboard["spec"]["layout"]))
+    undeclared = [name for name in references if name not in elements]
+    assert not undeclared, f"{dashboard_path.name} references undeclared elements"
+
+    unplaced = set(elements) - set(references)
+    assert not unplaced, f"{dashboard_path.name} declares unplaced elements"
+
+    panel_ids = [
+        element["spec"]["id"]
+        for element in elements.values()
+        if element.get("kind") == "Panel"
+    ]
+    assert len(panel_ids) == len(set(panel_ids)), (
+        f"{dashboard_path.name} reuses a panel id"
+    )
+
+
+def test_sglang_dashboard_should_plot_prompt_and_generation_length() -> None:
+    """The verl SGLang dashboard plots both SGLang token-length histograms."""
+    dashboard_path = (
+        _BUNDLED_DASHBOARDS / "verl" / "verl_tainer_v1_with_sglang_engine.json"
+    )
+    dashboard = json.loads(dashboard_path.read_text(encoding="utf-8"))
+    elements = dashboard["spec"]["elements"]
+
+    titles = {
+        element["spec"]["title"]
+        for element in elements.values()
+        if element.get("kind") == "Panel"
+    }
+    assert "SGLang: Request Prompt Length" in titles
+    assert "SGLang: Request Generation Length" in titles
+
+    expressions = [
+        query["spec"]["query"]["spec"].get("expr", "")
+        for element in elements.values()
+        if element.get("kind") == "Panel"
+        for query in element["spec"]["data"]["spec"]["queries"]
+    ]
+    joined = "\n".join(expressions)
+    assert "sglang[:_]prompt_tokens_histogram_bucket" in joined
+    assert "sglang[:_]generation_tokens_histogram_bucket" in joined

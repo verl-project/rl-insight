@@ -3,7 +3,7 @@
   "kind": "Dashboard",
   "metadata": {
     "name": "d436bdfd-f96e-4c62-b0b1-8e8315c1757a",
-    "generation": 1,
+    "generation": 2,
     "creationTimestamp": "2026-07-08T14:34:31Z",
     "labels": {},
     "annotations": {}
@@ -4397,6 +4397,226 @@
             }
           }
         }
+      },
+      "panel-9": {
+        "kind": "Panel",
+        "spec": {
+          "id": 9,
+          "title": "SGLang: Request Prompt Length",
+          "description": "Heatmap of prompt token length per rollout request, from sglang:prompt_tokens_histogram.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "builder",
+                        "exemplar": true,
+                        "expr": "sum by (le, replica) (increase({__name__=~\"sglang[:_]prompt_tokens_histogram_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval]))",
+                        "interval": "",
+                        "legendFormat": "replica {{replica}} le {{le}}",
+                        "queryType": "randomWalk",
+                        "range": true,
+                        "format": "heatmap",
+                        "fullMetaSearch": false,
+                        "includeNullMetadata": true,
+                        "useBackend": false
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "heatmap",
+            "version": "13.0.2",
+            "spec": {
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "calculate": false,
+                "cellGap": 1,
+                "cellValues": {
+                  "unit": "none"
+                },
+                "color": {
+                  "exponent": 0.5,
+                  "fill": "dark-orange",
+                  "min": 0,
+                  "mode": "scheme",
+                  "reverse": false,
+                  "scale": "exponential",
+                  "scheme": "Spectral",
+                  "steps": 64
+                },
+                "exemplars": {
+                  "color": "rgba(255,0,255,0.7)"
+                },
+                "filterValues": {
+                  "le": 1e-09
+                },
+                "legend": {
+                  "show": true,
+                  "showLegend": true
+                },
+                "rowsFrame": {
+                  "layout": "auto",
+                  "value": "Request count"
+                },
+                "tooltip": {
+                  "mode": "single",
+                  "showColorScale": false,
+                  "yHistogram": true
+                },
+                "yAxis": {
+                  "axisPlacement": "left",
+                  "reverse": false,
+                  "unit": "s"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "scaleDistribution": {
+                      "type": "linear"
+                    }
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-10": {
+        "kind": "Panel",
+        "spec": {
+          "id": 10,
+          "title": "SGLang: Request Generation Length",
+          "description": "Heatmap of generation token length per rollout request, from sglang:generation_tokens_histogram.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "builder",
+                        "exemplar": true,
+                        "expr": "sum by (le, replica) (increase({__name__=~\"sglang[:_]generation_tokens_histogram_bucket\", model_name=~\"$sglang_model_name\", replica=~\"$sglang_replica\"}[$__rate_interval]))",
+                        "interval": "",
+                        "legendFormat": "replica {{replica}} le {{le}}",
+                        "queryType": "randomWalk",
+                        "range": true,
+                        "format": "heatmap",
+                        "fullMetaSearch": false,
+                        "includeNullMetadata": true,
+                        "useBackend": false
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "heatmap",
+            "version": "13.0.2",
+            "spec": {
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "calculate": false,
+                "cellGap": 1,
+                "cellValues": {
+                  "unit": "none"
+                },
+                "color": {
+                  "exponent": 0.5,
+                  "fill": "dark-orange",
+                  "min": 0,
+                  "mode": "scheme",
+                  "reverse": false,
+                  "scale": "exponential",
+                  "scheme": "Spectral",
+                  "steps": 64
+                },
+                "exemplars": {
+                  "color": "rgba(255,0,255,0.7)"
+                },
+                "filterValues": {
+                  "le": 1e-09
+                },
+                "legend": {
+                  "show": true,
+                  "showLegend": true
+                },
+                "rowsFrame": {
+                  "layout": "auto",
+                  "value": "Request count"
+                },
+                "tooltip": {
+                  "mode": "single",
+                  "showColorScale": false,
+                  "yHistogram": true
+                },
+                "yAxis": {
+                  "axisPlacement": "left",
+                  "reverse": false,
+                  "unit": "s"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "scaleDistribution": {
+                      "type": "linear"
+                    }
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
       }
     },
     "layout": {
@@ -4681,6 +4901,32 @@
                         "element": {
                           "kind": "ElementReference",
                           "name": "panel-8"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "x": 0,
+                        "y": 32,
+                        "width": 12,
+                        "height": 8,
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-9"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "x": 12,
+                        "y": 32,
+                        "width": 12,
+                        "height": 8,
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-10"
                         }
                       }
                     }
