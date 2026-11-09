@@ -130,6 +130,8 @@ class ConcurrencyResult:
     num_procs: int
     num_threads: int
     submitted: int
+    attempted: int = 0
+    failed: int = 0
     submitted_sum: float = 0.0
     hub_delta: int = 0
     failure_rate: float = 0.0
@@ -204,13 +206,15 @@ def _wait_for_stress_prometheus(
         "hist_count": f'{NS}_step_latency_ms_count{{worker="stress"}}',
         "hist_sum": f'{NS}_step_latency_ms_sum{{worker="stress"}}',
     }
-    values: dict[str, float] = {}
+    values: dict[str, float | None] = {}
     while time.monotonic() < deadline:
         values = {
-            name: _promql_value(service_ip, query) or -1.0
-            for name, query in queries.items()
+            name: _promql_value(service_ip, query) for name, query in queries.items()
         }
-        if all(abs(values[name] - expected[name]) < 0.5 for name in expected):
+        if all(
+            values[name] is not None and abs(values[name] - expected[name]) < 0.5
+            for name in expected
+        ):
             break
         time.sleep(0.5)
     return values
@@ -401,6 +405,9 @@ def _process_worker(
     # Thread workers
     stop_event = threading.Event()
     worker_counts: list[int] = [0] * num_threads
+    worker_acks: list[int] = [0] * num_threads
+    worker_failures: list[int] = [0] * num_threads
+    acked_seqs: list[list[int]] = [[] for _ in range(num_threads)]
     all_latencies: list[float] = []
     lat_lock = threading.Lock()
 
@@ -409,14 +416,17 @@ def _process_worker(
         local_lat: list[float] = []
         while not stop_event.is_set():
             t0 = _time.perf_counter()
+            worker_counts[wid] += 1
             try:
                 _emit(seq)
             except Exception:
-                pass
+                worker_failures[wid] += 1
             else:
                 local_lat.append(_time.perf_counter() - t0)
+                worker_acks[wid] += 1
+                if track_sum:
+                    acked_seqs[wid].append(seq)
             seq += 1
-        worker_counts[wid] = len(local_lat)
         with lat_lock:
             all_latencies.extend(local_lat)
 
@@ -427,14 +437,18 @@ def _process_worker(
         for f in futures:
             f.result(timeout=10)
 
-    submitted = sum(worker_counts)
+    attempted = sum(worker_counts)
+    submitted = sum(worker_acks)
+    failed = sum(worker_failures)
     submitted_sum = 0.0
     if track_sum:
-        submitted_sum = sum(_hist_sum(n) for n in worker_counts)
+        submitted_sum = sum(200 + seq % 100 for seqs in acked_seqs for seq in seqs)
 
     result_queue.put(
         {
             "submitted": submitted,
+            "attempted": attempted,
+            "failed": failed,
             "submitted_sum": submitted_sum,
             "latencies": all_latencies,
         }
@@ -477,29 +491,35 @@ def run_concurrency_test(
     # Collect results from all child processes
     all_latencies: list[float] = []
     total_submitted = 0
+    total_attempted = 0
+    total_failed = 0
     total_sum = 0.0
-    for _ in range(len(processes)):
-        try:
-            result = result_queue.get(timeout=STRESS_DURATION_S + 30)
-            total_submitted += result["submitted"]
-            total_sum += result["submitted_sum"]
-            all_latencies.extend(result["latencies"])
-        except Exception as exc:
-            raise RuntimeError("Stress worker failed to report results") from exc
-
-    for p in processes:
-        p.join(timeout=10)
-        if p.is_alive():
-            p.terminate()
-            p.join(timeout=5)
+    try:
+        for _ in range(len(processes)):
+            try:
+                result = result_queue.get(timeout=STRESS_DURATION_S + 30)
+                total_submitted += result["submitted"]
+                total_attempted += result["attempted"]
+                total_failed += result["failed"]
+                total_sum += result["submitted_sum"]
+                all_latencies.extend(result["latencies"])
+            except Exception as exc:
+                raise RuntimeError("Stress worker failed to report results") from exc
+    finally:
+        for p in processes:
+            p.join(timeout=10)
+            if p.is_alive():
+                p.terminate()
+                p.join(timeout=5)
+        result_queue.close()
 
     hub_after = _wait_for_hub_events(
         hub_before + total_submitted, EVENT_DRAIN_TIMEOUT_S
     )
     hub_delta = hub_after - hub_before if hub_before >= 0 and hub_after >= 0 else -1
 
-    if hub_delta >= 0 and total_submitted > 0:
-        fail_rate = max(0.0, 1.0 - hub_delta / total_submitted)
+    if hub_delta >= 0 and total_attempted > 0:
+        fail_rate = max(0.0, 1.0 - hub_delta / total_attempted)
     else:
         fail_rate = 1.0
 
@@ -508,6 +528,8 @@ def run_concurrency_test(
         num_procs=num_procs,
         num_threads=num_threads,
         submitted=total_submitted,
+        attempted=total_attempted,
+        failed=total_failed,
         submitted_sum=total_sum,
         hub_delta=hub_delta,
         failure_rate=fail_rate,
