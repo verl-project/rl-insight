@@ -199,7 +199,7 @@ def _wait_for_stress_prometheus(
     service_ip: str,
     expected: dict[str, float],
     timeout_s: float = AGGREGATE_TIMEOUT_S,
-) -> dict[str, float]:
+) -> dict[str, float | None]:
     deadline = time.monotonic() + timeout_s
     queries = {
         "counter": f'{NS}_train_step_total{{worker="stress"}}',
@@ -212,8 +212,8 @@ def _wait_for_stress_prometheus(
             name: _promql_value(service_ip, query) for name, query in queries.items()
         }
         if all(
-            values[name] is not None and abs(values[name] - expected[name]) < 0.5
-            for name in expected
+            value is not None and abs(value - expected[name]) < 0.5
+            for name, value in values.items()
         ):
             break
         time.sleep(0.5)
