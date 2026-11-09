@@ -71,13 +71,13 @@ def create_monitor_client(conf: DictConfig) -> MonitorClient | None:
     """
     backend_type = str(OmegaConf.select(conf, "server.backend") or "").strip()
     if not backend_type:
-        raise ValueError("monitor config server.backend is required")
+        raise ValueError("[rl-insight] monitor config server.backend is required")
 
     factory = MONITOR_CLIENT_REGISTRY.get(backend_type)
     if factory is None:
         supported = ", ".join(sorted(MONITOR_CLIENT_REGISTRY)) or "(none installed)"
         raise ValueError(
-            f"Unsupported monitor backend {backend_type!r}; supported: {supported}"
+            f"[rl-insight] Unsupported monitor backend {backend_type!r}; supported: {supported}"
         )
 
     return factory(conf)

@@ -27,6 +27,7 @@ from rl_insight.collector import ray_monitor_hub as hub_module
 from rl_insight.utils.constants import MonitorEventKind, MonitorRayActor
 from rl_insight.utils.protocol import RunContext
 
+
 HubImplementation = cast(
     Any, hub_module.MonitorHubActor
 ).__ray_metadata__.modified_class
@@ -106,13 +107,10 @@ def test_init_should_configure_collectors_and_register_scrape_target_when_create
     update_config.assert_any_call(
         ["10.0.0.9:1234"],
         "vllm",
-        [{"replica": 0}],
+        [{"replica": 0, "project": "p", "experiment_name": f"chosen_{suffix}"}],
         instance._context,
-        identity_in_metrics=False,
     )
-    update_config.assert_any_call(
-        ["10.0.0.8:9092"], None, None, instance._context, identity_in_metrics=True
-    )
+    update_config.assert_any_call(["10.0.0.8:9092"], None, None, instance._context)
     assert instance._registry is registry
     assert instance._context.original_experiment_name == "chosen"
     assert instance._context.experiment_name == f"chosen_{suffix}"
@@ -219,7 +217,6 @@ def test_get_context_should_describe_identity_and_live_status(hub: Any) -> None:
     hub._events_applied = 4
 
     hub._context = RunContext("p", "e", "http://server")
-    hub._conf = OmegaConf.create({"server": {"url": "http://server"}})
     hub._services = {"otlp_port": 4318}
     context = hub.get_context()
     assert context.experiment_name == "e"

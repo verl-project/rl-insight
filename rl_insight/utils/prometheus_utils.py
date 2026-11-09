@@ -39,10 +39,11 @@ from .constants import (
     PrometheusScrape,
     prometheus_targets_file_from_config,
 )
-from .protocol import RunContext, RunError
+from .protocol import RunContext
 
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.WARNING)
+
 
 __all__ = [
     "MetricRegistry",
@@ -409,7 +410,6 @@ def update_prometheus_config(
     labels: list[Mapping[str, Any] | None] | None = None,
     *,
     context: RunContext | None = None,
-    identity_in_metrics: bool = False,
 ) -> None:
     """Register trainer metrics endpoints with the RL-Insight server.
 
@@ -457,9 +457,11 @@ def update_prometheus_config(
         register_prometheus_targets(
             server_addresses,
             job_name,
-            labels,
+            [
+                context.labels(target_labels)
+                for target_labels in (labels or [None] * len(server_addresses))
+            ],
             context,
-            identity_in_metrics=identity_in_metrics,
         )
         return
 
@@ -475,14 +477,20 @@ def update_prometheus_config(
             "[rl-insight] Ray is not initialized; Prometheus targets are not registered."
         )
         return
-    hub = get_or_create_monitor_hub()
-    initialize_hub_connection(hub, timeout=30)
-    ray.get(
-        hub.register_targets.remote(
-            server_addresses, job_name, labels, identity_in_metrics=identity_in_metrics
-        ),
-        timeout=30,
-    )
+    try:
+        hub = get_or_create_monitor_hub()
+        initialize_hub_connection(hub, timeout=30)
+        ray.get(
+            hub.register_targets.remote(server_addresses, job_name, labels),
+            timeout=30,
+        )
+    except Exception as e:
+        logger.error(
+            "[rl-insight] Cannot register Prometheus targets through Ray (%s): %s",
+            type(e).__name__,
+            e,
+            exc_info=True,
+        )
 
 
 def register_prometheus_targets(
@@ -490,10 +498,8 @@ def register_prometheus_targets(
     job_name: str | None,
     labels: list[Mapping[str, Any] | None] | None,
     context: RunContext | None,
-    *,
-    identity_in_metrics: bool = False,
 ) -> bool:
-    """Publish targets; return success so the Hub can retain failed registrations."""
+    """Publish targets with prepared labels; return success for pending retries."""
     base_url = (
         context.server_url
         if context
@@ -502,7 +508,7 @@ def register_prometheus_targets(
     if not base_url:
         logger.error(
             "[rl-insight] RL-Insight server URL is required; "
-            "set %s to register Prometheus targets",
+            "set %s. Prometheus targets are not registered.",
             MonitorEnv.SERVER_URL,
         )
         return False
@@ -510,21 +516,9 @@ def register_prometheus_targets(
         "job_name": job_name or PrometheusScrape.TRAINER_METRICS_JOB,
         "targets": _build_target_payload(server_addresses, labels),
     }
-    if context and not identity_in_metrics:
-        for target in payload["targets"]:
-            target["labels"] = context.labels(target.get("labels"))
     url = f"{base_url}/api/v1/prometheus/targets"
     try:
-        response = requests.post(
-            url,
-            json=payload,
-            timeout=10,
-        )
-        if 400 <= response.status_code < 500 and response.status_code not in {408, 429}:
-            raise RunError(
-                "[rl-insight] Target registration rejected: " + response.text[:512],
-                response.status_code,
-            )
+        response = requests.post(url, json=payload, timeout=10)
         response.raise_for_status()
         logger.info(
             "[rl-insight] Registered %d Prometheus targets (job_name=%s)",

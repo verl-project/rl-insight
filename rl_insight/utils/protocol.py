@@ -34,13 +34,7 @@ MIN_SUPPORTED_VERSION = Version("0.4.0")
 SDK_VERSION_HEADER = "X-RL-Insight-Client-Version"
 
 
-class RunError(ValueError):
-    def __init__(self, message: str, status: int = 400):
-        super().__init__(message)
-        self.status = status
-
-
-class InvalidVersionError(RunError):
+class InvalidVersionError(ValueError):
     """The peer does not provide a supported RL-Insight version."""
 
 
@@ -61,7 +55,7 @@ def require_version(value: Any, component: str) -> None:
             "then restart the training job."
         )
         logger.error("%s", message)
-        raise InvalidVersionError(message, 409)
+        raise InvalidVersionError(message)
 
 
 @dataclass(frozen=True)
@@ -105,7 +99,7 @@ class RunContext:
             else self.experiment_name,
         ):
             if not isinstance(name, str) or not name.strip():
-                raise RunError("[rl-insight] Run names must be non-empty strings")
+                raise ValueError("[rl-insight] Run names must be non-empty strings")
         try:
             url = urlsplit(self.server_url)
             if (
@@ -120,8 +114,8 @@ class RunContext:
                 raise ValueError
             if url.port is not None and not 1 <= url.port <= 65535:
                 raise ValueError
-        except (ValueError, TypeError, AttributeError) as exc:
-            raise RunError("[rl-insight] Invalid server URL") from exc
+        except (ValueError, TypeError, AttributeError) as e:
+            raise ValueError("[rl-insight] Invalid server URL") from e
         object.__setattr__(self, "server_url", self.server_url.rstrip("/"))
 
     def to_dict(self) -> dict[str, Any]:

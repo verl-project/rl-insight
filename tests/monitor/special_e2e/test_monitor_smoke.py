@@ -164,7 +164,7 @@ def test_monitor_metrics_should_match_reported_values_when_events_are_emitted(
         )
 
     hub = ray.get_actor(_current_job_actor_name(), namespace=MonitorRayActor.NAMESPACE)
-    ray.get(hub.get_context.remote()).to_dict()
+    ray.get(hub.get_context.remote())
 
     expected_values = {
         "rl_insight_monitor_train_step_total": 3.0,

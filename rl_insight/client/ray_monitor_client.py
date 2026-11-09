@@ -64,6 +64,7 @@ def get_or_create_monitor_hub() -> Any:
     """Get or create the current job's Hub, reusing concurrent creations."""
     actor_name = _current_job_actor_name()
     namespace = MonitorRayActor.NAMESPACE
+
     try:
         handle = ray.get_actor(actor_name, namespace=namespace)
         logger.info(
@@ -80,7 +81,8 @@ def get_or_create_monitor_hub() -> Any:
         "namespace": namespace,
     }
     try:
-        hub = cast(Any, MonitorHubActor).options(**actor_options).remote()
+        actor_cls = cast(Any, MonitorHubActor)
+        hub = actor_cls.options(**actor_options).remote()
     except ValueError:
         logger.info(
             "[rl-insight] Monitor hub actor %r was created concurrently; "
@@ -107,9 +109,17 @@ def create_ray_monitor_client(conf: DictConfig) -> MonitorRayClient | None:
 
     task_conf = conf if conf.get("run_metadata") is not None else None
     if task_conf is not None:
-        initialize_server_connection(str(task_conf.server.url))
+        if initialize_server_connection(str(task_conf.server.url)) is None:
+            return None
     handle = get_or_create_monitor_hub()
-    return MonitorRayClient(handle, task_conf)
+    client = MonitorRayClient(handle, task_conf)
+    if task_conf is not None and client.get_context() is None:
+        logger.error(
+            "[rl-insight] Monitor Hub did not initialize; monitoring is disabled "
+            "for this process. Check the Hub logs and retry init()."
+        )
+        return None
+    return client
 
 
 class MonitorRayClient(MonitorClient):

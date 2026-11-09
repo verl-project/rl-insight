@@ -103,6 +103,7 @@ while True:
     time.sleep(0.5)
 ```
 
+
 ## 5. Open Grafana
 
 Open the Grafana URL printed by `rl-insight server start`. By default, Grafana listens at:

@@ -138,7 +138,7 @@ def test_same_named_executions_register_distinct_native_labels(stack):
     assert len({context.experiment_name for context in contexts}) == 3
     for i, context in enumerate(contexts):
         assert register_prometheus_targets(
-            [f"host{i}:9000"], "workers", [{"experiment_name": "same"}], context
+            [f"host{i}:9000"], "workers", [context.labels()], context
         )
     targets_file = stack.path / "data/targets/prometheus-targets.yml"
     targets = yaml.safe_load(targets_file.read_text())
@@ -173,18 +173,13 @@ import yaml
 import rl_insight as insight
 from prometheus_client.parser import text_string_to_metric_families
 from rl_insight.client.ray_monitor_client import get_or_create_monitor_hub
-from rl_insight.utils.protocol import RunError
 
 url = sys.argv[1]
 ray.init(num_cpus=2, include_dashboard=False, log_to_driver=False)
 try:
-    try:
-        insight.init()
-    except RunError as exc:
-        assert exc.status == 503
-        hub = get_or_create_monitor_hub()
-        ray.get(hub.flush_pending_targets.remote(), timeout=20)
-        insight.init()
+    insight.init()
+    hub = get_or_create_monitor_hub()
+    ray.get(hub.flush_pending_targets.remote(), timeout=20)
     default = insight.get_context()
     assert (default.project, default.original_experiment_name) == ("default", "default")
     with pytest.warns(RuntimeWarning, match="ignoring re-initialization"):

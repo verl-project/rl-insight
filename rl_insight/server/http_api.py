@@ -35,7 +35,6 @@ from ..utils.prometheus_utils import PrometheusTarget, PrometheusTargetStore
 from ..utils.protocol import (
     SDK_VERSION_HEADER,
     InvalidVersionError,
-    RunError,
     require_version,
 )
 from .network import local_addresses
@@ -48,17 +47,16 @@ def server_url() -> str:
     return str(os.environ.get(MonitorEnv.SERVER_URL, "")).strip().rstrip("/")
 
 
-def get_server_services(base_url: str | None = None) -> dict[str, Any]:
+def get_server_services(base_url: str | None = None) -> dict[str, Any] | None:
     """Fetch the Server's service endpoints, retrying transient failures."""
     base_url = (base_url or server_url()).strip().rstrip("/")
     if not base_url:
         logger.error(
-            "[rl-insight] RL-Insight server URL is required; set %s",
+            "[rl-insight] RL-Insight server URL is required; set %s. "
+            "Skipping monitoring initialization; training can continue.",
             MonitorEnv.SERVER_URL,
         )
-        raise RunError(
-            f"[rl-insight] RL-Insight requires a Server URL; set {MonitorEnv.SERVER_URL}"
-        )
+        return None
 
     url = f"{base_url}{MonitorServer.API_PREFIX}/services"
     last_error: requests.RequestException | ValueError | None = None
@@ -75,21 +73,17 @@ def get_server_services(base_url: str | None = None) -> dict[str, Any]:
                 raise ValueError(
                     f"[rl-insight] services response must be an object, got {type(data).__name__}"
                 )
+            return data
         except requests.HTTPError as exc:
             if (
                 exc.response is not None
                 and 400 <= exc.response.status_code < 500
                 and exc.response.status_code not in {408, 429}
             ):
-                raise RunError(
-                    f"[rl-insight] RL-Insight service discovery rejected at {url}: {exc.response.text[:512]}",
-                    exc.response.status_code,
-                ) from exc
+                raise
             last_error = exc
         except (requests.RequestException, ValueError) as exc:
             last_error = exc
-        else:
-            return data
 
         if attempt + 1 < MonitorServer.SERVICE_DISCOVERY_RETRIES:
             time.sleep(MonitorServer.SERVICE_DISCOVERY_RETRY_DELAY_SECONDS)
@@ -99,23 +93,25 @@ def get_server_services(base_url: str | None = None) -> dict[str, Any]:
         url,
         last_error,
     )
-    raise RunError(
-        f"[rl-insight] Cannot fetch RL-Insight services at {url}: {last_error}", 503
-    ) from last_error
+    return None
 
 
-def initialize_server_connection(base_url: str | None = None) -> dict[str, Any]:
+def initialize_server_connection(base_url: str | None = None) -> dict[str, Any] | None:
     """Discover Server endpoints and validate compatibility during initialization."""
     try:
         services = get_server_services(base_url)
-    except RunError as exc:
-        if exc.status in {404, 405}:
+        if services is None:
+            return None
+        require_version(services.get("server_version"), "Server")
+        return services
+    except requests.HTTPError as e:
+        if e.response is None:
+            raise
+        if e.response.status_code in {404, 405}:
             require_version(None, "Server (services API unavailable)")
-        if exc.status == 409:
-            raise InvalidVersionError(str(exc), 409) from exc
+        if e.response.status_code == 409:
+            raise InvalidVersionError("[rl-insight] " + e.response.text[:512]) from e
         raise
-    require_version(services.get("server_version"), "Server")
-    return services
 
 
 def create_app(conf: DictConfig) -> FastAPI:
@@ -135,8 +131,8 @@ def create_app(conf: DictConfig) -> FastAPI:
         """Verify the connecting SDK and expose the Server's enabled services."""
         try:
             require_version(client_version, "Client")
-        except InvalidVersionError as exc:
-            raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
+        except InvalidVersionError as e:
+            raise HTTPException(status_code=409, detail=str(e)) from e
         return {
             "status": "ok",
             "server_version": __version__,
@@ -212,6 +208,7 @@ def create_app(conf: DictConfig) -> FastAPI:
                 detail=str(exc),
             ) from exc
 
+        # file_sd discovers target-file updates without reloading the main config.
         return {"status": "ok", "prometheus_reloaded": False, **result}
 
     return app

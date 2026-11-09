@@ -412,7 +412,6 @@ def _process_worker(
     # Keep the producer alive until its asynchronous actor submissions complete.
     # A parent-process status query cannot order calls from other producers.
     client.close()
-    _ray.get(hub_handle.get_context.remote(), timeout=EVENT_DRAIN_TIMEOUT_S)
     result_queue.put(
         {
             "submitted": submitted,

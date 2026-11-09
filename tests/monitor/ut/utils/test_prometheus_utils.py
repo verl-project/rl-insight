@@ -27,7 +27,7 @@ from omegaconf import OmegaConf
 from prometheus_client import CollectorRegistry, Gauge, make_wsgi_app
 
 from rl_insight.utils import prometheus_utils as prometheus_module
-from rl_insight.utils.protocol import RunContext, RunError
+from rl_insight.utils.protocol import RunContext
 
 
 def _register_target_in_process(
@@ -206,7 +206,7 @@ def test_register_should_preserve_concurrent_cross_process_updates(tmp_path) -> 
 def test_update_prometheus_config_should_send_normalized_targets_when_server_is_set(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    response = MagicMock(status_code=200)
+    response = MagicMock()
     post = MagicMock(return_value=response)
     monkeypatch.setenv("RL_INSIGHT_SERVER_URL", "http://server:18080/")
     monkeypatch.setattr(prometheus_module.requests, "post", post)
@@ -273,6 +273,7 @@ def test_update_prometheus_config_should_register_in_process_when_push_active(
 
 def test_hub_targets_keep_registration_failures_for_explicit_retry(
     monkeypatch,
+    caplog,
 ):
     from rl_insight.collector.ray_monitor_hub import MonitorHubActor
 
@@ -283,18 +284,22 @@ def test_hub_targets_keep_registration_failures_for_explicit_retry(
     hub._initialized = True
     hub._context = context
     item = (["host:9000"], "workers", None, False)
-    post = MagicMock(return_value=MagicMock(status_code=409, text="identity conflict"))
+    response = MagicMock()
+    response.raise_for_status.side_effect = prometheus_module.requests.HTTPError(
+        "identity conflict"
+    )
+    post = MagicMock(return_value=response)
     monkeypatch.setattr(prometheus_module.requests, "post", post)
-    with pytest.raises(RunError, match="identity conflict"):
-        hub.register_targets(*item[:3])
+    hub.register_targets(*item[:3])
+    assert "identity conflict" in caplog.text
     assert hub._pending_targets == [item]
     hub.init(OmegaConf.create({}))
     post.assert_called_once()
     post.side_effect = prometheus_module.requests.ConnectionError("offline")
-    with pytest.raises(RunError, match="Cannot register"):
-        hub.flush_pending_targets()
+    hub.flush_pending_targets()
+    assert "offline" in caplog.text
     assert hub._pending_targets == [item]
     post.side_effect = None
-    post.return_value.status_code = 200
+    response.raise_for_status.side_effect = None
     hub.flush_pending_targets()
     assert not hub._pending_targets

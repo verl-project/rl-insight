@@ -31,9 +31,9 @@ from typing import Any
 from omegaconf import DictConfig, OmegaConf
 
 from .client import create_monitor_client
+from .utils.monitor_config_loader import load_monitor_config
 from .utils import MonitorBackend, MonitorEventKind
 from .utils.constants import MonitorDefaults
-from .utils.monitor_config_loader import load_monitor_config
 from .utils.protocol import RunContext
 
 logger = logging.getLogger(__name__)
@@ -83,7 +83,7 @@ def init(
     experiment_name: str | None = None,
     config: Mapping[str, Any] | DictConfig | None = None,
 ) -> None:
-    """Initialize monitoring once per process.
+    """Load merged monitor config, create backend client, enable metric/trace helpers (once per process).
 
     Args:
         project: Optional project name attached to all metrics and traces as the ``project`` label/attribute.
@@ -93,9 +93,8 @@ def init(
         config: Optional dict-like or ``DictConfig`` overrides merged into training defaults; see ``load_monitor_config``.
 
     Note:
-        Ray requires ``ray.init()`` first. The first initialization fixes the
-        Hub's experiment names, using defaults if omitted. Repeated calls are
-        ignored with ``RuntimeWarning``.
+        Repeated calls are ignored with ``RuntimeWarning``. Ray backend requires ``ray.init()`` first.
+        The first initialization fixes the Hub's experiment names, using defaults if omitted.
     """
     global _STATE
     if _STATE.enabled:
@@ -122,42 +121,56 @@ def init(
     if backend == MonitorBackend.RAY and not str(monitor_conf.server.url).strip():
         logger.error(
             "[rl-insight] RL-Insight server URL is required; set RL_INSIGHT_SERVER_URL "
-            "or server.url in init config."
+            "or server.url in init config. Skipping monitoring initialization."
         )
         return
-    OmegaConf.update(monitor_conf, "run_metadata", metadata, force_add=True)
-    client = create_monitor_client(monitor_conf)
-    if client is None:
-        return
-    context = getattr(client, "get_context", lambda: None)()
-    labels = {
-        key: value
-        for key, value in {
-            "project": context.project
-            if context
-            else metadata.get("project", MonitorDefaults.PROJECT_NAME),
-            "experiment_name": context.experiment_name
-            if context
-            else metadata.get("experiment_name", MonitorDefaults.EXPERIMENT_NAME),
-        }.items()
-        if value is not None
-    }
-    previous = _STATE.client
-    _STATE = _MonitorState(
-        enabled=client is not None,
-        client=client,
-        conf=monitor_conf,
-        namespace=str(monitor_conf.server.namespace),
-        labels=labels,
-        context=context,
-    )
-    if previous is not None and previous is not client and hasattr(previous, "close"):
-        previous.close()
+    try:
+        OmegaConf.update(monitor_conf, "run_metadata", metadata, force_add=True)
+        client = create_monitor_client(monitor_conf)
+        if client is None:
+            return
+        context = getattr(client, "get_context", lambda: None)()
+        labels = {
+            key: value
+            for key, value in {
+                "project": context.project
+                if context
+                else metadata.get("project", MonitorDefaults.PROJECT_NAME),
+                "experiment_name": context.experiment_name
+                if context
+                else metadata.get("experiment_name", MonitorDefaults.EXPERIMENT_NAME),
+            }.items()
+            if value is not None
+        }
+        _STATE = _MonitorState(
+            enabled=client is not None,
+            client=client,
+            conf=monitor_conf,
+            namespace=str(monitor_conf.server.namespace),
+            labels=labels,
+            context=context,
+        )
+    except Exception as e:
+        logger.error(
+            "[rl-insight] Monitoring initialization failed (%s): %s",
+            type(e).__name__,
+            e,
+            exc_info=True,
+        )
 
 
 def get_context() -> RunContext | None:
     """Return an immutable snapshot of the current Run identity and live status."""
-    return _STATE.client.get_context() if _STATE.client else None
+    try:
+        return _STATE.client.get_context() if _STATE.client else None
+    except Exception as e:
+        logger.error(
+            "[rl-insight] Cannot read monitoring Context (%s): %s",
+            type(e).__name__,
+            e,
+            exc_info=True,
+        )
+        return None
 
 
 def finish() -> None:
@@ -312,11 +325,19 @@ def trace_state(
         Control during the covered code block; the span is emitted on exit.
     """
 
-    if _STATE.client is None:
-        conf = load_monitor_config()
-        if str(conf.server.backend).strip() == MonitorBackend.RAY:
-            conf.pop("run_metadata", None)
-            _STATE.client = create_monitor_client(conf)
+    try:
+        if _STATE.client is None:
+            conf = load_monitor_config()
+            if str(conf.server.backend).strip() == MonitorBackend.RAY:
+                conf.pop("run_metadata", None)
+                _STATE.client = create_monitor_client(conf)
+    except Exception as e:
+        logger.error(
+            "[rl-insight] Cannot prepare state tracing (%s): %s",
+            type(e).__name__,
+            e,
+            exc_info=True,
+        )
     if _STATE.client is None:
         yield
         return
@@ -401,7 +422,7 @@ def trace_span(
         name=name,
         start_time_ns=start_time_ns,
         end_time_ns=end_time_ns,
-        attributes=dict(attributes),
+        attributes=attributes,
     )
 
 
@@ -543,18 +564,27 @@ def _emit(
     """
     if not _STATE.enabled or _STATE.client is None:
         return
-    event = {
-        "kind": kind,
-        "name": name,
-        "documentation": documentation,
-        "value": value,
-        "labels": (
-            _STATE.context.labels({**_STATE.labels, **labels})
-            if _STATE.context
-            else {**_STATE.labels, **labels}
-        ),
-    }
-    _STATE.client.apply_event(event)
+    try:
+        event = {
+            "kind": kind,
+            "name": name,
+            "documentation": documentation,
+            "value": value,
+            "labels": (
+                _STATE.context.labels({**_STATE.labels, **labels})
+                if _STATE.context
+                else {**_STATE.labels, **labels}
+            ),
+        }
+        _STATE.client.apply_event(event)
+    except Exception as e:
+        logger.error(
+            "[rl-insight] Cannot submit metric %r (%s): %s",
+            name,
+            type(e).__name__,
+            e,
+            exc_info=True,
+        )
 
 
 def _emit_trace_span(
@@ -562,7 +592,7 @@ def _emit_trace_span(
     name: str,
     start_time_ns: int,
     end_time_ns: int,
-    attributes: dict[str, Any],
+    attributes: Mapping[str, Any],
     client: Any | None = None,
 ) -> None:
     """If monitoring is on, send one OTLP root span event (hub may no-op if OTLP is disabled).
@@ -578,19 +608,28 @@ def _emit_trace_span(
     if client is None:
         return
 
-    merged_attributes: dict[str, Any] = {
-        "process_id": _STATE.process_id,
-        **_STATE.labels,
-    }
-    merged_attributes.update(attributes)
-    if _STATE.context:
-        merged_attributes = _STATE.context.labels(merged_attributes)
+    try:
+        merged_attributes: dict[str, Any] = {
+            "process_id": _STATE.process_id,
+            **_STATE.labels,
+        }
+        merged_attributes.update(attributes)
+        if _STATE.context:
+            merged_attributes = _STATE.context.labels(merged_attributes)
 
-    event = {
-        "kind": MonitorEventKind.TRACE,
-        "name": name,
-        "start_time_ns": int(start_time_ns),
-        "end_time_ns": int(end_time_ns),
-        "attributes": merged_attributes,
-    }
-    client.apply_event(event)
+        event = {
+            "kind": MonitorEventKind.TRACE,
+            "name": name,
+            "start_time_ns": int(start_time_ns),
+            "end_time_ns": int(end_time_ns),
+            "attributes": merged_attributes,
+        }
+        client.apply_event(event)
+    except Exception as e:
+        logger.error(
+            "[rl-insight] Cannot submit trace %r (%s): %s",
+            name,
+            type(e).__name__,
+            e,
+            exc_info=True,
+        )
