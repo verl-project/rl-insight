@@ -37,6 +37,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
+      packages: read # Read published immutable nightly-<date>-<sha> image tags.
     outputs:
       build: ${{ steps.check.outputs.build }}
     steps:
@@ -48,17 +49,19 @@ jobs:
         run: |
           build=true
           if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
-            tags=$(gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/nightly-" \
-                     --paginate --jq '.[].ref' 2>/dev/null || true)
+            # The immutable nightly image tag doubles as the build marker, so
+            # GHCR is the source of truth; no git tags are involved.
+            tags=$(gh api "orgs/${GITHUB_REPOSITORY%%/*}/packages/container/rl-insight/versions" \
+                     --paginate --jq '.[].metadata.container.tags[]?' || true)
             short_sha=${GITHUB_SHA:0:7}
-            newest_tag=$(printf '%s\n' "$tags" | grep -E '^refs/tags/nightly-[0-9]{8}-[0-9a-f]{7,40}$' | sort | tail -1)
-            # Skip only if the newest nightly tag still points at this exact
+            newest_tag=$(printf '%s\n' "$tags" | grep -E '^nightly-[0-9]{8}-[0-9a-f]{7,40}$' | sort | tail -1)
+            # Skip only if the newest nightly image still carries this exact
             # commit and is fresh; anything else means build (or retry).
             # Matching the newest tag only (not any historical tag) also
             # recovers when a force-push moves main onto an older commit
             # that was itself published before.
             if [ -n "$newest_tag" ] && [[ "$newest_tag" == *"-${short_sha}" ]]; then
-              newest=${newest_tag#refs/tags/nightly-}
+              newest=${newest_tag#nightly-}
               newest=${newest%%-*}
               age_days=$(( ( $(date -u +%s) - $(date -u -d "$newest" +%s) ) / 86400 ))
               if [ "$age_days" -lt "${STALE_DAYS}" ]; then
@@ -146,7 +149,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
-      contents: write # Push the immutable nightly-<date>-<sha> tag.
+      contents: read # Checkout only.
       packages: write # Push to ghcr.io with GITHUB_TOKEN.
     steps:
       - name: Checkout code
@@ -165,8 +168,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Computed once and shared by the image tag and the git marker below so
-      # they cannot diverge if the build spans a UTC midnight.
+      # Computed once so the immutable image tag cannot straddle a UTC midnight.
       - name: Record nightly date
         id: date
         run: echo "date=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
@@ -192,10 +194,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      # Same name as the immutable image tag; it doubles as the marker the gate
-      # reads, so publishing and bookkeeping can never diverge.
-      - name: Tag the published commit
-        run: |
-          tag="nightly-${{ steps.date.outputs.date }}-${GITHUB_SHA:0:7}"
-          git push origin "${GITHUB_SHA}:refs/tags/${tag}"

@@ -205,7 +205,22 @@ def test_register_should_preserve_concurrent_cross_process_updates(tmp_path) -> 
 
 def test_update_prometheus_config_should_send_normalized_targets_when_server_is_set(
     monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
+    import ray
+
+    from rl_insight.client import ray_monitor_client
+
+    hub = MagicMock()
+    hub.get_context.remote.return_value = RunContext(
+        "p", "e", "http://server:18080", initialized=True
+    )
+    monkeypatch.setattr(ray, "is_initialized", lambda: True)
+    monkeypatch.setattr(ray, "get", lambda ref, *, timeout: ref)
+    monkeypatch.setattr(ray_monitor_client, "get_or_create_monitor_hub", lambda: hub)
+    monkeypatch.setattr(
+        ray_monitor_client, "initialize_hub_connection", lambda *a, **kw: None
+    )
     response = MagicMock()
     post = MagicMock(return_value=response)
     monkeypatch.setenv("RL_INSIGHT_SERVER_URL", "http://server:18080/")
@@ -215,7 +230,6 @@ def test_update_prometheus_config_should_send_normalized_targets_when_server_is_
         ["host-a:9000", "host-b:9000"],
         job_name="workers",
         labels=[{"rank": 0}, None],
-        context=RunContext("p", "e", "http://server:18080"),
     )
 
     post.assert_called_once_with(
@@ -236,6 +250,7 @@ def test_update_prometheus_config_should_send_normalized_targets_when_server_is_
         timeout=10,
     )
     response.raise_for_status.assert_called_once_with()
+    assert "Registered 2 Prometheus targets" in capsys.readouterr().out
 
 
 def test_update_prometheus_config_should_reject_mismatched_labels_when_lengths_differ() -> (

@@ -72,7 +72,6 @@ class _MonitorState:
     namespace: str = ""
     process_id: str = field(default_factory=lambda: str(os.getpid()))
     labels: dict[str, Any] = field(default_factory=dict)
-    context: RunContext | None = None
 
 
 _STATE = _MonitorState()
@@ -109,12 +108,10 @@ def init(
     monitor_conf = load_monitor_config(config)
     backend = str(OmegaConf.select(monitor_conf, "server.backend") or "").strip()
     metadata = {
-        key: value
-        for key, value in {
-            "project": project,
-            "experiment_name": experiment_name,
-        }.items()
-        if value is not None
+        "project": project if project is not None else MonitorDefaults.PROJECT_NAME,
+        "experiment_name": experiment_name
+        if experiment_name is not None
+        else MonitorDefaults.EXPERIMENT_NAME,
     }
     # Only the Ray backend talks to the external RL-Insight server; direct-emit
     # backends (e.g. push) intentionally run without a server URL.
@@ -129,26 +126,12 @@ def init(
         client = create_monitor_client(monitor_conf)
         if client is None:
             return
-        context = getattr(client, "get_context", lambda: None)()
-        labels = {
-            key: value
-            for key, value in {
-                "project": context.project
-                if context
-                else metadata.get("project", MonitorDefaults.PROJECT_NAME),
-                "experiment_name": context.experiment_name
-                if context
-                else metadata.get("experiment_name", MonitorDefaults.EXPERIMENT_NAME),
-            }.items()
-            if value is not None
-        }
         _STATE = _MonitorState(
             enabled=client is not None,
             client=client,
             conf=monitor_conf,
             namespace=str(monitor_conf.server.namespace),
-            labels=labels,
-            context=context,
+            labels=metadata,
         )
     except Exception as e:
         logger.error(
@@ -327,10 +310,7 @@ def trace_state(
 
     try:
         if _STATE.client is None:
-            conf = load_monitor_config()
-            if str(conf.server.backend).strip() == MonitorBackend.RAY:
-                conf.pop("run_metadata", None)
-                _STATE.client = create_monitor_client(conf)
+            _STATE.client = create_monitor_client()
     except Exception as e:
         logger.error(
             "[rl-insight] Cannot prepare state tracing (%s): %s",
@@ -570,11 +550,7 @@ def _emit(
             "name": name,
             "documentation": documentation,
             "value": value,
-            "labels": (
-                _STATE.context.labels({**_STATE.labels, **labels})
-                if _STATE.context
-                else {**_STATE.labels, **labels}
-            ),
+            "labels": {**_STATE.labels, **labels},
         }
         _STATE.client.apply_event(event)
     except Exception as e:
@@ -614,9 +590,6 @@ def _emit_trace_span(
             **_STATE.labels,
         }
         merged_attributes.update(attributes)
-        if _STATE.context:
-            merged_attributes = _STATE.context.labels(merged_attributes)
-
         event = {
             "kind": MonitorEventKind.TRACE,
             "name": name,

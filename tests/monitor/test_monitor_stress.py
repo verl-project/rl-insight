@@ -41,10 +41,7 @@ from typing import Any
 import ray
 import rl_insight as insight
 import rl_insight.api as _api
-from rl_insight.client.ray_monitor_client import (
-    _current_job_actor_name,
-    MonitorRayClient,
-)
+from rl_insight.client.ray_monitor_client import _current_job_actor_name
 from rl_insight.utils.constants import MonitorRayActor
 from rl_insight.utils import MonitorEventKind
 
@@ -65,7 +62,8 @@ PROMETHEUS_PORT = int(os.environ.get("RL_INSIGHT_PROMETHEUS_PORT", "9090"))
 GRAFANA_PORT = 3000
 SCRAPE_WAIT_S = 15
 AGGREGATE_WAIT_S = 30
-EVENT_DRAIN_TIMEOUT_S = 60
+AGGREGATE_TIMEOUT_S = 60
+EVENT_DRAIN_TIMEOUT_S = 15
 NS = "rl_insight_monitor"
 CHECKPOINT_FILE = os.environ.get(
     "RL_INSIGHT_STRESS_CHECKPOINT", "stress_checkpoint.json"
@@ -132,6 +130,8 @@ class ConcurrencyResult:
     num_procs: int
     num_threads: int
     submitted: int
+    attempted: int = 0
+    failed: int = 0
     submitted_sum: float = 0.0
     hub_delta: int = 0
     failure_rate: float = 0.0
@@ -193,6 +193,31 @@ def _wait_for_hub_events(expected: int, timeout_s: float) -> int:
         time.sleep(0.1)
         events = _hub_events_count()
     return events
+
+
+def _wait_for_stress_prometheus(
+    service_ip: str,
+    expected: dict[str, float],
+    timeout_s: float = AGGREGATE_TIMEOUT_S,
+) -> dict[str, float | None]:
+    deadline = time.monotonic() + timeout_s
+    queries = {
+        "counter": f'{NS}_train_step_total{{worker="stress"}}',
+        "hist_count": f'{NS}_step_latency_ms_count{{worker="stress"}}',
+        "hist_sum": f'{NS}_step_latency_ms_sum{{worker="stress"}}',
+    }
+    values: dict[str, float | None] = {}
+    while time.monotonic() < deadline:
+        values = {
+            name: _promql_value(service_ip, query) for name, query in queries.items()
+        }
+        if all(
+            value is not None and abs(value - expected[name]) < 0.5
+            for name, value in values.items()
+        ):
+            break
+        time.sleep(0.5)
+    return values
 
 
 def _promql_value(service_ip: str, metric: str) -> float | None:
@@ -281,19 +306,22 @@ def _process_worker(
     # Look up the main process's hub — do NOT create a new one
     try:
         hub_handle = _ray.get_actor(hub_actor_name, namespace=MonitorRayActor.NAMESPACE)
-        client = MonitorRayClient(hub_handle)
     except Exception:
-        result_queue.put({"submitted": 0, "submitted_sum": 0.0, "latencies": []})
-        return
+        raise
+
+    def _emit_event(event: dict) -> None:
+        # Wait for the actor acknowledgement so the submitted count is
+        # deterministic under Ray queue and CI resource pressure.
+        _ray.get(hub_handle.apply_event.remote(event))
 
     _process_id = str(_os.getpid())
 
-    # Build emitter using direct client.apply_event (bypasses rl_insight API
-    # so we never call init() which would try to create a second hub).
+    # Build emitters that submit directly to the existing hub. Each event is
+    # acknowledged before it is counted as submitted.
     if api_name == "counter":
 
         def _emit(seq: int) -> None:
-            client.apply_event(
+            _emit_event(
                 {
                     "kind": MonitorEventKind.COUNTER,
                     "name": "train_step_total",
@@ -310,7 +338,7 @@ def _process_worker(
     elif api_name == "gauge":
 
         def _emit(seq: int) -> None:
-            client.apply_event(
+            _emit_event(
                 {
                     "kind": MonitorEventKind.GAUGE,
                     "name": "reward_mean",
@@ -327,7 +355,7 @@ def _process_worker(
     elif api_name == "histogram":
 
         def _emit(seq: int) -> None:
-            client.apply_event(
+            _emit_event(
                 {
                     "kind": MonitorEventKind.HISTOGRAM,
                     "name": "step_latency_ms",
@@ -345,7 +373,7 @@ def _process_worker(
 
         def _emit(seq: int) -> None:
             now_ns = _time.time_ns()
-            client.apply_event(
+            _emit_event(
                 {
                     "kind": MonitorEventKind.TRACE,
                     "name": "rollout_generate",
@@ -364,8 +392,7 @@ def _process_worker(
             )
 
     else:
-        result_queue.put({"submitted": 0, "submitted_sum": 0.0, "latencies": []})
-        return
+        raise ValueError(f"Unknown stress API: {api_name}")
 
     # Histogram sum helper (local copy for child process)
     if track_sum:
@@ -378,6 +405,9 @@ def _process_worker(
     # Thread workers
     stop_event = threading.Event()
     worker_counts: list[int] = [0] * num_threads
+    worker_acks: list[int] = [0] * num_threads
+    worker_failures: list[int] = [0] * num_threads
+    acked_seqs: list[list[int]] = [[] for _ in range(num_threads)]
     all_latencies: list[float] = []
     lat_lock = threading.Lock()
 
@@ -386,14 +416,17 @@ def _process_worker(
         local_lat: list[float] = []
         while not stop_event.is_set():
             t0 = _time.perf_counter()
+            worker_counts[wid] += 1
             try:
                 _emit(seq)
             except Exception:
-                pass
+                worker_failures[wid] += 1
             else:
                 local_lat.append(_time.perf_counter() - t0)
-                seq += 1
-        worker_counts[wid] = len(local_lat)
+                worker_acks[wid] += 1
+                if track_sum:
+                    acked_seqs[wid].append(seq)
+            seq += 1
         with lat_lock:
             all_latencies.extend(local_lat)
 
@@ -404,17 +437,18 @@ def _process_worker(
         for f in futures:
             f.result(timeout=10)
 
-    submitted = sum(worker_counts)
+    attempted = sum(worker_counts)
+    submitted = sum(worker_acks)
+    failed = sum(worker_failures)
     submitted_sum = 0.0
     if track_sum:
-        submitted_sum = sum(_hist_sum(n) for n in worker_counts)
+        submitted_sum = sum(200 + seq % 100 for seqs in acked_seqs for seq in seqs)
 
-    # Keep the producer alive until its asynchronous actor submissions complete.
-    # A parent-process status query cannot order calls from other producers.
-    client.close()
     result_queue.put(
         {
             "submitted": submitted,
+            "attempted": attempted,
+            "failed": failed,
             "submitted_sum": submitted_sum,
             "latencies": all_latencies,
         }
@@ -457,31 +491,35 @@ def run_concurrency_test(
     # Collect results from all child processes
     all_latencies: list[float] = []
     total_submitted = 0
+    total_attempted = 0
+    total_failed = 0
     total_sum = 0.0
-    for _ in range(len(processes)):
-        try:
-            result = result_queue.get(
-                timeout=STRESS_DURATION_S + EVENT_DRAIN_TIMEOUT_S + 30
-            )
-            total_submitted += result["submitted"]
-            total_sum += result["submitted_sum"]
-            all_latencies.extend(result["latencies"])
-        except Exception:
-            pass  # Process may have died; results from survivors are still valid
-
-    for p in processes:
-        p.join(timeout=10)
-        if p.is_alive():
-            p.terminate()
-            p.join(timeout=5)
+    try:
+        for _ in range(len(processes)):
+            try:
+                result = result_queue.get(timeout=STRESS_DURATION_S + 30)
+                total_submitted += result["submitted"]
+                total_attempted += result["attempted"]
+                total_failed += result["failed"]
+                total_sum += result["submitted_sum"]
+                all_latencies.extend(result["latencies"])
+            except Exception as exc:
+                raise RuntimeError("Stress worker failed to report results") from exc
+    finally:
+        for p in processes:
+            p.join(timeout=10)
+            if p.is_alive():
+                p.terminate()
+                p.join(timeout=5)
+        result_queue.close()
 
     hub_after = _wait_for_hub_events(
         hub_before + total_submitted, EVENT_DRAIN_TIMEOUT_S
     )
     hub_delta = hub_after - hub_before if hub_before >= 0 and hub_after >= 0 else -1
 
-    if hub_delta >= 0 and total_submitted > 0:
-        fail_rate = max(0.0, 1.0 - hub_delta / total_submitted)
+    if hub_delta >= 0 and total_attempted > 0:
+        fail_rate = max(0.0, 1.0 - hub_delta / total_attempted)
     else:
         fail_rate = 1.0
 
@@ -490,6 +528,8 @@ def run_concurrency_test(
         num_procs=num_procs,
         num_threads=num_threads,
         submitted=total_submitted,
+        attempted=total_attempted,
+        failed=total_failed,
         submitted_sum=total_sum,
         hub_delta=hub_delta,
         failure_rate=fail_rate,
@@ -621,15 +661,22 @@ def _verify_stress_aggregate(
     print(f"  Counter submitted      : {counter_total}")
     print(f"  Histogram submitted     : {hist_total}")
     print(f"  Histogram expected sum  : {hist_sum:.0f}")
-    print(f"  Waiting for Prometheus ({AGGREGATE_WAIT_S}s) ...")
-    time.sleep(AGGREGATE_WAIT_S)
+    print(f"  Waiting up to {AGGREGATE_TIMEOUT_S}s for Prometheus ...")
+
+    base_counter = prometheus_before.get("counter", 0.0)
+    base_hist_count = prometheus_before.get("hist_count", 0.0)
+    base_hist_sum = prometheus_before.get("hist_sum", 0.0)
+    expected = {
+        "counter": base_counter + counter_total,
+        "hist_count": base_hist_count + hist_total,
+        "hist_sum": base_hist_sum + hist_sum,
+    }
+    values = _wait_for_stress_prometheus(service_ip, expected)
 
     checks: list[tuple[str, bool, str, str]] = []
-    L = '{worker="stress"}'
 
     # Counter: exact count
-    after_counter = _promql_value(service_ip, f"{NS}_train_step_total" + L)
-    base_counter = prometheus_before.get("counter", 0.0)
+    after_counter = values.get("counter")
     if after_counter is not None:
         delta = after_counter - base_counter
         ok = abs(delta - counter_total) < 0.5
@@ -640,8 +687,7 @@ def _verify_stress_aggregate(
         checks.append(("counter delta", False, str(counter_total), "no data"))
 
     # Histogram: exact count
-    after_hist_count = _promql_value(service_ip, f"{NS}_step_latency_ms_count" + L)
-    base_hist_count = prometheus_before.get("hist_count", 0.0)
+    after_hist_count = values.get("hist_count")
     if after_hist_count is not None:
         delta = after_hist_count - base_hist_count
         ok = abs(delta - hist_total) < 0.5
@@ -652,14 +698,18 @@ def _verify_stress_aggregate(
         checks.append(("histogram count", False, str(hist_total), "no data"))
 
     # Histogram: exact sum
-    after_hist_sum = _promql_value(service_ip, f"{NS}_step_latency_ms_sum" + L)
-    base_hist_sum = prometheus_before.get("hist_sum", 0.0)
+    after_hist_sum = values.get("hist_sum")
     if after_hist_sum is not None:
-        delta = after_hist_sum - base_hist_sum
-        expected = hist_sum
-        ok = abs(delta - expected) < 1.0
+        hist_delta = after_hist_sum - base_hist_sum
+        hist_expected = hist_sum
+        ok = abs(hist_delta - hist_expected) < 1.0
         checks.append(
-            ("histogram sum == expected", ok, f"{expected:.0f}", f"{delta:.0f}")
+            (
+                "histogram sum == expected",
+                ok,
+                f"{hist_expected:.0f}",
+                f"{hist_delta:.0f}",
+            )
         )
     else:
         checks.append(("histogram sum", False, f"{hist_sum:.0f}", "no data"))

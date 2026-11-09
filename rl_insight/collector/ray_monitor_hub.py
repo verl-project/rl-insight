@@ -243,10 +243,11 @@ class MonitorHubActor(MonitorCollector):
         logger.info("[rl-insight] Monitor Hub is closed")
 
     def get_context(self) -> RunContext | None:
-        if not self._initialized:
+        if not self._initialized or self._closed:
             return None
         return replace(
             self._context,
+            initialized=self._initialized,
             actor_name=MonitorRayActor.NAME,
             namespace=MonitorRayActor.NAMESPACE,
             node_ip=self._node_ip,

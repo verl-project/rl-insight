@@ -6,7 +6,13 @@ For service version requirements and Linux and Windows platform support, see [Se
 
 ## 1. Install RL-Insight
 
-From the repository root:
+Use **Python >= 3.10**. For a released package:
+
+```bash
+python -m pip install rl-insight
+```
+
+For this checkout's latest features, run from the repository root instead:
 
 ```bash
 pip install -e .
@@ -75,7 +81,9 @@ Set the RL-Insight server URL before launching or initializing training workers.
 export RL_INSIGHT_SERVER_URL=http://<server-ip>:18080
 ```
 
-Then run a small continuous demo. It uses the metric helpers and one `trace_state` span inside a loop, so Prometheus and Grafana keep receiving representative live samples while it runs:
+In PowerShell, use `$env:RL_INSIGHT_SERVER_URL = "http://<server-ip>:18080"` instead. This is the server API address, not the Grafana URL.
+
+Save the following as `monitor_demo.py`, then run `python monitor_demo.py` in that same environment. It uses the three metric helpers and one `trace_state` span inside a loop, so Prometheus and Grafana keep receiving representative live samples while it runs. Leave it running while checking Grafana and press `Ctrl+C` when finished:
 
 ```python
 import time
@@ -167,6 +175,8 @@ rl-insight server stop
 
 ## Configuration Shortcuts
 
+See [Configuration](configuration.md) for server and client settings, defaults, and override precedence. The settings below belong to the training client, not the server YAML.
+
 Pass overrides through `insight.init(config=...)`:
 
 ```python
@@ -203,3 +213,16 @@ rl-insight server install
 
 
 If metrics do not appear, check that the monitor hub process is reachable from Prometheus and that the Prometheus configuration points to the hub `/metrics` endpoint.
+
+## Next Steps: Monitor a Real Training Run
+
+For framework-specific setup and monitoring switches, follow the maintained upstream guides:
+
+| Framework | Getting started | Upstream RL-Insight integration |
+| --- | --- | --- |
+| verl | [verl](integrations/verl.md) | [Official integration guide](https://github.com/verl-project/verl/blob/main/docs/advance/rl_insight.md) |
+| verl-omni | [verl-omni](integrations/verl-omni.md) | [Official integration guide](https://github.com/verl-project/verl-omni/blob/main/docs/start/rl_insight.md) |
+
+For verl metric names, types, calculations, and descriptions, see the existing [verl metric reference](metric-name-catalog.md).
+
+For custom instrumentation, see the [Python API](api.md). Once monitoring is working, continue with the [verl async training tuning guide](../tuning_case/async_mode_tuning_tutorial.md) or [verl-omni multimodal tuning case](../tuning_case/multimodal_model_tuning_using_rl_insight.md).

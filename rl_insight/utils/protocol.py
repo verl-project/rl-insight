@@ -69,6 +69,7 @@ class RunContext:
     node_ip: str | None = None
     metrics_endpoint: str | None = None
     otlp_endpoint: str | None = None
+    initialized: bool | None = None
     prometheus_metrics_enabled: bool | None = None
     otel_traces_enabled: bool | None = None
     events_applied: int | None = None

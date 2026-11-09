@@ -23,6 +23,8 @@ from typing import Any
 
 from omegaconf import DictConfig, OmegaConf
 
+from ..utils.constants import MonitorBackend
+from ..utils.monitor_config_loader import load_monitor_config
 from ..utils.protocol import RunContext
 
 logger = logging.getLogger(__name__)
@@ -57,11 +59,11 @@ def register_monitor_client(backend: str, factory: MonitorClientFactory) -> None
     MONITOR_CLIENT_REGISTRY[str(backend)] = factory
 
 
-def create_monitor_client(conf: DictConfig) -> MonitorClient | None:
+def create_monitor_client(conf: DictConfig | None = None) -> MonitorClient | None:
     """Create a monitor client from ``server.backend`` in the merged trainer config.
 
     Args:
-        conf: Merged monitor config.
+        conf: Merged monitor config; omit to prepare a Ray connection only.
 
     Returns:
         Backend-specific client, or ``None`` if the factory disables monitoring.
@@ -69,6 +71,12 @@ def create_monitor_client(conf: DictConfig) -> MonitorClient | None:
     Raises:
         ValueError: Missing or unknown ``server.backend``.
     """
+    if conf is None:
+        conf = load_monitor_config()
+        if str(conf.server.backend).strip() != MonitorBackend.RAY:
+            return None
+        conf.pop("run_metadata", None)
+
     backend_type = str(OmegaConf.select(conf, "server.backend") or "").strip()
     if not backend_type:
         raise ValueError("[rl-insight] monitor config server.backend is required")

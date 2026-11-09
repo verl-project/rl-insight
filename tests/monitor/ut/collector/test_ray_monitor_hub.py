@@ -219,6 +219,7 @@ def test_get_context_should_describe_identity_and_live_status(hub: Any) -> None:
     hub._context = RunContext("p", "e", "http://server")
     hub._services = {"otlp_port": 4318}
     context = hub.get_context()
+    assert context.initialized is True
     assert context.experiment_name == "e"
     assert context.events_applied == 4
     hub._events_applied = 5

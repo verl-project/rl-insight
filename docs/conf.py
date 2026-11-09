@@ -36,11 +36,15 @@ extensions = [
     "sphinx.ext.viewcode",
 ]
 
+# Common headings such as "Troubleshooting" occur in multiple guides.
+autosectionlabel_prefix_document = True
+
 # MyST-Parser settings
 myst_enable_extensions = [
     "dollarmath",  # Enables $...$ and $$...$$ syntax
     "amsmath",  # Enables amsmath environments
 ]
+myst_heading_anchors = 4
 
 # Use Google style docstrings instead of NumPy docstrings.
 napoleon_google_docstring = True
@@ -66,7 +70,14 @@ language = "en"
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+# Recipe documentation is maintained on GitHub, not published on Read the Docs.
+exclude_patterns = [
+    "_build",
+    "Thumbs.db",
+    ".DS_Store",
+    "recipe/**",
+    "monitor/hardware/*_zh.md",
+]
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -78,4 +89,4 @@ html_theme = "sphinx_rtd_theme"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["_static"]
+html_static_path: list[str] = []

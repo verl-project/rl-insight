@@ -20,6 +20,7 @@ import logging
 import os
 import sys
 import threading
+import time
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -34,7 +35,6 @@ from prometheus_client import Counter, Gauge, Histogram, start_http_server
 from ..server.network import format_host_port, local_addresses
 from .constants import (
     MonitorBackend,
-    MonitorEnv,
     MonitorPaths,
     PrometheusScrape,
     prometheus_targets_file_from_config,
@@ -163,13 +163,25 @@ class PrometheusTargetStore:
         )
         try:
             tmp_path.write_text(payload, encoding="utf-8")
-            os.replace(tmp_path, self.targets_file)
+            self._replace_targets_file(tmp_path, self.targets_file)
         except BaseException:
             try:
                 tmp_path.unlink()
             except FileNotFoundError:
                 pass
             raise
+
+    @staticmethod
+    def _replace_targets_file(tmp_path: Path, targets_file: Path) -> None:
+        """Replace the target file, retrying transient Windows file locks."""
+        for attempt in range(5):
+            try:
+                os.replace(tmp_path, targets_file)
+                return
+            except PermissionError:
+                if attempt == 4:
+                    raise
+                time.sleep(0.1)
 
     def _read_targets(self) -> dict[tuple[str, str], dict[str, str]]:
         if not self.targets_file.exists():
@@ -453,18 +465,6 @@ def update_prometheus_config(
         )
         return
 
-    if context is not None:
-        register_prometheus_targets(
-            server_addresses,
-            job_name,
-            [
-                context.labels(target_labels)
-                for target_labels in (labels or [None] * len(server_addresses))
-            ],
-            context,
-        )
-        return
-
     import ray
 
     from ..client.ray_monitor_client import (
@@ -480,10 +480,23 @@ def update_prometheus_config(
     try:
         hub = get_or_create_monitor_hub()
         initialize_hub_connection(hub, timeout=30)
-        ray.get(
-            hub.register_targets.remote(server_addresses, job_name, labels),
-            timeout=30,
-        )
+        hub_context = ray.get(hub.get_context.remote(), timeout=30)
+        if hub_context is not None and hub_context.initialized:
+            context = context if context is not None else hub_context
+            register_prometheus_targets(
+                server_addresses,
+                job_name,
+                [
+                    context.labels(target_labels)
+                    for target_labels in (labels or [None] * len(server_addresses))
+                ],
+                context,
+            )
+        else:
+            ray.get(
+                hub.register_targets.remote(server_addresses, job_name, labels),
+                timeout=30,
+            )
     except Exception as e:
         logger.error(
             "[rl-insight] Cannot register Prometheus targets through Ray (%s): %s",
@@ -497,38 +510,29 @@ def register_prometheus_targets(
     server_addresses: list[str],
     job_name: str | None,
     labels: list[Mapping[str, Any] | None] | None,
-    context: RunContext | None,
+    context: RunContext,
 ) -> bool:
-    """Publish targets with prepared labels; return success for pending retries."""
-    base_url = (
-        context.server_url
-        if context
-        else str(os.environ.get(MonitorEnv.SERVER_URL, "")).strip().rstrip("/")
-    )
-    if not base_url:
-        logger.error(
-            "[rl-insight] RL-Insight server URL is required; "
-            "set %s. Prometheus targets are not registered.",
-            MonitorEnv.SERVER_URL,
-        )
-        return False
+    """Publish prepared scrape targets to the RL-Insight server."""
     payload: dict[str, Any] = {
         "job_name": job_name or PrometheusScrape.TRAINER_METRICS_JOB,
         "targets": _build_target_payload(server_addresses, labels),
     }
-    url = f"{base_url}/api/v1/prometheus/targets"
+    url = f"{context.server_url}/api/v1/prometheus/targets"
     try:
         response = requests.post(url, json=payload, timeout=10)
         response.raise_for_status()
-        logger.info(
-            "[rl-insight] Registered %d Prometheus targets (job_name=%s)",
-            len(server_addresses),
-            payload["job_name"],
+        print(
+            f"[rl-insight] Registered {len(server_addresses)} Prometheus targets "
+            f"with RL-Insight server (job_name={payload['job_name']})"
         )
         return True
-    except requests.RequestException as exc:
+    except requests.RequestException as e:
         logger.error(
-            "[rl-insight] Failed to register Prometheus targets at %s: %s", url, exc
+            "[rl-insight] Failed to register Prometheus targets at %s (%s): %s",
+            url,
+            type(e).__name__,
+            e,
+            exc_info=True,
         )
 
     return False
