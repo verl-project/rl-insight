@@ -107,6 +107,15 @@ class MonitorHubActor(MonitorCollector):
             raise ValueError(f"Unknown event kind: {kind!r}")
         handler(event)
 
+    def apply_events(self, events: list[dict[str, Any]]) -> None:
+        """Dispatch a batch of events in order; see ``apply_event`` for the event shape.
+
+        Args:
+            events: Ordered monitor events.
+        """
+        for event in events:
+            self.apply_event(event)
+
     def get_status(self) -> dict[str, Any]:
         """Return a small status dict for debugging (endpoints, counters).
 

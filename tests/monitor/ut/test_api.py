@@ -48,10 +48,15 @@ def reset_monitor_state() -> Generator[None, None, None]:
 def recording_client(monkeypatch: pytest.MonkeyPatch) -> RecordingClient:
     client = RecordingClient()
     monkeypatch.setattr(api, "create_monitor_client", lambda _conf: client)
+    # Hardware monitoring is disabled so its background thread cannot inject
+    # collector status events into the exact event-list assertions below.
     api.init(
         project="project-a",
         experiment_name="experiment-a",
-        config={"server": {"url": "http://monitor:18080"}},
+        config={
+            "server": {"url": "http://monitor:18080"},
+            "hardware": {"enabled": False},
+        },
     )
     return client
 

@@ -1,5 +1,7 @@
 # CPU Hardware Monitoring
 
+> **Deprecated:** Exporter-based hardware monitoring is deprecated. Use the built-in [hardware monitoring guide](hardware_monitoring_en.md) instead. This document remains available for existing Prometheus deployments.
+
 Prometheus `node_exporter` provides CPU, memory, and network metrics. Run one node_exporter on every monitored node.
 
 Run Sections 1-3 on each monitored node. Run Section 4 on the host where RL-Insight Server is running.
