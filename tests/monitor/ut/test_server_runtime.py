@@ -369,6 +369,7 @@ def test_rendered_tempo_config_should_store_trace_filters_in_dedicated_columns(
         ("replica", "resource", "string"),
         ("sample", "span", "string"),
     }
+    assert tempo["query_frontend"]["search"]["max_duration"] == "720h"
 
     legacy = runtime_module._render_tempo_config(conf, tmp_path, tmp_path, "2.3.0")
     legacy_tempo = yaml.safe_load(legacy.read_text(encoding="utf-8"))

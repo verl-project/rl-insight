@@ -165,7 +165,9 @@ def get_run_context() -> RunContext | None:
     Returns ``None`` when the Hub is absent or not initialized yet.
     """
     if _STATE.client is not None:
-        return get_context()
+        context = get_context()
+        if context is not None:
+            return context
     try:
         from .client.ray_monitor_client import get_current_job_context
 

@@ -7425,7 +7425,7 @@
         "spec": {
           "id": 351,
           "title": "Inference requests",
-          "description": "Matching vLLM llm_request spans, newest first (max 20000). The Step filter defaults to the newest step; choose All to search every step. Timing values are native gen_ai.latency.* attributes in seconds; empty cells mean the engine did not export the field. Use Trace to inspect the raw span.",
+          "description": "Matching vLLM llm_request spans, newest first (max 20000). The Step filter defaults to the newest step; choose All to search every step. Timing values are native gen_ai.latency.* attributes in seconds; a '-' means the engine did not export the field. Use Trace to inspect the raw span.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -7558,10 +7558,14 @@
                   "spec": {
                     "options": {
                       "excludeByName": {
+                        "Trace Service": true,
+                        "Trace Name": true,
                         "traceService": true,
                         "traceName": true,
                         "service.name": true,
+                        "Name": true,
                         "name": true,
+                        "Duration": true,
                         "duration": true,
                         "project": true,
                         "experiment_name": true

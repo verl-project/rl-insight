@@ -20,6 +20,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from omegaconf import OmegaConf
+from ray.exceptions import RayError
 
 from rl_insight import __version__
 from rl_insight.client import ray_monitor_client as client_module
@@ -135,6 +136,19 @@ def test_get_current_job_context_should_read_the_hub_context(
 
     assert client_module.get_current_job_context() is context
     actor.get_context.remote.assert_called_once_with()
+
+
+def test_get_current_job_context_should_return_none_when_the_hub_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_actor_name(monkeypatch)
+    monkeypatch.setattr(client_module.ray, "is_initialized", lambda: True)
+    monkeypatch.setattr(
+        client_module.ray, "get_actor", MagicMock(return_value=MagicMock())
+    )
+    monkeypatch.setattr(client_module.ray, "get", MagicMock(side_effect=RayError))
+
+    assert client_module.get_current_job_context() is None
 
 
 def test_apply_event_should_submit_without_waiting_when_hub_is_verified(

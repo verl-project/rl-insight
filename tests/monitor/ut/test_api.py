@@ -114,6 +114,29 @@ def test_get_run_context_should_prefer_the_local_client(
     assert api.get_run_context() is context
 
 
+def test_get_run_context_should_fall_back_to_the_hub_without_a_client_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = RunContext(
+        "project-a", "experiment-a_20260101-000000_abcdef12", "http://monitor:18080"
+    )
+
+    class EmptyContextClient(RecordingClient):
+        def get_context(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        api, "create_monitor_client", lambda _conf: EmptyContextClient()
+    )
+    monkeypatch.setattr(
+        "rl_insight.client.ray_monitor_client.get_current_job_context",
+        lambda: context,
+    )
+    api.init(config={"server": {"url": "http://monitor:18080"}})
+
+    assert api.get_run_context() is context
+
+
 def test_get_run_context_should_return_none_without_a_local_client_or_hub() -> None:
     assert api.get_run_context() is None
 

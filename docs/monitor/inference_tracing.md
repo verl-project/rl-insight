@@ -51,8 +51,12 @@ With endpoint discovery, each rollout replica:
 3. Sets `OTEL_RESOURCE_ATTRIBUTES` with `project`, `experiment_name`, and
    `replica`. The first two come from the job's Run, so they carry the same
    execution suffix the Hub stamps on training telemetry; when the Run is not
-   available they fall back to `trainer.project_name` and
-   `trainer.experiment_name`.
+   available they fall back to `actor_rollout_ref.rollout.trace.project_name`
+   and `actor_rollout_ref.rollout.trace.experiment_name`, which default to
+   `trainer.project_name` and `trainer.experiment_name`.
+
+RL-Insight resolves the Run through the SDK's `get_run_context()`; see the
+[Python API](api.md) for the process-level behavior.
 
 With endpoint discovery, tracing is opt-in. If the server is disabled, the
 status has no OTLP port, or the export fails, rollout continues without tracing.
@@ -75,8 +79,8 @@ These attributes are attached to every span exported by the replica.
 
 These attributes are not part of vLLM's native span schema. They are optional:
 RL-Insight displays them when the tracing integration supplies them and never
-fabricates them; when they are absent, the Step, Sample, and Turn columns stay
-empty and the Step filter offers only All.
+fabricates them; when they are absent, the Step, Sample, and Turn columns show
+`-` and the Step filter offers only All.
 
 | Attribute | Type | Meaning |
 |---|---|---|
@@ -188,7 +192,9 @@ The server provisions the Tempo datasource with
 Grafana's default `1800` is treated as "no range", so Tempo returns only
 intrinsic tags once the recent ingester data ages out and the Step/Sample/Replica
 variables fail with `Scope for tag ... not found`. Keep this setting on Tempo
-datasources that serve the trace dashboard.
+datasources that serve the trace dashboard. The server also sets Tempo's
+`query_frontend.search.max_duration` to the same retention window, so the table
+can query the full retention period instead of Tempo's 168-hour default.
 
 Columns, in display order: start time, trace link, replica, step, turn, sample,
 end-to-end latency, TTFT, queue wait, prefill, decode, **decode tok/s**

@@ -812,6 +812,9 @@ def _render_tempo_config(
     retention_time = _select_str(conf, "tempo.retention_time")
     if retention_time:
         _set_tempo_retention(data, retention_time, tempo_version)
+        data.setdefault("query_frontend", {}).setdefault("search", {})[
+            "max_duration"
+        ] = _tempo_duration(retention_time)
     if not _tempo_supports_dedicated_columns(tempo_version):
         block = trace.get("block")
         if isinstance(block, dict):

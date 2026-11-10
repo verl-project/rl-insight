@@ -246,8 +246,10 @@ def test_trace_query_should_select_optional_correlation_attributes() -> None:
 
 
 def test_state_timeline_should_only_query_state_interval_spans() -> None:
-    # llm_request spans also carry state_lane_id; filtering only by that
-    # attribute pulls request spans into the trajectory timeline.
+    # The query references monitor.trace_segment, so Tempo returns it as a
+    # field; it must be excluded or it becomes a second state value per lane.
+    # llm_request spans also carry state_lane_id, so the state_interval filter
+    # keeps them out of the timeline.
     spec = _load_spec()
     panel = spec["elements"]["panel-40"]["spec"]
     query = _query_specs(panel)[0]["spec"]["query"]
@@ -359,6 +361,8 @@ def test_trace_tables_should_order_columns_by_tempo_display_names() -> None:
         assert organize["renameByName"]["Span ID"] == "Trace"
         assert organize["excludeByName"]["project"] is True
         assert organize["excludeByName"]["experiment_name"] is True
+        for field in ("Trace Service", "Trace Name", "Name", "Duration"):
+            assert organize["excludeByName"][field] is True
 
 
 def test_trace_table_should_expose_replica_and_sample_columns() -> None:
