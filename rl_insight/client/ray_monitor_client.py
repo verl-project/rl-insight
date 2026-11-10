@@ -35,6 +35,7 @@ logger.setLevel(logging.WARNING)
 __all__ = [
     "MonitorRayClient",
     "create_ray_monitor_client",
+    "get_current_job_context",
     "get_or_create_monitor_hub",
     "initialize_hub_connection",
 ]
@@ -92,6 +93,24 @@ def get_or_create_monitor_hub() -> Any:
         return ray.get_actor(actor_name, namespace=namespace)
     _hub_owners.append(hub)
     return hub
+
+
+def get_current_job_context(timeout: float = 10.0) -> RunContext | None:
+    """Return the current job's Run identity without creating or initializing a Hub.
+
+    Processes that never call ``init()`` (such as rollout workers) use this to
+    read the Run name the Hub stamps on telemetry. Returns ``None`` when Ray is
+    not initialized, the job has no Hub, or the Hub is not initialized yet.
+    """
+    if not ray.is_initialized():
+        return None
+    try:
+        handle: Any = ray.get_actor(
+            _current_job_actor_name(), namespace=MonitorRayActor.NAMESPACE
+        )
+    except ValueError:
+        return None
+    return ray.get(handle.get_context.remote(), timeout=timeout)
 
 
 def create_ray_monitor_client(conf: DictConfig) -> MonitorRayClient | None:

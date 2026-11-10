@@ -42,6 +42,7 @@ logger.setLevel(logging.WARNING)
 __all__ = [
     "finish",
     "get_context",
+    "get_run_context",
     "init",
     "metric_count",
     "metric_gauge",
@@ -152,6 +153,28 @@ def get_context() -> RunContext | None:
             type(e).__name__,
             e,
             exc_info=True,
+        )
+        return None
+
+
+def get_run_context() -> RunContext | None:
+    """Return the Run identity of the current Ray job.
+
+    Unlike ``get_context``, this also works in processes that never call
+    ``init`` (such as rollout workers) by reading the job's Monitor Hub.
+    Returns ``None`` when the Hub is absent or not initialized yet.
+    """
+    if _STATE.client is not None:
+        return get_context()
+    try:
+        from .client.ray_monitor_client import get_current_job_context
+
+        return get_current_job_context()
+    except Exception as e:
+        logger.debug(
+            "[rl-insight] Cannot resolve the job Run context (%s): %s",
+            type(e).__name__,
+            e,
         )
         return None
 
