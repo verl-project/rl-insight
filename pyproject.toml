@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rl-insight"
-version = "0.3.0"
+version = "0.4.0"
 description = "Performance insight tools for reinforcement learning frameworks."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -17,6 +17,7 @@ dependencies = [
   "fastapi",
   "uvicorn",
   "requests",
+  "packaging",
   "prometheus_client>=0.23.1",
   "opentelemetry-sdk",
   "opentelemetry-exporter-otlp-proto-http",

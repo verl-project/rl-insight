@@ -177,7 +177,7 @@ def _hub_events_count() -> int:
     for actor_name in (_current_job_actor_name(), MonitorRayActor.NAME):
         try:
             actor = ray.get_actor(actor_name, namespace=namespace)
-            status = ray.get(actor.get_status.remote())
+            status = ray.get(actor.get_context.remote()).to_dict()
             return int(status.get("events_applied", 0))
         except ValueError:
             continue

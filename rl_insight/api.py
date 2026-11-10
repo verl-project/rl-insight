@@ -33,12 +33,15 @@ from omegaconf import DictConfig, OmegaConf
 from .client import create_monitor_client
 from .utils.monitor_config_loader import load_monitor_config
 from .utils import MonitorBackend, MonitorEventKind
+from .utils.constants import MonitorDefaults
+from .utils.protocol import RunContext
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
 __all__ = [
     "finish",
+    "get_context",
     "init",
     "metric_count",
     "metric_gauge",
@@ -84,11 +87,13 @@ def init(
     Args:
         project: Optional project name attached to all metrics and traces as the ``project`` label/attribute.
         experiment_name: Optional experiment name attached to all metrics and traces as the
-            ``experiment_name`` label/attribute.
+            ``experiment_name`` label/attribute. The Ray Hub appends one execution suffix;
+            ``get_context().experiment_name`` returns the resulting telemetry name.
         config: Optional dict-like or ``DictConfig`` overrides merged into training defaults; see ``load_monitor_config``.
 
     Note:
         Repeated calls are ignored with ``RuntimeWarning``. Ray backend requires ``ray.init()`` first.
+        The first initialization fixes the Hub's experiment names, using defaults if omitted.
     """
     global _STATE
     if _STATE.enabled:
@@ -102,38 +107,59 @@ def init(
 
     monitor_conf = load_monitor_config(config)
     backend = str(OmegaConf.select(monitor_conf, "server.backend") or "").strip()
+    metadata = {
+        "project": project if project is not None else MonitorDefaults.PROJECT_NAME,
+        "experiment_name": experiment_name
+        if experiment_name is not None
+        else MonitorDefaults.EXPERIMENT_NAME,
+    }
     # Only the Ray backend talks to the external RL-Insight server; direct-emit
     # backends (e.g. push) intentionally run without a server URL.
     if backend == MonitorBackend.RAY and not str(monitor_conf.server.url).strip():
         logger.error(
             "[rl-insight] RL-Insight server URL is required; set RL_INSIGHT_SERVER_URL "
-            "or server.url in init config."
+            "or server.url in init config. Skipping monitoring initialization."
         )
         return
-    client = create_monitor_client(monitor_conf)
-    labels = {
-        key: value
-        for key, value in {
-            "project": project,
-            "experiment_name": experiment_name,
-        }.items()
-        if value is not None
-    }
-    _STATE = _MonitorState(
-        enabled=client is not None,
-        client=client,
-        conf=monitor_conf,
-        namespace=str(monitor_conf.server.namespace),
-        labels=labels,
-    )
+    try:
+        OmegaConf.update(monitor_conf, "run_metadata", metadata, force_add=True)
+        client = create_monitor_client(monitor_conf)
+        if client is None:
+            return
+        _STATE = _MonitorState(
+            enabled=client is not None,
+            client=client,
+            conf=monitor_conf,
+            namespace=str(monitor_conf.server.namespace),
+            labels=metadata,
+        )
+    except Exception as e:
+        logger.error(
+            "[rl-insight] Monitoring initialization failed (%s): %s",
+            type(e).__name__,
+            e,
+            exc_info=True,
+        )
+
+
+def get_context() -> RunContext | None:
+    """Return an immutable snapshot of the current Run identity and live status."""
+    try:
+        return _STATE.client.get_context() if _STATE.client else None
+    except Exception as e:
+        logger.error(
+            "[rl-insight] Cannot read monitoring Context (%s): %s",
+            type(e).__name__,
+            e,
+            exc_info=True,
+        )
+        return None
 
 
 def finish() -> None:
-    """Clear in-process monitor state so further emits are no-ops.
+    """Flush submitted traces and release the local monitor client.
 
-    Asks the active client to release resources (stop pollers, flush sinks)
-    when it supports ``close``. Does not stop the hub HTTP server or kill the
-    detached Ray actor.
+    The shared Ray Hub remains available until its job exits.
     """
     global _STATE
     client = _STATE.client
@@ -141,7 +167,10 @@ def finish() -> None:
         try:
             client.close()
         except Exception:  # noqa: BLE001 - shutdown must never raise
-            logger.debug("[rl-insight] client.close() failed", exc_info=True)
+            logger.warning(
+                "[rl-insight] Failed to flush monitoring data during finish()",
+                exc_info=True,
+            )
     _STATE = _MonitorState()
     _LANES.clear()
 
@@ -279,7 +308,17 @@ def trace_state(
         Control during the covered code block; the span is emitted on exit.
     """
 
-    if not _STATE.enabled or _STATE.client is None:
+    try:
+        if _STATE.client is None:
+            _STATE.client = create_monitor_client()
+    except Exception as e:
+        logger.error(
+            "[rl-insight] Cannot prepare state tracing (%s): %s",
+            type(e).__name__,
+            e,
+            exc_info=True,
+        )
+    if _STATE.client is None:
         yield
         return
 
@@ -328,6 +367,7 @@ def trace_state(
                 start_time_ns=emit_args[1],
                 end_time_ns=emit_args[2],
                 attributes=emit_args[3],
+                client=_STATE.client,
             )
 
 
@@ -362,7 +402,7 @@ def trace_span(
         name=name,
         start_time_ns=start_time_ns,
         end_time_ns=end_time_ns,
-        attributes=dict(attributes),
+        attributes=attributes,
     )
 
 
@@ -504,14 +544,23 @@ def _emit(
     """
     if not _STATE.enabled or _STATE.client is None:
         return
-    event = {
-        "kind": kind,
-        "name": name,
-        "documentation": documentation,
-        "value": value,
-        "labels": {**_STATE.labels, **labels},
-    }
-    _STATE.client.apply_event(event)
+    try:
+        event = {
+            "kind": kind,
+            "name": name,
+            "documentation": documentation,
+            "value": value,
+            "labels": {**_STATE.labels, **labels},
+        }
+        _STATE.client.apply_event(event)
+    except Exception as e:
+        logger.error(
+            "[rl-insight] Cannot submit metric %r (%s): %s",
+            name,
+            type(e).__name__,
+            e,
+            exc_info=True,
+        )
 
 
 def _emit_trace_span(
@@ -519,7 +568,8 @@ def _emit_trace_span(
     name: str,
     start_time_ns: int,
     end_time_ns: int,
-    attributes: dict[str, Any],
+    attributes: Mapping[str, Any],
+    client: Any | None = None,
 ) -> None:
     """If monitoring is on, send one OTLP root span event (hub may no-op if OTLP is disabled).
 
@@ -529,20 +579,30 @@ def _emit_trace_span(
         end_time_ns: Span end (nanoseconds).
         attributes: Span attributes; ``process_id`` and init-level labels are merged in before send.
     """
-    if not _STATE.enabled or _STATE.client is None:
+    if client is None and _STATE.enabled:
+        client = _STATE.client
+    if client is None:
         return
 
-    merged_attributes: dict[str, Any] = {
-        "process_id": _STATE.process_id,
-        **_STATE.labels,
-    }
-    merged_attributes.update(attributes)
-
-    event = {
-        "kind": MonitorEventKind.TRACE,
-        "name": name,
-        "start_time_ns": int(start_time_ns),
-        "end_time_ns": int(end_time_ns),
-        "attributes": merged_attributes,
-    }
-    _STATE.client.apply_event(event)
+    try:
+        merged_attributes: dict[str, Any] = {
+            "process_id": _STATE.process_id,
+            **_STATE.labels,
+        }
+        merged_attributes.update(attributes)
+        event = {
+            "kind": MonitorEventKind.TRACE,
+            "name": name,
+            "start_time_ns": int(start_time_ns),
+            "end_time_ns": int(end_time_ns),
+            "attributes": merged_attributes,
+        }
+        client.apply_event(event)
+    except Exception as e:
+        logger.error(
+            "[rl-insight] Cannot submit trace %r (%s): %s",
+            name,
+            type(e).__name__,
+            e,
+            exc_info=True,
+        )

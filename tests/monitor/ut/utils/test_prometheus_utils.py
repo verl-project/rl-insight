@@ -18,14 +18,16 @@ from __future__ import annotations
 
 import multiprocessing
 from functools import partial
-from typing import Any
+from typing import Any, cast
 from unittest.mock import MagicMock
 
 import pytest
 import yaml
+from omegaconf import OmegaConf
 from prometheus_client import CollectorRegistry, Gauge, make_wsgi_app
 
 from rl_insight.utils import prometheus_utils as prometheus_module
+from rl_insight.utils.protocol import RunContext
 
 
 def _register_target_in_process(
@@ -203,7 +205,22 @@ def test_register_should_preserve_concurrent_cross_process_updates(tmp_path) -> 
 
 def test_update_prometheus_config_should_send_normalized_targets_when_server_is_set(
     monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
+    import ray
+
+    from rl_insight.client import ray_monitor_client
+
+    hub = MagicMock()
+    hub.get_context.remote.return_value = RunContext(
+        "p", "e", "http://server:18080", initialized=True
+    )
+    monkeypatch.setattr(ray, "is_initialized", lambda: True)
+    monkeypatch.setattr(ray, "get", lambda ref, *, timeout: ref)
+    monkeypatch.setattr(ray_monitor_client, "get_or_create_monitor_hub", lambda: hub)
+    monkeypatch.setattr(
+        ray_monitor_client, "initialize_hub_connection", lambda *a, **kw: None
+    )
     response = MagicMock()
     post = MagicMock(return_value=response)
     monkeypatch.setenv("RL_INSIGHT_SERVER_URL", "http://server:18080/")
@@ -220,13 +237,20 @@ def test_update_prometheus_config_should_send_normalized_targets_when_server_is_
         json={
             "job_name": "workers",
             "targets": [
-                {"target": "host-a:9000", "labels": {"rank": "0"}},
-                {"target": "host-b:9000"},
+                {
+                    "target": "host-a:9000",
+                    "labels": {"rank": "0", "project": "p", "experiment_name": "e"},
+                },
+                {
+                    "target": "host-b:9000",
+                    "labels": {"project": "p", "experiment_name": "e"},
+                },
             ],
         },
         timeout=10,
     )
     response.raise_for_status.assert_called_once_with()
+    assert "Registered 2 Prometheus targets" in capsys.readouterr().out
 
 
 def test_update_prometheus_config_should_reject_mismatched_labels_when_lengths_differ() -> (
@@ -260,3 +284,37 @@ def test_update_prometheus_config_should_register_in_process_when_push_active(
         ("host-b:9000", {}),
     ]
     post.assert_not_called()
+
+
+def test_hub_targets_keep_registration_failures_for_explicit_retry(
+    monkeypatch,
+    caplog,
+):
+    from rl_insight.collector.ray_monitor_hub import MonitorHubActor
+
+    context = RunContext.create("p", "e", "http://server")
+    implementation = cast(Any, MonitorHubActor).__ray_metadata__.modified_class
+    hub = implementation.__new__(implementation)
+    hub.__init__()
+    hub._initialized = True
+    hub._context = context
+    item = (["host:9000"], "workers", None, False)
+    response = MagicMock()
+    response.raise_for_status.side_effect = prometheus_module.requests.HTTPError(
+        "identity conflict"
+    )
+    post = MagicMock(return_value=response)
+    monkeypatch.setattr(prometheus_module.requests, "post", post)
+    hub.register_targets(*item[:3])
+    assert "identity conflict" in caplog.text
+    assert hub._pending_targets == [item]
+    hub.init(OmegaConf.create({}))
+    post.assert_called_once()
+    post.side_effect = prometheus_module.requests.ConnectionError("offline")
+    hub.flush_pending_targets()
+    assert "offline" in caplog.text
+    assert hub._pending_targets == [item]
+    post.side_effect = None
+    response.raise_for_status.side_effect = None
+    hub.flush_pending_targets()
+    assert not hub._pending_targets

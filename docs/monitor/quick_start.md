@@ -147,7 +147,7 @@ rl_insight/config/services/grafana/dashboards/agent_loop_trajectory
 rl_insight/config/services/grafana/dashboards/quick_start_demo
 ```
 
-At startup, RL-Insight copies them into the runtime dashboards directory and provisions Grafana from there. Grafana creates one folder per subdirectory (`foldersFromFilesStructure`).
+To inspect the loaded dashboard files, open:
 
 ```text
 ~/.rl-insight/runtime/dashboards
@@ -157,7 +157,7 @@ To add a dashboard, you can still put its JSON in an existing package subdirecto
 
 Prometheus metrics and Tempo traces are persisted under `~/.rl-insight/data` by default. Stopping the server does not delete collected data.
 
-Prometheus scrape targets registered by trainers or `rl-insight server targets add` are stored separately in `~/.rl-insight/data/targets/prometheus-targets.yml`. The generated `prometheus.yml` references this persistent file through Prometheus file-based service discovery, so restarting the server stack does not clear registered targets. Target updates are written atomically under a cross-process lock. Existing registration paths continue to reload Prometheus for API compatibility, while file-based service discovery also refreshes the target file every five seconds.
+Registered Prometheus targets are retained across server restarts. You can inspect them in `~/.rl-insight/data/targets/prometheus-targets.yml` or register additional endpoints with `rl-insight server targets add`.
 
 ## 6. Stop Services
 

@@ -11,12 +11,15 @@ on:
       - v0.*
     paths:
       - "rl_insight/api.py"
+      - "rl_insight/__init__.py"
       - "rl_insight/server/**"
       - "pyproject.toml"
       - "rl_insight/client/**"
       - "rl_insight/collector/**"
+      - "rl_insight/config/services/grafana/dashboards/**"
       - "rl_insight/utils/**"
       - "tests/monitor/ut/**"
+      - "tests/monitor/e2e/**"
       - ".github/workflows/monitor_unit_test.yml"
 
 concurrency:
@@ -47,4 +50,4 @@ jobs:
         run: pip install -e ".[test]"
 
       - name: Run monitor unit tests
-        run: pytest -s -x tests/monitor/ut
+        run: pytest -s -x tests/monitor/ut tests/monitor/e2e

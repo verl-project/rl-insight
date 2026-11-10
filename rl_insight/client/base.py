@@ -23,6 +23,10 @@ from typing import Any
 
 from omegaconf import DictConfig, OmegaConf
 
+from ..utils.constants import MonitorBackend
+from ..utils.monitor_config_loader import load_monitor_config
+from ..utils.protocol import RunContext
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
@@ -45,17 +49,21 @@ class MonitorClient(ABC):
     def apply_event(self, event: dict[str, Any]) -> None:
         """Forward one monitor event to the collector backend."""
 
+    def get_context(self) -> RunContext | None:
+        """Optional identity support; existing third-party clients remain valid."""
+        return None
+
 
 def register_monitor_client(backend: str, factory: MonitorClientFactory) -> None:
     """Register a client factory for ``server.backend``."""
     MONITOR_CLIENT_REGISTRY[str(backend)] = factory
 
 
-def create_monitor_client(conf: DictConfig) -> MonitorClient | None:
+def create_monitor_client(conf: DictConfig | None = None) -> MonitorClient | None:
     """Create a monitor client from ``server.backend`` in the merged trainer config.
 
     Args:
-        conf: Merged monitor config.
+        conf: Merged monitor config; omit to prepare a Ray connection only.
 
     Returns:
         Backend-specific client, or ``None`` if the factory disables monitoring.
@@ -63,15 +71,21 @@ def create_monitor_client(conf: DictConfig) -> MonitorClient | None:
     Raises:
         ValueError: Missing or unknown ``server.backend``.
     """
+    if conf is None:
+        conf = load_monitor_config()
+        if str(conf.server.backend).strip() != MonitorBackend.RAY:
+            return None
+        conf.pop("run_metadata", None)
+
     backend_type = str(OmegaConf.select(conf, "server.backend") or "").strip()
     if not backend_type:
-        raise ValueError("monitor config server.backend is required")
+        raise ValueError("[rl-insight] monitor config server.backend is required")
 
     factory = MONITOR_CLIENT_REGISTRY.get(backend_type)
     if factory is None:
         supported = ", ".join(sorted(MONITOR_CLIENT_REGISTRY)) or "(none installed)"
         raise ValueError(
-            f"Unsupported monitor backend {backend_type!r}; supported: {supported}"
+            f"[rl-insight] Unsupported monitor backend {backend_type!r}; supported: {supported}"
         )
 
     return factory(conf)
