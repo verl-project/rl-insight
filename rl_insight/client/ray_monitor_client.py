@@ -21,6 +21,7 @@ from typing import Any, cast
 
 import ray
 from omegaconf import DictConfig
+from ray.exceptions import RayError
 
 from .. import __version__
 from ..collector.ray_monitor_hub import MonitorHubActor
@@ -35,6 +36,7 @@ logger.setLevel(logging.WARNING)
 __all__ = [
     "MonitorRayClient",
     "create_ray_monitor_client",
+    "get_current_job_context",
     "get_or_create_monitor_hub",
     "initialize_hub_connection",
 ]
@@ -92,6 +94,24 @@ def get_or_create_monitor_hub() -> Any:
         return ray.get_actor(actor_name, namespace=namespace)
     _hub_owners.append(hub)
     return hub
+
+
+def get_current_job_context(timeout: float = 10.0) -> RunContext | None:
+    """Return the current job's Run identity without creating or initializing a Hub.
+
+    Processes that never call ``init()`` (such as rollout workers) use this to
+    read the Run name the Hub stamps on telemetry. Returns ``None`` when Ray is
+    not initialized, the job has no Hub, or the Hub cannot serve the request.
+    """
+    if not ray.is_initialized():
+        return None
+    try:
+        handle: Any = ray.get_actor(
+            _current_job_actor_name(), namespace=MonitorRayActor.NAMESPACE
+        )
+        return ray.get(handle.get_context.remote(), timeout=timeout)
+    except (ValueError, AttributeError, RayError):
+        return None
 
 
 def create_ray_monitor_client(conf: DictConfig) -> MonitorRayClient | None:

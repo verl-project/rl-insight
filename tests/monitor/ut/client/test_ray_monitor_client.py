@@ -20,10 +20,12 @@ from unittest.mock import MagicMock
 
 import pytest
 from omegaconf import OmegaConf
+from ray.exceptions import RayError
 
 from rl_insight import __version__
 from rl_insight.client import ray_monitor_client as client_module
 from rl_insight.utils.constants import MonitorRayActor
+from rl_insight.utils.protocol import RunContext
 
 _JOB_ACTOR_NAME = f"{MonitorRayActor.NAME}_test123"
 
@@ -98,6 +100,55 @@ def test_get_or_create_monitor_hub_should_reuse_winner_when_creation_races(
 
     assert client_module.get_or_create_monitor_hub() is winner
     get_actor.assert_called_with(_JOB_ACTOR_NAME, namespace=MonitorRayActor.NAMESPACE)
+
+
+def test_get_current_job_context_should_return_none_when_ray_is_not_initialized(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(client_module.ray, "is_initialized", lambda: False)
+
+    assert client_module.get_current_job_context() is None
+
+
+def test_get_current_job_context_should_return_none_without_a_hub(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_actor_name(monkeypatch)
+    monkeypatch.setattr(client_module.ray, "is_initialized", lambda: True)
+    monkeypatch.setattr(
+        client_module.ray, "get_actor", MagicMock(side_effect=ValueError)
+    )
+
+    assert client_module.get_current_job_context() is None
+
+
+def test_get_current_job_context_should_read_the_hub_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_actor_name(monkeypatch)
+    context = RunContext(
+        "project-a", "experiment-a_20260101-000000_abcdef12", "http://monitor:18080"
+    )
+    actor = MagicMock()
+    monkeypatch.setattr(client_module.ray, "is_initialized", lambda: True)
+    monkeypatch.setattr(client_module.ray, "get_actor", MagicMock(return_value=actor))
+    monkeypatch.setattr(client_module.ray, "get", MagicMock(return_value=context))
+
+    assert client_module.get_current_job_context() is context
+    actor.get_context.remote.assert_called_once_with()
+
+
+def test_get_current_job_context_should_return_none_when_the_hub_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_actor_name(monkeypatch)
+    monkeypatch.setattr(client_module.ray, "is_initialized", lambda: True)
+    monkeypatch.setattr(
+        client_module.ray, "get_actor", MagicMock(return_value=MagicMock())
+    )
+    monkeypatch.setattr(client_module.ray, "get", MagicMock(side_effect=RayError))
+
+    assert client_module.get_current_job_context() is None
 
 
 def test_apply_event_should_submit_without_waiting_when_hub_is_verified(

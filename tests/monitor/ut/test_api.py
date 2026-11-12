@@ -25,6 +25,7 @@ import pytest
 
 from rl_insight import api
 from rl_insight.utils.constants import MonitorEventKind
+from rl_insight.utils.protocol import RunContext
 
 
 class RecordingClient:
@@ -90,6 +91,81 @@ def test_init_should_leave_monitoring_disabled_when_server_url_is_missing(
 
     assert api._STATE.enabled is False
     assert factory_called is False
+
+
+def test_get_context_should_prefer_the_local_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = RunContext(
+        "project-a", "experiment-a_20260101-000000_abcdef12", "http://monitor:18080"
+    )
+    hub_calls: list[None] = []
+
+    class ContextClient(RecordingClient):
+        def get_context(self) -> RunContext:
+            return context
+
+    monkeypatch.setattr(api, "create_monitor_client", lambda _conf: ContextClient())
+    monkeypatch.setattr(
+        "rl_insight.client.ray_monitor_client.get_current_job_context",
+        lambda: hub_calls.append(None),
+    )
+    api.init(
+        project="project-a",
+        experiment_name="experiment-a",
+        config={"server": {"url": "http://monitor:18080"}},
+    )
+
+    assert api.get_context() is context
+    assert hub_calls == []
+
+
+def test_get_context_should_fall_back_to_the_hub_without_a_client_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = RunContext(
+        "project-a", "experiment-a_20260101-000000_abcdef12", "http://monitor:18080"
+    )
+
+    class EmptyContextClient(RecordingClient):
+        def get_context(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        api, "create_monitor_client", lambda _conf: EmptyContextClient()
+    )
+    monkeypatch.setattr(
+        "rl_insight.client.ray_monitor_client.get_current_job_context",
+        lambda: context,
+    )
+    api.init(config={"server": {"url": "http://monitor:18080"}})
+
+    assert api.get_context() is context
+
+
+def test_get_context_should_read_the_hub_without_initialization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = RunContext(
+        "project-a", "experiment-a_20260101-000000_abcdef12", "http://monitor:18080"
+    )
+    monkeypatch.setattr(
+        "rl_insight.client.ray_monitor_client.get_current_job_context",
+        lambda: context,
+    )
+
+    assert api.get_context() is context
+
+
+def test_get_context_should_return_none_without_a_local_client_or_hub(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "rl_insight.client.ray_monitor_client.get_current_job_context",
+        lambda: None,
+    )
+
+    assert api.get_context() is None
 
 
 def test_metric_helpers_should_emit_typed_events_when_monitoring_is_enabled(

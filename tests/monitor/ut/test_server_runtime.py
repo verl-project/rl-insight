@@ -352,6 +352,17 @@ def test_auto_ports_and_rendered_config(tmp_path, udp):
         assert "stream_over_http_enabled" not in tempo
 
 
+def test_rendered_tempo_config_should_use_retention_for_search_max_duration(
+    tmp_path,
+):
+    conf = load_server_config_file()
+
+    rendered = runtime_module._render_tempo_config(conf, tmp_path, tmp_path, "2.6.1")
+    tempo = yaml.safe_load(rendered.read_text(encoding="utf-8"))
+
+    assert tempo["query_frontend"]["search"]["max_duration"] == "720h"
+
+
 @pytest.mark.parametrize("races", [0, 1, 3])
 def test_auto_port_real_start_retry_and_cleanup(tmp_path, monkeypatch, races):
     conf = load_server_config_file()
