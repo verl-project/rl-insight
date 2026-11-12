@@ -42,7 +42,6 @@ logger.setLevel(logging.WARNING)
 __all__ = [
     "finish",
     "get_context",
-    "get_run_context",
     "init",
     "metric_count",
     "metric_gauge",
@@ -144,30 +143,26 @@ def init(
 
 
 def get_context() -> RunContext | None:
-    """Return an immutable snapshot of the current Run identity and live status."""
-    try:
-        return _STATE.client.get_context() if _STATE.client else None
-    except Exception as e:
-        logger.error(
-            "[rl-insight] Cannot read monitoring Context (%s): %s",
-            type(e).__name__,
-            e,
-            exc_info=True,
-        )
-        return None
+    """Return the current job's Run identity and live status.
 
-
-def get_run_context() -> RunContext | None:
-    """Return the Run identity of the current Ray job.
-
-    Unlike ``get_context``, this also works in processes that never call
-    ``init`` (such as rollout workers) by reading the job's Monitor Hub.
-    Returns ``None`` when the Hub is absent or not initialized yet.
+    Uses the process's monitor client when ``init`` has run; otherwise reads the
+    job's Monitor Hub, so rollout workers and other processes that never call
+    ``init`` resolve the same Run identity. Returns ``None`` when neither is
+    available.
     """
     if _STATE.client is not None:
-        context = get_context()
-        if context is not None:
-            return context
+        try:
+            context = _STATE.client.get_context()
+        except Exception as e:
+            logger.error(
+                "[rl-insight] Cannot read monitoring Context (%s): %s",
+                type(e).__name__,
+                e,
+                exc_info=True,
+            )
+        else:
+            if context is not None:
+                return context
     try:
         from .client.ray_monitor_client import get_current_job_context
 

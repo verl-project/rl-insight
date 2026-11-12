@@ -815,12 +815,6 @@ def _render_tempo_config(
         data.setdefault("query_frontend", {}).setdefault("search", {})[
             "max_duration"
         ] = _tempo_duration(retention_time)
-    if not _tempo_supports_dedicated_columns(tempo_version):
-        block = trace.get("block")
-        if isinstance(block, dict):
-            block.pop("parquet_dedicated_columns", None)
-            if not block:
-                trace.pop("block", None)
 
     target = runtime_dir / "tempo.yaml"
     target.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
@@ -1148,15 +1142,6 @@ def _wait_or_kill(process: subprocess.Popen[Any]) -> None:
 def _select_str(conf: DictConfig, key: str) -> str:
     value = OmegaConf.select(conf, key)
     return str(value).strip() if value is not None else ""
-
-
-def _tempo_supports_dedicated_columns(version: str) -> bool:
-    """Dedicated columns need vParquet3, the default block format from Tempo 2.4."""
-    match = re.search(r"(\d+)\.(\d+)", version.strip())
-    if match is None:
-        # A custom binary may report no version; keep the template as-is.
-        return True
-    return (int(match.group(1)), int(match.group(2))) >= (2, 4)
 
 
 def _set_tempo_retention(
