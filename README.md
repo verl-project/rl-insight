@@ -95,7 +95,6 @@ RL-Insight manages three open-source services locally on Linux and Windows x64:
 | API | Use |
 |---|---|
 | `init(project=None, experiment_name=None, config=None)` | Enable monitoring once per process and attach global labels. |
-| `get_context()` | Return the current job's Run snapshot, including the execution suffix; works without `init()` by reading the Monitor Hub. |
 | `metric_count(name, amount=1.0, documentation="", **labels)` | Increment a Prometheus counter. |
 | `metric_gauge(name, value, documentation="", **labels)` | Record the latest value for a gauge. |
 | `metric_histogram(name, value, documentation="", **labels)` | Add one sample to a histogram. |

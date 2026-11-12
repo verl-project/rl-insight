@@ -26,8 +26,6 @@ Replace the address with the server API URL. Environment overrides still take pr
 
 `finish()` resets monitoring in the current process and asks the client to close its resources, including push pollers and sinks. It does not stop the server stack or the Ray hub, and it does not delete collected data. Framework integrations normally manage initialization; use their upstream guides instead of initializing a second time.
 
-`get_context()` returns the Run snapshot of the current job. After `init()` it reads the process's monitor client; in processes that never call `init()`, such as rollout workers, it reads the job's Monitor Hub. It returns `None` when neither is available. The Hub appends one execution suffix to `experiment_name`, so the returned name is the one telemetry is stored under.
-
 ## Record metrics
 
 | Function | Parameters | Use |
