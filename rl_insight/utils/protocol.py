@@ -39,7 +39,7 @@ class InvalidVersionError(ValueError):
 
 
 def create_execution_suffix() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S_") + uuid4().hex[:8]
+    return datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-") + uuid4().hex[:8]
 
 
 def require_version(value: Any, component: str) -> None:
@@ -87,7 +87,7 @@ class RunContext:
         suffix = suffix if suffix is not None else create_execution_suffix()
         return cls(
             project,
-            f"{experiment_name}_{suffix}",
+            f"{experiment_name}-{suffix}",
             server_url,
             original_experiment_name=experiment_name,
         )

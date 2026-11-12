@@ -275,12 +275,12 @@ finally:
     )
     assert context["original_experiment_name"] == "same"
     assert re.fullmatch(
-        r"same_[0-9]{8}-[0-9]{6}_[0-9a-f]{8}", context["experiment_name"]
+        r"same-[0-9]{8}-[0-9]{6}-[0-9a-f]{8}", context["experiment_name"]
     )
     metrics = context["metrics"]
     assert 'experiment_name="' + context["experiment_name"] + '"' in metrics
     assert "rl_insight_monitor_experiment_info" in metrics
-    assert 'experiment_name="default_' not in metrics
+    assert 'experiment_name="default-' not in metrics
     spans = stack.backend.span_attributes
     assert any(span["name"] == "final_event" for span in spans)
     states = [span for span in spans if span["name"] == "sleep"]

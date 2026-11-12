@@ -281,7 +281,7 @@ server:
 
 ## Selecting experiment executions
 
-Keep the original project and experiment names in your training configuration. In Grafana, select **Project**, then choose the execution you want from **Experiment**. Each entry includes the configured experiment name, a UTC timestamp and a short suffix, for example `gsm8k_20261028-101530_a1b2c3d4`, so repeated jobs with the same configured name can be selected separately.
+Keep the original project and experiment names in your training configuration. In Grafana, select **Project**, then choose the execution you want from **Experiment**. Each entry includes the configured experiment name, a UTC timestamp and a short suffix, for example `gsm8k-20261028-101530-a1b2c3d4`, so repeated jobs with the same configured name can be selected separately.
 
 Choose multiple executions or **All** to compare runs. Set the dashboard time range to cover the executions you want to inspect.
 
