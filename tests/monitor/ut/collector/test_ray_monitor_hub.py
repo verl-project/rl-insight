@@ -107,19 +107,19 @@ def test_init_should_configure_collectors_and_register_scrape_target_when_create
     update_config.assert_any_call(
         ["10.0.0.9:1234"],
         "vllm",
-        [{"replica": 0, "project": "p", "experiment_name": f"chosen_{suffix}"}],
+        [{"replica": 0, "project": "p", "experiment_name": f"chosen-{suffix}"}],
         instance._context,
     )
     update_config.assert_any_call(["10.0.0.8:9092"], None, None, instance._context)
     assert instance._registry is registry
     assert instance._context.original_experiment_name == "chosen"
-    assert instance._context.experiment_name == f"chosen_{suffix}"
+    assert instance._context.experiment_name == f"chosen-{suffix}"
     instance.init(OmegaConf.create({"run_metadata": {"project": "other"}}))
     registry_factory.assert_called_once()
     start_server.assert_called_once()
     registry.count.assert_called_once()
     assert instance.get_context().project == "p"
-    assert instance.get_context().experiment_name == f"chosen_{suffix}"
+    assert instance.get_context().experiment_name == f"chosen-{suffix}"
 
 
 @pytest.mark.parametrize(
