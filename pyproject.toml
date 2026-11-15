@@ -71,6 +71,7 @@ rl_insight = [
 recipe = [
   "config/*.yaml",
   "config/*.yml",
+  "dashboards/*/*.json",
 ]
 
 [tool.pytest.ini_options]
