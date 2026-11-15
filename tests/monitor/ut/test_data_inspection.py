@@ -16,13 +16,16 @@ from __future__ import annotations
 
 import unicodedata
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 import pyarrow as pa
 import pyarrow.parquet as pq
+import pytest
 
 from rl_insight import cli
+from rl_insight.utils import data_inspection
 from rl_insight.utils.data_inspection import (
-    RunSummary,
+    ExperimentSummary,
     SourceRange,
     _inspect_tempo,
     _parse_openmetrics,
@@ -146,16 +149,47 @@ def test_prometheus_sample_count_sums_block_metadata(tmp_path) -> None:
     assert _prometheus_sample_count(tmp_path) == 123
 
 
+def test_find_promtool_matches_windows_executable(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(
+        data_inspection.MonitorPaths, "STATE_ROOT", tmp_path, raising=False
+    )
+    binary = tmp_path / "services" / "prometheus" / "version" / "promtool.exe"
+    binary.parent.mkdir(parents=True)
+    binary.write_text("", encoding="utf-8")
+    monkeypatch.setattr(data_inspection.shutil, "which", lambda _: None)
+
+    assert data_inspection._find_promtool(None) == binary.resolve()
+
+
+def test_validate_promtool_accepts_supported_version(monkeypatch, tmp_path) -> None:
+    completed = SimpleNamespace(stdout="promtool, version 2.54.1\n", stderr="")
+    monkeypatch.setattr(
+        data_inspection.subprocess, "run", lambda command, **kwargs: completed
+    )
+
+    data_inspection._validate_promtool(tmp_path / "promtool")
+
+
+def test_validate_promtool_rejects_unsupported_version(monkeypatch, tmp_path) -> None:
+    completed = SimpleNamespace(stdout="promtool, version 2.30.0\n", stderr="")
+    monkeypatch.setattr(
+        data_inspection.subprocess, "run", lambda command, **kwargs: completed
+    )
+
+    with pytest.raises(ValueError, match="promtool >= 2.54.0"):
+        data_inspection._validate_promtool(tmp_path / "promtool")
+
+
 def test_inspect_data_directory_returns_empty_for_empty_directory(tmp_path) -> None:
     assert inspect_data_directory(tmp_path) == []
 
 
 def test_data_inspect_reports_no_data_without_table(tmp_path, capsys) -> None:
     args = cli._build_parser().parse_args(
-        ["data", "inspect", "--log-dir", str(tmp_path)]
+        ["server", "status", "--log-dir", str(tmp_path)]
     )
 
-    assert cli._handle_data_inspect(args) == 0
+    assert cli._handle_server_status(args) == 0
     assert capsys.readouterr().out.strip() == "Data not found."
 
 
@@ -167,17 +201,17 @@ def test_print_summaries_reports_no_data_without_table(capsys) -> None:
 
 def test_parser_accepts_log_dir(tmp_path) -> None:
     args = cli._build_parser().parse_args(
-        ["data", "inspect", "--log-dir", str(tmp_path)]
+        ["server", "status", "--log-dir", str(tmp_path)]
     )
 
     assert args.log_dir == tmp_path
-    assert args.func.__name__ == "_handle_data_inspect"
+    assert args.func.__name__ == "_handle_server_status"
 
 
 def test_print_summaries_renders_project_experiment_and_ranges(capsys) -> None:
-    summary = RunSummary(
+    summary = ExperimentSummary(
         project="proj-1",
-        run_id="exp-1",
+        experiment_name="exp-1",
         prometheus=SourceRange(
             start=datetime(2026, 9, 2, 3, 26, 20, tzinfo=timezone.utc),
             end=datetime(2026, 9, 2, 3, 27, 20, tzinfo=timezone.utc),
@@ -188,16 +222,16 @@ def test_print_summaries_renders_project_experiment_and_ranges(capsys) -> None:
     print_summaries([summary])
     output = capsys.readouterr().out
 
-    assert "Run ID" in output
+    assert "Experiment" in output
     assert "proj-1" in output
     assert "exp-1" in output
     assert "2026-09-02 03:26～03:27" in output
 
 
 def test_print_summaries_merges_prometheus_and_tempo_ranges(capsys) -> None:
-    summary = RunSummary(
+    summary = ExperimentSummary(
         project="proj-1",
-        run_id="exp-1",
+        experiment_name="exp-1",
         prometheus=SourceRange(
             start=datetime(2026, 9, 2, 3, 26, 20, tzinfo=timezone.utc),
             end=datetime(2026, 9, 2, 3, 27, 20, tzinfo=timezone.utc),
@@ -211,16 +245,16 @@ def test_print_summaries_merges_prometheus_and_tempo_ranges(capsys) -> None:
     print_summaries([summary])
     output = capsys.readouterr().out
 
-    assert "Time Range" in output
+    assert "Time Range (UTC)" in output
     assert "2026-09-02 03:25～03:30" in output
     assert "Prometheus" not in output
     assert "Tempo" not in output
 
 
 def test_print_summaries_renders_full_dates_when_range_crosses_days(capsys) -> None:
-    summary = RunSummary(
+    summary = ExperimentSummary(
         project="proj-1",
-        run_id="exp-1",
+        experiment_name="exp-1",
         prometheus=SourceRange(
             start=datetime(2026, 9, 2, 2, 26, tzinfo=timezone.utc),
             end=datetime(2026, 9, 3, 5, 12, tzinfo=timezone.utc),
@@ -237,9 +271,9 @@ def test_print_summaries_renders_full_dates_when_range_crosses_days(capsys) -> N
 
 
 def test_print_summaries_keeps_table_aligned_with_multiline_ranges(capsys) -> None:
-    summary = RunSummary(
+    summary = ExperimentSummary(
         project="proj-1",
-        run_id="exp-1",
+        experiment_name="exp-1",
         prometheus=SourceRange(
             start=datetime(2026, 9, 2, 2, 26, tzinfo=timezone.utc),
             end=datetime(2026, 9, 3, 5, 12, tzinfo=timezone.utc),
@@ -267,27 +301,27 @@ def test_print_summaries_keeps_table_aligned_with_multiline_ranges(capsys) -> No
 
 def test_print_summaries_merges_project_cells_and_separates_rows(capsys) -> None:
     summaries = [
-        RunSummary(
+        ExperimentSummary(
             project="proj-1",
-            run_id="exp-1",
+            experiment_name="exp-1",
             prometheus=SourceRange(
                 start=datetime(2026, 9, 2, 3, 26, tzinfo=timezone.utc),
                 end=datetime(2026, 9, 2, 3, 27, tzinfo=timezone.utc),
             ),
             tempo=None,
         ),
-        RunSummary(
+        ExperimentSummary(
             project="proj-1",
-            run_id="exp-2",
+            experiment_name="exp-2",
             prometheus=SourceRange(
                 start=datetime(2026, 9, 2, 3, 28, tzinfo=timezone.utc),
                 end=datetime(2026, 9, 2, 3, 29, tzinfo=timezone.utc),
             ),
             tempo=None,
         ),
-        RunSummary(
+        ExperimentSummary(
             project="proj-2",
-            run_id="exp-1",
+            experiment_name="exp-1",
             prometheus=SourceRange(
                 start=datetime(2026, 9, 2, 3, 30, tzinfo=timezone.utc),
                 end=datetime(2026, 9, 2, 3, 31, tzinfo=timezone.utc),

@@ -56,7 +56,6 @@ def _build_parser() -> argparse.ArgumentParser:
 
     subparsers = parser.add_subparsers(dest="command", required=True)
     _add_server_parser(subparsers)
-    _add_data_parser(subparsers)
     return parser
 
 
@@ -135,6 +134,19 @@ def _add_server_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     start.set_defaults(func=commands.start)
 
+    status = server_subparsers.add_parser(
+        "status",
+        help="List persisted projects, experiments, and their time ranges.",
+        parents=[_log_dir_parser()],
+    )
+    status.add_argument(
+        "--promtool-bin",
+        type=Path,
+        default=None,
+        help="Path to promtool; auto-detected when omitted.",
+    )
+    status.set_defaults(func=_handle_server_status)
+
     stop = server_subparsers.add_parser(
         "stop",
         help="Stop the RL-Insight server stack.",
@@ -160,27 +172,7 @@ def _add_server_parser(subparsers: argparse._SubParsersAction) -> None:
     add_targets.set_defaults(func=commands.add_targets)
 
 
-def _add_data_parser(subparsers: argparse._SubParsersAction) -> None:
-    data = subparsers.add_parser(
-        "data",
-        help="Inspect persisted RL-Insight data.",
-    )
-    data_subparsers = data.add_subparsers(dest="data_command", required=True)
-    inspect = data_subparsers.add_parser(
-        "inspect",
-        help="List projects, runs, and their time ranges.",
-        parents=[_log_dir_parser()],
-    )
-    inspect.add_argument(
-        "--promtool-bin",
-        type=Path,
-        default=None,
-        help="Path to promtool; auto-detected when omitted.",
-    )
-    inspect.set_defaults(func=_handle_data_inspect)
-
-
-def _handle_data_inspect(args: argparse.Namespace) -> int:
+def _handle_server_status(args: argparse.Namespace) -> int:
     """Inspect persisted data and print the result."""
     from .utils.data_inspection import inspect_data_directory, print_summaries
 
@@ -188,7 +180,7 @@ def _handle_data_inspect(args: argparse.Namespace) -> int:
     try:
         summaries = inspect_data_directory(data_dir, promtool_bin=args.promtool_bin)
     except (FileNotFoundError, subprocess.CalledProcessError, ValueError) as exc:
-        print(f"Data inspection failed: {exc}", file=sys.stderr)
+        print(f"Server status failed: {exc}", file=sys.stderr)
         return 1
 
     print_summaries(summaries)

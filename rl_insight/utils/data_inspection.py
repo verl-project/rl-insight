@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -29,10 +30,12 @@ from typing import Any
 from prometheus_client.parser import text_string_to_metric_families
 from pyarrow import parquet
 from tqdm import tqdm
+from packaging.version import InvalidVersion, Version
 
 from .constants import MonitorPaths
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+_MIN_PROMTOOL_VERSION = Version("2.54.0")
 
 
 @dataclass(frozen=True)
@@ -44,11 +47,11 @@ class SourceRange:
 
 
 @dataclass(frozen=True)
-class RunSummary:
-    """One project and run found in persisted data."""
+class ExperimentSummary:
+    """One project and experiment execution found in persisted data."""
 
     project: str
-    run_id: str
+    experiment_name: str
     prometheus: SourceRange | None
     tempo: SourceRange | None
 
@@ -57,8 +60,8 @@ def inspect_data_directory(
     data_dir: str | Path,
     *,
     promtool_bin: str | Path | None = None,
-) -> list[RunSummary]:
-    """Return run summaries from a persisted RL-Insight data directory."""
+) -> list[ExperimentSummary]:
+    """Return experiment summaries from a persisted RL-Insight data directory."""
     resolved_dir = Path(data_dir).expanduser().resolve()
     if not resolved_dir.is_dir():
         raise FileNotFoundError(f"data directory does not exist: {resolved_dir}")
@@ -67,26 +70,26 @@ def inspect_data_directory(
     tempo_ranges = _inspect_tempo(resolved_dir)
     keys = sorted(set(prometheus_ranges) | set(tempo_ranges))
     return [
-        RunSummary(
+        ExperimentSummary(
             project=project,
-            run_id=experiment,
-            prometheus=prometheus_ranges.get((project, experiment)),
-            tempo=tempo_ranges.get((project, experiment)),
+            experiment_name=experiment_name,
+            prometheus=prometheus_ranges.get((project, experiment_name)),
+            tempo=tempo_ranges.get((project, experiment_name)),
         )
-        for project, experiment in keys
+        for project, experiment_name in keys
     ]
 
 
-def print_summaries(summaries: Sequence[RunSummary]) -> None:
-    """Print run summaries, or a no-data message when the list is empty."""
+def print_summaries(summaries: Sequence[ExperimentSummary]) -> None:
+    """Print experiment summaries, or a no-data message when the list is empty."""
     if not summaries:
         print("Data not found.")
         return
-    headers = ["Project", "Run ID", "Time Range"]
+    headers = ["Project", "Experiment", "Time Range (UTC)"]
     rows = [
         [
             summary.project,
-            summary.run_id,
+            summary.experiment_name,
             _format_range(*_merged_range(summary)),
         ]
         for summary in summaries
@@ -94,7 +97,9 @@ def print_summaries(summaries: Sequence[RunSummary]) -> None:
     print(_format_table(headers, rows))
 
 
-def _merged_range(summary: RunSummary) -> tuple[datetime | None, datetime | None]:
+def _merged_range(
+    summary: ExperimentSummary,
+) -> tuple[datetime | None, datetime | None]:
     """Return the earliest and latest timestamps observed across data sources."""
     ranges = []
     for source_range in (summary.prometheus, summary.tempo):
@@ -109,7 +114,7 @@ def _merged_range(summary: RunSummary) -> tuple[datetime | None, datetime | None
 
 
 def _format_table(headers: Sequence[str], rows: Sequence[Sequence[Any]]) -> str:
-    """Render a grouped table for run summaries."""
+    """Render a grouped table for experiment summaries."""
 
     def _cell_lines(cell: Any) -> list[str]:
         lines = str(cell).splitlines()
@@ -199,6 +204,7 @@ def _promtool_lines(
     promtool_bin: str | Path | None,
 ) -> Iterator[str]:
     binary = _find_promtool(promtool_bin)
+    _validate_promtool(binary)
     estimated_total = _prometheus_sample_count(prometheus_dir)
     with tempfile.TemporaryDirectory(
         prefix=".rl-insight-promtool-",
@@ -270,13 +276,37 @@ def _find_promtool(explicit: str | Path | None) -> Path:
 
     service_root = MonitorPaths.STATE_ROOT / "services" / "prometheus"
     candidates = sorted(
-        path for path in service_root.rglob("promtool") if path.is_file()
+        path
+        for name in ("promtool", "promtool.exe")
+        for path in service_root.rglob(name)
+        if path.is_file()
     )
     if candidates:
         return candidates[0]
     raise FileNotFoundError(
-        "promtool was not found on PATH or under ~/.rl-insight/services/prometheus"
+        "promtool was not found on PATH or under ~/.rl-insight/services/prometheus; "
+        "provide --promtool-bin for a custom installation"
     )
+
+
+def _validate_promtool(binary: Path) -> None:
+    result = subprocess.run(
+        [str(binary), "--version"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    match = re.search(r"version\s+([^\s(]+)", result.stdout + result.stderr)
+    received = match.group(1) if match else "unknown"
+    try:
+        supported = Version(received) >= _MIN_PROMTOOL_VERSION
+    except InvalidVersion:
+        supported = False
+    if not supported:
+        raise ValueError(
+            f"promtool >= {_MIN_PROMTOOL_VERSION} is required for "
+            f"tsdb dump-openmetrics; received version {received!r} at {binary}"
+        )
 
 
 def _parse_openmetrics(output: str) -> Iterator[tuple[tuple[str, str], datetime]]:
@@ -287,10 +317,13 @@ def _parse_openmetrics(output: str) -> Iterator[tuple[tuple[str, str], datetime]
         for family in text_string_to_metric_families(line):
             for sample in family.samples:
                 project = sample.labels.get("project")
-                experiment = sample.labels.get("experiment_name")
-                if not project or not experiment:
+                experiment_name = sample.labels.get("experiment_name")
+                if not project or not experiment_name:
                     continue
-                yield (project, experiment), _timestamp_to_datetime(raw_timestamp)
+                yield (
+                    (project, experiment_name),
+                    _timestamp_to_datetime(raw_timestamp),
+                )
 
 
 def _inspect_tempo(data_dir: Path) -> dict[tuple[str, str], SourceRange]:
@@ -349,8 +382,8 @@ def _attributes_to_pairs(
         if key and value:
             values[str(key)] = str(value)
     project = values.get("project")
-    experiment = values.get("experiment_name")
-    return {(project, experiment)} if project and experiment else set()
+    experiment_name = values.get("experiment_name")
+    return {(project, experiment_name)} if project and experiment_name else set()
 
 
 def _update_range(
