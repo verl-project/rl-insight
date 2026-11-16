@@ -98,6 +98,7 @@ RL-Insight manages three open-source services locally on Linux and Windows x64:
 | `metric_count(name, amount=1.0, documentation="", **labels)` | Increment a Prometheus counter. |
 | `metric_gauge(name, value, documentation="", **labels)` | Record the latest value for a gauge. |
 | `metric_histogram(name, value, documentation="", **labels)` | Add one sample to a histogram. |
+| `metric_log(name, value, *, step, **labels)` | Record a scalar for a specific training step through the trace path. |
 | `trace_state(state_name, state_lane_id=None, **labels)` | Record a named RL state interval. |
 | `trace_op(name=None, extra_labels=None, **static_labels)` | Decorate a sync or async function and emit one duration span per call. |
 | `trace_span(name, start_time_ns, end_time_ns, attributes)` | Report one completed span directly, with a caller-supplied name, epoch-ns times, and attributes. |
