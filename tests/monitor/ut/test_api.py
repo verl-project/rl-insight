@@ -117,12 +117,16 @@ def test_get_context_should_prefer_the_local_client(
     )
     hub_calls: list[None] = []
 
+    def record_hub_call() -> bool:
+        hub_calls.append(None)
+        return False
+
     class ContextClient(RecordingClient):
         def get_context(self) -> RunContext:
             return context
 
     monkeypatch.setattr(api, "create_monitor_client", lambda _conf: ContextClient())
-    monkeypatch.setattr(ray, "is_initialized", lambda: hub_calls.append(None) or False)
+    monkeypatch.setattr(ray, "is_initialized", record_hub_call)
     api.init(
         project="project-a",
         experiment_name="experiment-a",
