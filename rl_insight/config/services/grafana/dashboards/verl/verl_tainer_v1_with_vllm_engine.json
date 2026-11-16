@@ -7425,7 +7425,7 @@
         "spec": {
           "id": 351,
           "title": "Inference requests",
-          "description": "Matching vLLM llm_request spans, newest first (max 20000). The Step filter defaults to the newest step; choose All to search every step. Timing values are native gen_ai.latency.* attributes in seconds; a '-' means the engine did not export the field. Use Trace to inspect the raw span.",
+          "description": "Matching vLLM llm_request spans, newest first (max 20000). The Step filter defaults to the first step; choose All to search every step. Timing values are native gen_ai.latency.* attributes in seconds; a '-' means the engine did not export the field. Use Trace to inspect the raw span.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -8233,7 +8233,7 @@
           {
             "kind": "RowsLayoutRow",
             "spec": {
-              "title": "vllm engine metric",
+              "title": "vLLM engine metric",
               "collapse": true,
               "layout": {
                 "kind": "GridLayout",
@@ -8509,7 +8509,7 @@
                     "hide": "dontHide",
                     "refresh": "onTimeRangeChanged",
                     "skipUrlSync": false,
-                    "description": "Trainer global step for the selected project and experiment; defaults to the newest step, All searches every step.",
+                    "description": "Trainer global step for the selected project and experiment; defaults to the first step, All searches every step.",
                     "query": {
                       "kind": "DataQuery",
                       "group": "tempo",
@@ -8527,7 +8527,7 @@
                     },
                     "regex": "/^[0-9]+$/",
                     "regexApplyTo": "value",
-                    "sort": "numericalDesc",
+                    "sort": "numericalAsc",
                     "definition": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" }",
                     "options": [],
                     "multi": false,
@@ -9513,7 +9513,7 @@
             "text": "",
             "value": ""
           },
-          "label": "vllm: vLLM Model Name",
+          "label": "vLLM: Model Name",
           "hide": "dontHide",
           "refresh": "onDashboardLoad",
           "skipUrlSync": false,
@@ -9548,7 +9548,7 @@
             "text": "",
             "value": ""
           },
-          "label": "vllm: vLLM Engine ID",
+          "label": "vLLM: Engine ID",
           "hide": "dontHide",
           "refresh": "onDashboardLoad",
           "skipUrlSync": false,
@@ -9587,7 +9587,7 @@
           "options": [],
           "multi": false,
           "includeAll": false,
-          "label": "vllm: Interval",
+          "label": "vLLM: Interval",
           "hide": "dontHide",
           "skipUrlSync": false,
           "allowCustomValue": true,
@@ -9602,7 +9602,7 @@
             "text": "",
             "value": ""
           },
-          "label": "vllm: Rollout Replica",
+          "label": "vLLM: Rollout Replica",
           "hide": "dontHide",
           "refresh": "onDashboardLoad",
           "skipUrlSync": false,
@@ -9619,7 +9619,7 @@
           },
           "regex": "",
           "regexApplyTo": "value",
-          "sort": "disabled",
+          "sort": "numericalAsc",
           "definition": "label_values({__name__=~\"vllm:.*\", replica=~\".+\"}, replica)",
           "options": [],
           "multi": false,

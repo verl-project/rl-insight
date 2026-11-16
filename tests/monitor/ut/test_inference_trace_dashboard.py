@@ -200,10 +200,10 @@ def test_trace_row_should_expose_step_sample_and_replica_filters() -> None:
     assert variables["step"]["staticOptions"] == [{"text": "All", "value": "-1"}]
     assert variables["step"]["staticOptionsOrder"] == "after"
     assert variables["step"]["allValue"] == "-1"
-    # No saved value: the newest step (first option after numericalDesc) is
-    # selected, so expanding the row does not load every step by default.
+    # No saved value: the first step (first option after numericalAsc) is
+    # selected, so expanding the row starts at the beginning of the run.
     assert variables["step"]["current"] == {"text": "", "value": ""}
-    assert variables["step"]["sort"] == "numericalDesc"
+    assert variables["step"]["sort"] == "numericalAsc"
     assert variables["sample"]["label"] == "Sample"
     assert variables["sample"]["definition"] == _ROW_VARIABLE_QUERY
     assert variables["sample"]["query"]["spec"]["query"] == _ROW_VARIABLE_QUERY
@@ -324,6 +324,8 @@ def test_replica_variable_should_match_any_vllm_metric() -> None:
 
     assert "vllm:.*" in definition
     assert "request_prompt_tokens_sum" not in definition
+    # Replica ranks are numeric; plain label order puts "10" before "2".
+    assert replica["spec"]["sort"] == "numericalAsc"
 
 
 def test_trace_table_should_keep_the_tempo_span_link() -> None:

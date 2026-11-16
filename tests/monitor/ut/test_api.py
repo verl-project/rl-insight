@@ -20,10 +20,14 @@ import asyncio
 import inspect
 from collections.abc import Generator
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
+import ray
+from ray.exceptions import RayError
 
 from rl_insight import api
+from rl_insight.client import ray_monitor_client
 from rl_insight.utils.constants import MonitorEventKind
 from rl_insight.utils.protocol import RunContext
 
@@ -93,6 +97,18 @@ def test_init_should_leave_monitoring_disabled_when_server_url_is_missing(
     assert factory_called is False
 
 
+def _patch_hub_context(
+    monkeypatch: pytest.MonkeyPatch, context: RunContext
+) -> MagicMock:
+    """Make the job Hub in ``api.get_context`` resolve ``context``."""
+    actor = MagicMock()
+    monkeypatch.setattr(ray, "is_initialized", lambda: True)
+    monkeypatch.setattr(ray_monitor_client, "_current_job_actor_name", lambda: "hub")
+    monkeypatch.setattr(ray, "get_actor", MagicMock(return_value=actor))
+    monkeypatch.setattr(ray, "get", MagicMock(return_value=context))
+    return actor
+
+
 def test_get_context_should_prefer_the_local_client(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -106,10 +122,7 @@ def test_get_context_should_prefer_the_local_client(
             return context
 
     monkeypatch.setattr(api, "create_monitor_client", lambda _conf: ContextClient())
-    monkeypatch.setattr(
-        "rl_insight.client.ray_monitor_client.get_current_job_context",
-        lambda: hub_calls.append(None),
-    )
+    monkeypatch.setattr(ray, "is_initialized", lambda: hub_calls.append(None) or False)
     api.init(
         project="project-a",
         experiment_name="experiment-a",
@@ -134,10 +147,7 @@ def test_get_context_should_fall_back_to_the_hub_without_a_client_context(
     monkeypatch.setattr(
         api, "create_monitor_client", lambda _conf: EmptyContextClient()
     )
-    monkeypatch.setattr(
-        "rl_insight.client.ray_monitor_client.get_current_job_context",
-        lambda: context,
-    )
+    _patch_hub_context(monkeypatch, context)
     api.init(config={"server": {"url": "http://monitor:18080"}})
 
     assert api.get_context() is context
@@ -149,21 +159,37 @@ def test_get_context_should_read_the_hub_without_initialization(
     context = RunContext(
         "project-a", "experiment-a_20260101-000000_abcdef12", "http://monitor:18080"
     )
-    monkeypatch.setattr(
-        "rl_insight.client.ray_monitor_client.get_current_job_context",
-        lambda: context,
-    )
+    actor = _patch_hub_context(monkeypatch, context)
 
     assert api.get_context() is context
+    actor.get_context.remote.assert_called_once_with()
 
 
 def test_get_context_should_return_none_without_a_local_client_or_hub(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        "rl_insight.client.ray_monitor_client.get_current_job_context",
-        lambda: None,
-    )
+    monkeypatch.setattr(ray, "is_initialized", lambda: False)
+
+    assert api.get_context() is None
+
+
+def test_get_context_should_return_none_when_the_hub_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(ray, "is_initialized", lambda: True)
+    monkeypatch.setattr(ray_monitor_client, "_current_job_actor_name", lambda: "hub")
+    monkeypatch.setattr(ray, "get_actor", MagicMock(side_effect=ValueError))
+
+    assert api.get_context() is None
+
+
+def test_get_context_should_return_none_when_the_hub_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(ray, "is_initialized", lambda: True)
+    monkeypatch.setattr(ray_monitor_client, "_current_job_actor_name", lambda: "hub")
+    monkeypatch.setattr(ray, "get_actor", MagicMock(return_value=MagicMock()))
+    monkeypatch.setattr(ray, "get", MagicMock(side_effect=RayError))
 
     assert api.get_context() is None
 

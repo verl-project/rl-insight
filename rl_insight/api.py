@@ -164,9 +164,21 @@ def get_context() -> RunContext | None:
             if context is not None:
                 return context
     try:
-        from .client.ray_monitor_client import get_current_job_context
+        import ray
+        from ray.exceptions import RayError
 
-        return get_current_job_context()
+        from .client.ray_monitor_client import _current_job_actor_name
+        from .utils.constants import MonitorRayActor
+
+        if not ray.is_initialized():
+            return None
+        try:
+            handle = ray.get_actor(
+                _current_job_actor_name(), namespace=MonitorRayActor.NAMESPACE
+            )
+            return ray.get(handle.get_context.remote(), timeout=10.0)
+        except (ValueError, AttributeError, RayError):
+            return None
     except Exception as e:
         logger.debug(
             "[rl-insight] Cannot resolve the job Run context (%s): %s",
