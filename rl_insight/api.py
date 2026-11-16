@@ -143,15 +143,47 @@ def init(
 
 
 def get_context() -> RunContext | None:
-    """Return an immutable snapshot of the current Run identity and live status."""
+    """Return the current job's Run identity and live status.
+
+    Uses the process's monitor client when ``init`` has run; otherwise reads the
+    job's Monitor Hub, so rollout workers and other processes that never call
+    ``init`` resolve the same Run identity. Returns ``None`` when neither is
+    available.
+    """
+    if _STATE.client is not None:
+        try:
+            context = _STATE.client.get_context()
+        except Exception as e:
+            logger.error(
+                "[rl-insight] Cannot read monitoring Context (%s): %s",
+                type(e).__name__,
+                e,
+                exc_info=True,
+            )
+        else:
+            if context is not None:
+                return context
     try:
-        return _STATE.client.get_context() if _STATE.client else None
+        import ray
+        from ray.exceptions import RayError
+
+        from .client.ray_monitor_client import _current_job_actor_name
+        from .utils.constants import MonitorRayActor
+
+        if not ray.is_initialized():
+            return None
+        try:
+            handle = ray.get_actor(
+                _current_job_actor_name(), namespace=MonitorRayActor.NAMESPACE
+            )
+            return ray.get(handle.get_context.remote(), timeout=10.0)
+        except (ValueError, AttributeError, RayError):
+            return None
     except Exception as e:
-        logger.error(
-            "[rl-insight] Cannot read monitoring Context (%s): %s",
+        logger.debug(
+            "[rl-insight] Cannot resolve the job Run context (%s): %s",
             type(e).__name__,
             e,
-            exc_info=True,
         )
         return None
 

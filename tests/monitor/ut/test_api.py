@@ -20,11 +20,16 @@ import asyncio
 import inspect
 from collections.abc import Generator
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
+import ray
+from ray.exceptions import RayError
 
 from rl_insight import api
+from rl_insight.client import ray_monitor_client
 from rl_insight.utils.constants import MonitorEventKind
+from rl_insight.utils.protocol import RunContext
 
 
 class RecordingClient:
@@ -90,6 +95,107 @@ def test_init_should_leave_monitoring_disabled_when_server_url_is_missing(
 
     assert api._STATE.enabled is False
     assert factory_called is False
+
+
+def _patch_hub_context(
+    monkeypatch: pytest.MonkeyPatch, context: RunContext
+) -> MagicMock:
+    """Make the job Hub in ``api.get_context`` resolve ``context``."""
+    actor = MagicMock()
+    monkeypatch.setattr(ray, "is_initialized", lambda: True)
+    monkeypatch.setattr(ray_monitor_client, "_current_job_actor_name", lambda: "hub")
+    monkeypatch.setattr(ray, "get_actor", MagicMock(return_value=actor))
+    monkeypatch.setattr(ray, "get", MagicMock(return_value=context))
+    return actor
+
+
+def test_get_context_should_prefer_the_local_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = RunContext(
+        "project-a", "experiment-a_20260101-000000_abcdef12", "http://monitor:18080"
+    )
+    hub_calls: list[None] = []
+
+    def record_hub_call() -> bool:
+        hub_calls.append(None)
+        return False
+
+    class ContextClient(RecordingClient):
+        def get_context(self) -> RunContext:
+            return context
+
+    monkeypatch.setattr(api, "create_monitor_client", lambda _conf: ContextClient())
+    monkeypatch.setattr(ray, "is_initialized", record_hub_call)
+    api.init(
+        project="project-a",
+        experiment_name="experiment-a",
+        config={"server": {"url": "http://monitor:18080"}},
+    )
+
+    assert api.get_context() is context
+    assert hub_calls == []
+
+
+def test_get_context_should_fall_back_to_the_hub_without_a_client_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = RunContext(
+        "project-a", "experiment-a_20260101-000000_abcdef12", "http://monitor:18080"
+    )
+
+    class EmptyContextClient(RecordingClient):
+        def get_context(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        api, "create_monitor_client", lambda _conf: EmptyContextClient()
+    )
+    _patch_hub_context(monkeypatch, context)
+    api.init(config={"server": {"url": "http://monitor:18080"}})
+
+    assert api.get_context() is context
+
+
+def test_get_context_should_read_the_hub_without_initialization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = RunContext(
+        "project-a", "experiment-a_20260101-000000_abcdef12", "http://monitor:18080"
+    )
+    actor = _patch_hub_context(monkeypatch, context)
+
+    assert api.get_context() is context
+    actor.get_context.remote.assert_called_once_with()
+
+
+def test_get_context_should_return_none_without_a_local_client_or_hub(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(ray, "is_initialized", lambda: False)
+
+    assert api.get_context() is None
+
+
+def test_get_context_should_return_none_when_the_hub_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(ray, "is_initialized", lambda: True)
+    monkeypatch.setattr(ray_monitor_client, "_current_job_actor_name", lambda: "hub")
+    monkeypatch.setattr(ray, "get_actor", MagicMock(side_effect=ValueError))
+
+    assert api.get_context() is None
+
+
+def test_get_context_should_return_none_when_the_hub_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(ray, "is_initialized", lambda: True)
+    monkeypatch.setattr(ray_monitor_client, "_current_job_actor_name", lambda: "hub")
+    monkeypatch.setattr(ray, "get_actor", MagicMock(return_value=MagicMock()))
+    monkeypatch.setattr(ray, "get", MagicMock(side_effect=RayError))
+
+    assert api.get_context() is None
 
 
 def test_metric_helpers_should_emit_typed_events_when_monitoring_is_enabled(

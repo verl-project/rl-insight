@@ -812,6 +812,9 @@ def _render_tempo_config(
     retention_time = _select_str(conf, "tempo.retention_time")
     if retention_time:
         _set_tempo_retention(data, retention_time, tempo_version)
+        data.setdefault("query_frontend", {}).setdefault("search", {})[
+            "max_duration"
+        ] = _tempo_duration(retention_time)
 
     target = runtime_dir / "tempo.yaml"
     target.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
