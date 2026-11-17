@@ -409,7 +409,21 @@ def _bootstrap_push_registry():
             backend = str(OmegaConf.select(conf, "server.backend") or "").strip()
             if backend != MonitorBackend.PUSH:
                 return None
-            _api.init()
+            from ..client.push.tags import collect_env_tags
+
+            # Use the same task names as early Push events.
+            tags: dict[str, str] = {}
+            for sink_conf in OmegaConf.select(conf, "push.sinks") or []:
+                try:
+                    tags.update(
+                        collect_env_tags(OmegaConf.select(sink_conf, "tags_from_env"))
+                    )
+                except Exception:  # noqa: BLE001 - the factory logs and skips this sink
+                    continue
+            _api.init(
+                project=tags.get("project"),
+                experiment_name=tags.get("experiment_name"),
+            )
         except Exception:  # noqa: BLE001 - monitoring must never break training
             logger.exception("[rl-insight] push backend in-process bootstrap failed")
             return None
