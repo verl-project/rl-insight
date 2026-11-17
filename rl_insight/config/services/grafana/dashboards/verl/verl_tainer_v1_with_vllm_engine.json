@@ -7425,7 +7425,7 @@
         "spec": {
           "id": 351,
           "title": "Inference requests",
-          "description": "Matching vLLM llm_request spans, newest first (max 20000). The Step filter defaults to the first step; choose All to search every step. Timing values are native gen_ai.latency.* attributes in seconds; a '-' means the engine did not export the field. Use Trace to inspect the raw span.",
+          "description": "Matching vLLM llm_request spans, newest first (max 20000). Timing values are native gen_ai.latency.* attributes in seconds; a '-' means the engine did not export the field. Use Trace to inspect the raw span.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -7444,7 +7444,7 @@
                       "spec": {
                         "limit": 20000,
                         "metricsQueryType": "range",
-                        "query": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" && (resource.replica =~ \"^($trace_replica)$\" || \"$trace_replica\" = \".*\") && (span.global_steps = $step || $step = -1) && (span.sample =~ \"^($sample)$\" || \"$sample\" = \".*\") } | select(span.gen_ai.response.model, span.gen_ai.response.finish_reasons, span.gen_ai.latency.e2e, span.gen_ai.latency.time_to_first_token, span.gen_ai.latency.time_in_queue, span.gen_ai.latency.time_in_scheduler, span.gen_ai.latency.time_in_model_prefill, span.gen_ai.latency.time_in_model_forward, span.gen_ai.latency.time_in_model_execute, span.gen_ai.latency.time_in_model_decode, span.gen_ai.latency.time_in_model_inference, span.gen_ai.usage.prompt_tokens, span.gen_ai.usage.completion_tokens, span.gen_ai.request.max_tokens, span.global_steps, span.turn, span.sample, resource.replica)",
+                        "query": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" && (resource.replica =~ \"^($trace_replica)$\" || \"$trace_replica\" = \".*\") } | select(span.gen_ai.response.model, span.gen_ai.response.finish_reasons, span.gen_ai.latency.e2e, span.gen_ai.latency.time_to_first_token, span.gen_ai.latency.time_in_queue, span.gen_ai.latency.time_in_scheduler, span.gen_ai.latency.time_in_model_prefill, span.gen_ai.latency.time_in_model_forward, span.gen_ai.latency.time_in_model_execute, span.gen_ai.latency.time_in_model_decode, span.gen_ai.latency.time_in_model_inference, span.gen_ai.usage.prompt_tokens, span.gen_ai.usage.completion_tokens, span.gen_ai.request.max_tokens, resource.replica)",
                         "queryType": "traceql",
                         "serviceMapUseNativeHistograms": false,
                         "spss": 100,
@@ -7510,14 +7510,6 @@
                         {
                           "destinationType": "number",
                           "targetField": "gen_ai.request.max_tokens"
-                        },
-                        {
-                          "destinationType": "number",
-                          "targetField": "global_steps"
-                        },
-                        {
-                          "destinationType": "number",
-                          "targetField": "turn"
                         }
                       ],
                       "fields": {}
@@ -7575,24 +7567,21 @@
                         "Start time": 0,
                         "Span ID": 1,
                         "replica": 2,
-                        "global_steps": 3,
-                        "turn": 4,
-                        "sample": 5,
-                        "gen_ai.latency.e2e": 6,
-                        "gen_ai.latency.time_to_first_token": 7,
-                        "gen_ai.latency.time_in_queue": 8,
-                        "gen_ai.latency.time_in_model_prefill": 9,
-                        "gen_ai.latency.time_in_model_decode": 10,
-                        "Decode tok/s": 11,
-                        "gen_ai.usage.prompt_tokens": 12,
-                        "gen_ai.usage.completion_tokens": 13,
-                        "gen_ai.request.max_tokens": 14,
-                        "gen_ai.response.finish_reasons": 15,
-                        "gen_ai.latency.time_in_model_inference": 16,
-                        "gen_ai.latency.time_in_scheduler": 17,
-                        "gen_ai.latency.time_in_model_forward": 18,
-                        "gen_ai.latency.time_in_model_execute": 19,
-                        "gen_ai.response.model": 20
+                        "gen_ai.latency.e2e": 3,
+                        "gen_ai.latency.time_to_first_token": 4,
+                        "gen_ai.latency.time_in_queue": 5,
+                        "gen_ai.latency.time_in_model_prefill": 6,
+                        "gen_ai.latency.time_in_model_decode": 7,
+                        "Decode tok/s": 8,
+                        "gen_ai.usage.prompt_tokens": 9,
+                        "gen_ai.usage.completion_tokens": 10,
+                        "gen_ai.request.max_tokens": 11,
+                        "gen_ai.response.finish_reasons": 12,
+                        "gen_ai.latency.time_in_model_inference": 13,
+                        "gen_ai.latency.time_in_scheduler": 14,
+                        "gen_ai.latency.time_in_model_forward": 15,
+                        "gen_ai.latency.time_in_model_execute": 16,
+                        "gen_ai.response.model": 17
                       },
                       "renameByName": {
                         "Start time": "Start",
@@ -7611,10 +7600,7 @@
                         "gen_ai.latency.time_in_model_inference": "Model inference (s)",
                         "gen_ai.usage.prompt_tokens": "Prompt tokens",
                         "gen_ai.usage.completion_tokens": "Completion tokens",
-                        "gen_ai.request.max_tokens": "Max tokens",
-                        "global_steps": "Step",
-                        "turn": "Turn",
-                        "sample": "Sample"
+                        "gen_ai.request.max_tokens": "Max tokens"
                       }
                     }
                   }
@@ -8500,62 +8486,16 @@
                 {
                   "kind": "QueryVariable",
                   "spec": {
-                    "name": "step",
-                    "label": "Step",
-                    "current": {
-                      "text": "",
-                      "value": ""
-                    },
-                    "hide": "dontHide",
-                    "refresh": "onTimeRangeChanged",
-                    "skipUrlSync": false,
-                    "description": "Trainer global step for the selected project and experiment; defaults to the first step, All searches every step.",
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "tempo",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
-                      "spec": {
-                        "queryType": "traceql",
-                        "refId": "StandardVariableQuery",
-                        "type": 1,
-                        "label": "global_steps",
-                        "query": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" }"
-                      }
-                    },
-                    "regex": "/^[0-9]+$/",
-                    "regexApplyTo": "value",
-                    "sort": "numericalAsc",
-                    "definition": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" }",
-                    "options": [],
-                    "multi": false,
-                    "includeAll": false,
-                    "allValue": "-1",
-                    "staticOptions": [
-                      {
-                        "text": "All",
-                        "value": "-1"
-                      }
-                    ],
-                    "staticOptionsOrder": "after",
-                    "allowCustomValue": true
-                  }
-                },
-                {
-                  "kind": "QueryVariable",
-                  "spec": {
                     "name": "trace_replica",
                     "label": "Replica",
                     "current": {
-                      "text": "All",
-                      "value": "$__all"
+                      "text": "0",
+                      "value": "0"
                     },
                     "hide": "dontHide",
                     "refresh": "onTimeRangeChanged",
                     "skipUrlSync": false,
-                    "description": "Rollout replica rank for the selected project and experiment; All searches every replica.",
+                    "description": "Rollout replica rank for the selected project and experiment; defaults to replica 0, All searches every replica.",
                     "query": {
                       "kind": "DataQuery",
                       "group": "tempo",
@@ -8568,45 +8508,6 @@
                         "refId": "StandardVariableQuery",
                         "type": 1,
                         "label": "replica",
-                        "query": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" }"
-                      }
-                    },
-                    "regex": "/.+/",
-                    "regexApplyTo": "value",
-                    "sort": "numericalAsc",
-                    "definition": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" }",
-                    "options": [],
-                    "multi": true,
-                    "includeAll": true,
-                    "allValue": ".*",
-                    "allowCustomValue": true
-                  }
-                },
-                {
-                  "kind": "QueryVariable",
-                  "spec": {
-                    "name": "sample",
-                    "label": "Sample",
-                    "current": {
-                      "text": "All",
-                      "value": "$__all"
-                    },
-                    "hide": "dontHide",
-                    "refresh": "onTimeRangeChanged",
-                    "skipUrlSync": false,
-                    "description": "Dataset sample id for the selected project and experiment; one sample has rollout.n trajectories. Prefer the Sample column when the step matters.",
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "tempo",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "tempo"
-                      },
-                      "spec": {
-                        "queryType": "traceql",
-                        "refId": "StandardVariableQuery",
-                        "type": 1,
-                        "label": "sample",
                         "query": "{ name = \"llm_request\" && resource.project =~ \"$project\" && resource.experiment_name =~ \"$experiment_name\" }"
                       }
                     },
