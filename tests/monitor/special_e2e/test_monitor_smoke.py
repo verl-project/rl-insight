@@ -230,7 +230,7 @@ def test_monitor_trace_state_should_be_queryable_when_interval_is_reported(
 def test_engine_request_trace_should_preserve_native_attributes(
     monitor_stack: dict[str, str],
 ) -> None:
-    """Post a vLLM-shaped llm_request span and verify Tempo keeps every field."""
+    """Post a vLLM-shaped llm_request span and verify Tempo keeps every native field."""
     trace_id = uuid.uuid5(uuid.NAMESPACE_URL, f"inference-{TEST_RUN_ID}").hex
     span_id = uuid.uuid4().hex[:16]
     request_id = f"req-{TEST_RUN_ID}"
@@ -251,12 +251,6 @@ def test_engine_request_trace_should_preserve_native_attributes(
         "gen_ai.latency.time_in_scheduler",
         "gen_ai.latency.time_in_model_forward",
         "gen_ai.latency.time_in_model_execute",
-        # Correlation attributes added by the rollout adapter.
-        "global_steps",
-        "turn",
-        "traj",
-        "sample",
-        "session",
     )
 
     payload = {
@@ -310,11 +304,6 @@ def test_engine_request_trace_should_preserve_native_attributes(
                                     ),
                                     _otlp_int("gen_ai.usage.prompt_tokens", 16),
                                     _otlp_int("gen_ai.usage.completion_tokens", 8),
-                                    _otlp_int("global_steps", 2),
-                                    _otlp_int("turn", 0),
-                                    _otlp_int("traj", 0),
-                                    _otlp_string("sample", "0"),
-                                    _otlp_string("session", "0"),
                                     _otlp_string("test_run", TEST_RUN_ID),
                                 ],
                             }
@@ -338,10 +327,6 @@ def test_engine_request_trace_should_preserve_native_attributes(
                 'resource.project = "rl-insight-e2e" && '
                 f'resource.experiment_name = "{EXPERIMENT_NAME}" && '
                 'resource.replica = "0" && '
-                "span.global_steps = 2 && "
-                "span.traj = 0 && "
-                'span.sample = "0" && '
-                'span.session = "0" && '
                 f'span.test_run = "{TEST_RUN_ID}" }}'
             )
         },
