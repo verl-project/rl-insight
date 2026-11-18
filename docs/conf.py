@@ -76,7 +76,6 @@ exclude_patterns = [
     "Thumbs.db",
     ".DS_Store",
     "recipe/**",
-    "monitor/hardware/*_zh.md",
 ]
 
 # -- Options for HTML output -------------------------------------------------

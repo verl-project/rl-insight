@@ -153,11 +153,11 @@ At startup, RL-Insight copies them into the runtime dashboards directory and pro
 ~/.rl-insight/runtime/dashboards
 ```
 
-To add a dashboard, you can still put its JSON in an existing package subdirectory, or add a new subdirectory for a new folder, then restart the stack. For integration-owned dashboards, the recommended approach is to pass an external directory with `--extra-dashboard-dir`; this keeps the installed package unchanged. See [Custom Grafana Dashboards](./custom_dashboards.md) for details.
+To add a dashboard, you can still put its JSON in an existing package subdirectory, or add a new subdirectory for a new folder, then restart the stack. For integration-owned dashboards, the recommended approach is to pass an external directory with `--extra-dashboard-dir`; this keeps the installed package unchanged. See [Custom Grafana Dashboards](../advanced_features/custom_grafana_dashboards.md) for details.
 
 Prometheus metrics and Tempo traces are persisted under `~/.rl-insight/data` by default. Stopping the server does not delete collected data.
 
-To inspect the experiments already stored in a data directory without starting the server stack, see [Server Data Status](./data_inspection.md).
+To inspect the experiments already stored in a data directory without starting the server stack, see [Local Persisted Data Status](../advanced_features/local_persisted_data_status.md).
 
 Prometheus scrape targets registered by trainers or `rl-insight server targets add` are stored separately in `~/.rl-insight/data/targets/prometheus-targets.yml`. The generated `prometheus.yml` references this persistent file through Prometheus file-based service discovery, so restarting the server stack does not clear registered targets. Target updates are written atomically under a cross-process lock. Existing registration paths continue to reload Prometheus for API compatibility, while file-based service discovery also refreshes the target file every five seconds.
 
@@ -177,7 +177,7 @@ rl-insight server stop
 
 ## Configuration Shortcuts
 
-See [Configuration](configuration.md) for server and client settings, defaults, and override precedence. The settings below belong to the training client, not the server YAML.
+See [Configuration](../programming_guide/interfaces/configuration.md) for server and client settings, defaults, and override precedence. The settings below belong to the training client, not the server YAML.
 
 Pass overrides through `insight.init(config=...)`:
 
@@ -216,16 +216,21 @@ rl-insight server install
 
 If metrics do not appear, check that the monitor hub process is reachable from Prometheus and that the Prometheus configuration points to the hub `/metrics` endpoint.
 
+## Next Steps: Learn From Monitoring Data
+
+To learn how to use RL-Insight data to guide training tuning, see the [Tuning Cases](../tuning_cases/async_rl_training_tuning_guide.md).
+
+
 ## Next Steps: Monitor a Real Training Run
 
 For framework-specific setup and monitoring switches, follow the maintained upstream guides:
 
 | Framework | Getting started | Upstream RL-Insight integration |
 | --- | --- | --- |
-| verl | [verl](integrations/verl.md) | [Official integration guide](https://github.com/verl-project/verl/blob/main/docs/advance/rl_insight.md) |
-| verl-omni | [verl-omni](integrations/verl-omni.md) | [Official integration guide](https://github.com/verl-project/verl-omni/blob/main/docs/start/rl_insight.md) |
-| verl-SpeCo | [verl-SpeCo](integrations/verl-speco.md) | [Official integration guide](https://github.com/verl-project/verl-SpeCo/blob/main/docs/usage.md#online-monitoring-with-rl-insight) |
+| verl | [verl](../framework_support/verl.md) | [Official integration guide](https://github.com/verl-project/verl/blob/main/docs/advance/rl_insight.md) |
+| verl-omni | [verl-omni](../framework_support/verl_omni.md) | [Official integration guide](https://github.com/verl-project/verl-omni/blob/main/docs/start/rl_insight.md) |
+| verl-SpeCo | [verl-SpeCo](../framework_support/verl_speco.md) | [Official integration guide](https://github.com/verl-project/verl-SpeCo/blob/main/docs/usage.md#online-monitoring-with-rl-insight) |
 
-For verl metric names, types, calculations, and descriptions, see the existing [verl metric reference](metric-name-catalog.md).
+For verl metric names, types, calculations, and descriptions, see the existing [verl metric reference](../programming_guide/metric_name_catalog.md).
 
-For custom instrumentation, see the [Python API](api.md). Once monitoring is working, continue with the [verl async training tuning guide](../tuning_case/async_mode_tuning_tutorial.md) or [verl-omni multimodal tuning case](../tuning_case/multimodal_model_tuning_using_rl_insight.md).
+For custom instrumentation, see the [Python API](../programming_guide/interfaces/python_api.md). Once monitoring is working, continue with the [verl async training tuning guide](../tuning_cases/async_rl_training_tuning_guide.md) or [verl-omni multimodal tuning case](../tuning_cases/multimodal_model_tuning_using_rl_insight.md).
