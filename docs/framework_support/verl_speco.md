@@ -15,4 +15,4 @@ Use the current [verl-SpeCo repository](https://github.com/verl-project/verl-Spe
 
 When no RL-Insight server is configured, verl-SpeCo's monitoring hooks degrade to no-ops. The upstream guide also describes the exported drafter metrics, traces, and dashboard panels.
 
-For RL-Insight service setup, see [Quick Start](../quick_start.md); for server and client options, see [Configuration](../configuration.md).
+For RL-Insight service setup, see [Quick Start](../tutorial/quick_start.md); for server and client options, see [Configuration](../programming_guide/interfaces/configuration.md).

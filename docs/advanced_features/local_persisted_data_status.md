@@ -1,4 +1,4 @@
-# Server Data Status
+# Local Persisted Data Status
 
 `rl-insight server status` reads a persisted RL-Insight data directory and lists the experiments it contains. It reports each experiment's first and last observed timestamps across Prometheus and Tempo. The command does not require the server stack to be running.
 

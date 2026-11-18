@@ -1,6 +1,6 @@
 # Configuration
 
-Configure the service stack and the training client separately. For Python function parameters and examples, see the [Python API](api.md).
+Configure the service stack and the training client separately. For Python function parameters and examples, see the [Python API](python_api.md).
 
 | Configuration | Entry point | Purpose |
 | --- | --- | --- |
@@ -27,7 +27,7 @@ Framework-specific switches belong to the [verl integration guide](https://githu
 | `server.data_dir` | `~/.rl-insight/data` | Persistent data; `--log-dir` overrides it |
 | `<service>.binary_path` | Empty | Explicit binary location, otherwise automatic discovery |
 
-`<service>` is `prometheus`, `tempo`, or `grafana`. Their `min_version` and `install_version` settings control compatibility checks and downloads; see [Server Installation](server_installation.md).
+`<service>` is `prometheus`, `tempo`, or `grafana`. Their `min_version` and `install_version` settings control compatibility checks and downloads; see [Server Installation](../../tutorial/server_installation.md).
 
 Custom YAML overrides the bundled defaults. Template paths such as `tempo.config_file` use `${service_root}`, resolved relative to your YAML's directory. Copy the bundled configuration and templates together before editing:
 
@@ -56,7 +56,7 @@ tempo:
   enable: false
 ```
 
-Use `--auto-port` to replace occupied ports and follow the printed URLs. Use `--extra-dashboard-dir` for [custom dashboards](custom_dashboards.md).
+Use `--auto-port` to replace occupied ports and follow the printed URLs. Use `--extra-dashboard-dir` for [custom dashboards](../../advanced_features/custom_grafana_dashboards.md).
 
 Server precedence is bundled defaults, then custom YAML, then applicable CLI overrides. `--log-dir` overrides `server.data_dir`; `--extra-dashboard-dir` overrides `grafana.extra_dashboard_dir`. Client environment variables do not change server listening ports.
 
@@ -97,7 +97,7 @@ Set the path before starting training:
 export RL_INSIGHT_CONFIG=/absolute/path/to/client.yaml
 ```
 
-Alternatively, pass this structure to `init(config=...)`; see the [initialization example](api.md#initialize-and-finish).
+Alternatively, pass this structure to `init(config=...)`; see the [initialization example](python_api.md#initialize-and-finish).
 
 ### Override precedence
 
@@ -134,4 +134,4 @@ env_vars:
 
 If using `RL_INSIGHT_CONFIG`, propagate it too and ensure the file exists at the same path on each worker node.
 
-Check discovery from the training host with `curl http://<server-ip>:18080/api/v1/services`, then inspect Prometheus **Status → Targets**. Check Tempo and OTLP connectivity separately for missing traces. See [Quick Start](quick_start.md) for an end-to-end demo and [Hardware Monitoring](hardware/index.md) for exporter setup.
+Check discovery from the training host with `curl http://<server-ip>:18080/api/v1/services`, then inspect Prometheus **Status → Targets**. Check Tempo and OTLP connectivity separately for missing traces. See [Quick Start](../../tutorial/quick_start.md) for an end-to-end demo and [Hardware Monitoring](../../advanced_features/hardware/index.md) for exporter setup.
