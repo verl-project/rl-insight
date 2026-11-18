@@ -521,37 +521,13 @@
         "kind": "Panel",
         "spec": {
           "id": 12,
-          "title": "vLLM: Requests Prefill and Decode Time",
+          "title": "vLLM: Request Prefill Time",
           "description": "",
           "links": [],
           "data": {
             "kind": "QueryGroup",
             "spec": {
               "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "spec": {
-                        "editorMode": "code",
-                        "exemplar": true,
-                        "expr": "sum by (model_name, engine, replica, project, experiment_name) (rate(vllm:request_decode_time_seconds_sum{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$interval]))",
-                        "interval": "",
-                        "legendFormat": "{{experiment_name}} / Decode - {{model_name}} - {{engine}} - replica {{replica}}",
-                        "queryType": "randomWalk",
-                        "range": true
-                      },
-                      "labels": {
-                        "grafana.app/export-label": "prometheus-1"
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                },
                 {
                   "kind": "PanelQuery",
                   "spec": {
@@ -572,7 +548,7 @@
                         "grafana.app/export-label": "prometheus-1"
                       }
                     },
-                    "refId": "B",
+                    "refId": "A",
                     "hidden": false
                   }
                 }
@@ -8042,6 +8018,128 @@
             }
           }
         }
+      },
+      "panel-356": {
+        "kind": "Panel",
+        "spec": {
+          "id": 356,
+          "title": "vLLM: Request Decode Time",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "editorMode": "code",
+                        "exemplar": true,
+                        "expr": "sum by (model_name, engine, replica, project, experiment_name) (rate(vllm:request_decode_time_seconds_sum{model_name=~\"$vllm_model_name\", engine=~\"$workerid\", replica=~\"$replica\",project=~\"${project:regex}\",experiment_name=~\"${experiment_name:regex}\"}[$interval]))",
+                        "interval": "",
+                        "legendFormat": "{{experiment_name}} / Decode - {{model_name}} - {{engine}} - replica {{replica}}",
+                        "queryType": "randomWalk",
+                        "range": true
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "prometheus-1"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.0.2",
+            "spec": {
+              "options": {
+                "alertThreshold": true,
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      },
+                      {
+                        "value": 80,
+                        "color": "red"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 0,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 1,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
       }
     },
     "layout": {
@@ -8377,7 +8475,7 @@
                         "height": 8,
                         "element": {
                           "kind": "ElementReference",
-                          "name": "panel-13"
+                          "name": "panel-356"
                         }
                       }
                     },
@@ -8385,6 +8483,19 @@
                       "kind": "GridLayoutItem",
                       "spec": {
                         "x": 0,
+                        "y": 48,
+                        "width": 12,
+                        "height": 8,
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-13"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "x": 12,
                         "y": 48,
                         "width": 12,
                         "height": 8,
@@ -8397,8 +8508,8 @@
                     {
                       "kind": "GridLayoutItem",
                       "spec": {
-                        "x": 12,
-                        "y": 48,
+                        "x": 0,
+                        "y": 56,
                         "width": 12,
                         "height": 8,
                         "element": {
@@ -8410,7 +8521,7 @@
                     {
                       "kind": "GridLayoutItem",
                       "spec": {
-                        "x": 0,
+                        "x": 12,
                         "y": 56,
                         "width": 12,
                         "height": 8,
@@ -8423,8 +8534,8 @@
                     {
                       "kind": "GridLayoutItem",
                       "spec": {
-                        "x": 12,
-                        "y": 56,
+                        "x": 0,
+                        "y": 64,
                         "width": 12,
                         "height": 8,
                         "element": {
@@ -8436,7 +8547,7 @@
                     {
                       "kind": "GridLayoutItem",
                       "spec": {
-                        "x": 0,
+                        "x": 12,
                         "y": 64,
                         "width": 12,
                         "height": 8,
@@ -8449,8 +8560,8 @@
                     {
                       "kind": "GridLayoutItem",
                       "spec": {
-                        "x": 12,
-                        "y": 64,
+                        "x": 0,
+                        "y": 72,
                         "width": 12,
                         "height": 8,
                         "element": {
@@ -8462,7 +8573,7 @@
                     {
                       "kind": "GridLayoutItem",
                       "spec": {
-                        "x": 0,
+                        "x": 12,
                         "y": 72,
                         "width": 12,
                         "height": 8,
@@ -8474,7 +8585,132 @@
                     }
                   ]
                 }
-              }
+              },
+              "variables": [
+                {
+                  "kind": "QueryVariable",
+                  "spec": {
+                    "name": "vllm_model_name",
+                    "current": {
+                      "text": "",
+                      "value": ""
+                    },
+                    "label": "vLLM: Model Name",
+                    "hide": "dontHide",
+                    "refresh": "onDashboardLoad",
+                    "skipUrlSync": false,
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "query": "label_values(vllm:request_prompt_tokens_sum{}, model_name)",
+                        "refId": "StandardVariableQuery"
+                      }
+                    },
+                    "regex": "",
+                    "regexApplyTo": "value",
+                    "sort": "disabled",
+                    "definition": "label_values(vllm:request_prompt_tokens_sum{}, model_name)",
+                    "options": [],
+                    "multi": false,
+                    "includeAll": true,
+                    "allValue": ".*",
+                    "allowCustomValue": true
+                  }
+                },
+                {
+                  "kind": "QueryVariable",
+                  "spec": {
+                    "name": "workerid",
+                    "current": {
+                      "text": "",
+                      "value": ""
+                    },
+                    "label": "vLLM: Engine ID",
+                    "hide": "dontHide",
+                    "refresh": "onDashboardLoad",
+                    "skipUrlSync": false,
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "query": "label_values(vllm:request_prompt_tokens_sum{}, engine)",
+                        "refId": "StandardVariableQuery"
+                      }
+                    },
+                    "regex": "",
+                    "regexApplyTo": "value",
+                    "sort": "disabled",
+                    "definition": "label_values(vllm:request_prompt_tokens_sum{}, engine)",
+                    "options": [],
+                    "multi": false,
+                    "includeAll": true,
+                    "allValue": ".*",
+                    "allowCustomValue": true
+                  }
+                },
+                {
+                  "kind": "CustomVariable",
+                  "spec": {
+                    "name": "interval",
+                    "query": "",
+                    "current": {
+                      "text": "5m",
+                      "value": "5m"
+                    },
+                    "options": [],
+                    "multi": false,
+                    "includeAll": false,
+                    "label": "vLLM: Interval",
+                    "hide": "dontHide",
+                    "skipUrlSync": false,
+                    "allowCustomValue": true,
+                    "valuesFormat": "csv"
+                  }
+                },
+                {
+                  "kind": "QueryVariable",
+                  "spec": {
+                    "name": "replica",
+                    "current": {
+                      "text": "",
+                      "value": ""
+                    },
+                    "label": "vLLM: Rollout Replica",
+                    "hide": "dontHide",
+                    "refresh": "onDashboardLoad",
+                    "skipUrlSync": false,
+                    "description": "Replica rank of rollout",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "spec": {
+                        "qryType": 1,
+                        "query": "label_values({__name__=~\"vllm:.*\", replica=~\".+\"}, replica)",
+                        "refId": "PrometheusVariableQueryEditor-VariableQuery"
+                      }
+                    },
+                    "regex": "",
+                    "regexApplyTo": "value",
+                    "sort": "numericalAsc",
+                    "definition": "label_values({__name__=~\"vllm:.*\", replica=~\".+\"}, replica)",
+                    "options": [],
+                    "multi": false,
+                    "includeAll": true,
+                    "allValue": ".*",
+                    "allowCustomValue": true
+                  }
+                }
+              ]
             }
           },
           {
@@ -8565,6 +8801,83 @@
             "spec": {
               "title": "transfer queue metric",
               "collapse": true,
+              "variables": [
+                {
+                  "kind": "QueryVariable",
+                  "spec": {
+                    "name": "task_name",
+                    "current": {
+                      "text": "",
+                      "value": ""
+                    },
+                    "label": "transfer queue: Task",
+                    "hide": "dontHide",
+                    "refresh": "onDashboardLoad",
+                    "skipUrlSync": false,
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "query": "label_values(tq_partition_consumption_progress, task_name)",
+                        "refId": "StandardVariableQuery"
+                      }
+                    },
+                    "regex": "",
+                    "regexApplyTo": "value",
+                    "sort": "disabled",
+                    "definition": "label_values(tq_partition_consumption_progress, task_name)",
+                    "options": [],
+                    "multi": true,
+                    "includeAll": true,
+                    "allValue": ".*",
+                    "allowCustomValue": true
+                  }
+                },
+                {
+                  "kind": "CustomVariable",
+                  "spec": {
+                    "name": "op_type",
+                    "query": "PUT_DATA,GET_DATA,CLEAR_DATA,GET_META,CLEAR_META,NOTIFY_DATA_UPDATE",
+                    "current": {
+                      "text": "All",
+                      "value": "$__all"
+                    },
+                    "options": [],
+                    "multi": true,
+                    "includeAll": true,
+                    "allValue": ".*",
+                    "label": "transfer queue: Op Type",
+                    "hide": "dontHide",
+                    "skipUrlSync": false,
+                    "allowCustomValue": true,
+                    "valuesFormat": "csv"
+                  }
+                },
+                {
+                  "kind": "CustomVariable",
+                  "spec": {
+                    "name": "quantile",
+                    "query": "p50,p99",
+                    "current": {
+                      "text": "All",
+                      "value": "$__all"
+                    },
+                    "options": [],
+                    "multi": true,
+                    "includeAll": true,
+                    "allValue": ".*",
+                    "label": "transfer queue: Quantile",
+                    "hide": "dontHide",
+                    "skipUrlSync": false,
+                    "allowCustomValue": true,
+                    "valuesFormat": "csv"
+                  }
+                }
+              ],
               "layout": {
                 "kind": "RowsLayout",
                 "spec": {
@@ -9404,204 +9717,6 @@
           "includeAll": true,
           "allValue": ".*",
           "allowCustomValue": true
-        }
-      },
-      {
-        "kind": "QueryVariable",
-        "spec": {
-          "name": "vllm_model_name",
-          "current": {
-            "text": "",
-            "value": ""
-          },
-          "label": "vLLM: Model Name",
-          "hide": "dontHide",
-          "refresh": "onDashboardLoad",
-          "skipUrlSync": false,
-          "query": {
-            "kind": "DataQuery",
-            "group": "prometheus",
-            "version": "v0",
-            "datasource": {
-              "name": "${datasource}"
-            },
-            "spec": {
-              "query": "label_values(vllm:request_prompt_tokens_sum{}, model_name)",
-              "refId": "StandardVariableQuery"
-            }
-          },
-          "regex": "",
-          "regexApplyTo": "value",
-          "sort": "disabled",
-          "definition": "label_values(vllm:request_prompt_tokens_sum{}, model_name)",
-          "options": [],
-          "multi": false,
-          "includeAll": true,
-          "allValue": ".*",
-          "allowCustomValue": true
-        }
-      },
-      {
-        "kind": "QueryVariable",
-        "spec": {
-          "name": "workerid",
-          "current": {
-            "text": "",
-            "value": ""
-          },
-          "label": "vLLM: Engine ID",
-          "hide": "dontHide",
-          "refresh": "onDashboardLoad",
-          "skipUrlSync": false,
-          "query": {
-            "kind": "DataQuery",
-            "group": "prometheus",
-            "version": "v0",
-            "datasource": {
-              "name": "${datasource}"
-            },
-            "spec": {
-              "query": "label_values(vllm:request_prompt_tokens_sum{}, engine)",
-              "refId": "StandardVariableQuery"
-            }
-          },
-          "regex": "",
-          "regexApplyTo": "value",
-          "sort": "disabled",
-          "definition": "label_values(vllm:request_prompt_tokens_sum{}, engine)",
-          "options": [],
-          "multi": false,
-          "includeAll": true,
-          "allValue": ".*",
-          "allowCustomValue": true
-        }
-      },
-      {
-        "kind": "CustomVariable",
-        "spec": {
-          "name": "interval",
-          "query": "",
-          "current": {
-            "text": "5m",
-            "value": "5m"
-          },
-          "options": [],
-          "multi": false,
-          "includeAll": false,
-          "label": "vLLM: Interval",
-          "hide": "dontHide",
-          "skipUrlSync": false,
-          "allowCustomValue": true,
-          "valuesFormat": "csv"
-        }
-      },
-      {
-        "kind": "QueryVariable",
-        "spec": {
-          "name": "replica",
-          "current": {
-            "text": "",
-            "value": ""
-          },
-          "label": "vLLM: Rollout Replica",
-          "hide": "dontHide",
-          "refresh": "onDashboardLoad",
-          "skipUrlSync": false,
-          "description": "Replica rank of rollout",
-          "query": {
-            "kind": "DataQuery",
-            "group": "prometheus",
-            "version": "v0",
-            "spec": {
-              "qryType": 1,
-              "query": "label_values({__name__=~\"vllm:.*\", replica=~\".+\"}, replica)",
-              "refId": "PrometheusVariableQueryEditor-VariableQuery"
-            }
-          },
-          "regex": "",
-          "regexApplyTo": "value",
-          "sort": "numericalAsc",
-          "definition": "label_values({__name__=~\"vllm:.*\", replica=~\".+\"}, replica)",
-          "options": [],
-          "multi": false,
-          "includeAll": true,
-          "allValue": ".*",
-          "allowCustomValue": true
-        }
-      },
-      {
-        "kind": "QueryVariable",
-        "spec": {
-          "name": "task_name",
-          "current": {
-            "text": "",
-            "value": ""
-          },
-          "label": "transfer queue: Task",
-          "hide": "dontHide",
-          "refresh": "onDashboardLoad",
-          "skipUrlSync": false,
-          "query": {
-            "kind": "DataQuery",
-            "group": "prometheus",
-            "version": "v0",
-            "datasource": {
-              "name": "${datasource}"
-            },
-            "spec": {
-              "query": "label_values(tq_partition_consumption_progress, task_name)",
-              "refId": "StandardVariableQuery"
-            }
-          },
-          "regex": "",
-          "regexApplyTo": "value",
-          "sort": "disabled",
-          "definition": "label_values(tq_partition_consumption_progress, task_name)",
-          "options": [],
-          "multi": true,
-          "includeAll": true,
-          "allValue": ".*",
-          "allowCustomValue": true
-        }
-      },
-      {
-        "kind": "CustomVariable",
-        "spec": {
-          "name": "op_type",
-          "query": "PUT_DATA,GET_DATA,CLEAR_DATA,GET_META,CLEAR_META,NOTIFY_DATA_UPDATE",
-          "current": {
-            "text": "All",
-            "value": "$__all"
-          },
-          "options": [],
-          "multi": true,
-          "includeAll": true,
-          "allValue": ".*",
-          "label": "transfer queue: Op Type",
-          "hide": "dontHide",
-          "skipUrlSync": false,
-          "allowCustomValue": true,
-          "valuesFormat": "csv"
-        }
-      },
-      {
-        "kind": "CustomVariable",
-        "spec": {
-          "name": "quantile",
-          "query": "p50,p99",
-          "current": {
-            "text": "All",
-            "value": "$__all"
-          },
-          "options": [],
-          "multi": true,
-          "includeAll": true,
-          "allValue": ".*",
-          "label": "transfer queue: Quantile",
-          "hide": "dontHide",
-          "skipUrlSync": false,
-          "allowCustomValue": true,
-          "valuesFormat": "csv"
         }
       },
       {

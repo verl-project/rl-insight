@@ -283,6 +283,29 @@ def _panel_expressions(panel: dict) -> list[str]:
     ]
 
 
+def _dashboard_variable_names(dashboard: dict) -> set[str]:
+    """Collect dashboard-wide and row-scoped variables from the layout."""
+    names = {
+        variable["spec"]["name"] for variable in dashboard["spec"].get("variables", [])
+    }
+
+    def visit(node: object) -> None:
+        if isinstance(node, dict):
+            if node.get("kind") == "RowsLayoutRow":
+                names.update(
+                    variable["spec"]["name"]
+                    for variable in node.get("spec", {}).get("variables", [])
+                )
+            for value in node.values():
+                visit(value)
+        elif isinstance(node, list):
+            for value in node:
+                visit(value)
+
+    visit(dashboard["spec"].get("layout", {}))
+    return names
+
+
 @pytest.mark.parametrize(
     "dashboard_path", _shipped_dashboard_files(), ids=lambda p: p.name
 )
@@ -291,12 +314,11 @@ def test_shipped_dashboard_should_declare_a_variable_for_every_template(
 ) -> None:
     """Every ``$name`` used in a PromQL expression resolves to a dashboard variable.
 
-    ``$__rate_interval`` and friends are Grafana built-ins, so they are exempt.
+    Row-scoped variables belong to their dashboard section. ``$__rate_interval``
+    and other Grafana built-ins are exempt.
     """
     dashboard = json.loads(dashboard_path.read_text(encoding="utf-8"))
-    declared = {
-        variable["spec"]["name"] for variable in dashboard["spec"].get("variables", [])
-    }
+    declared = _dashboard_variable_names(dashboard)
     used: set[str] = set()
     for panel in _dashboard_panels(dashboard):
         for expression in _panel_expressions(panel):
