@@ -83,7 +83,7 @@ export RL_INSIGHT_SERVER_URL=http://<server-ip>:18080
 
 In PowerShell, use `$env:RL_INSIGHT_SERVER_URL = "http://<server-ip>:18080"` instead. This is the server API address, not the Grafana URL.
 
-Save the following as `monitor_demo.py`, then run `python monitor_demo.py` in that same environment. It uses the three metric helpers and one `trace_state` span inside a loop, so Prometheus and Grafana keep receiving representative live samples while it runs. Leave it running while checking Grafana and press `Ctrl+C` when finished:
+Save the following as `monitor_demo.py`, then run `python monitor_demo.py` in that same environment. It uses four metric helpers and one `trace_state` span inside a loop, so Prometheus and Grafana keep receiving representative live samples while it runs. Leave it running while checking Grafana and press `Ctrl+C` when finished:
 
 ```python
 import time
