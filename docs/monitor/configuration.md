@@ -7,7 +7,7 @@ Configure the service stack and the training client separately. For Python funct
 | Server | `rl-insight server start --config server.yaml` | Services, listening ports, storage, dashboards |
 | Training client | `RL_INSIGHT_CONFIG` or `rl_insight.init(config=...)` | Backend, server connection, metric reporting |
 
-Framework-specific switches belong to the [verl integration guide](https://github.com/verl-project/verl/blob/main/docs/advance/rl_insight.md) and [verl-omni integration guide](https://github.com/verl-project/verl-omni/blob/main/docs/start/rl_insight.md).
+Framework-specific switches belong to the [verl integration guide](https://github.com/verl-project/verl/blob/main/docs/advance/rl_insight.md), [verl-omni integration guide](https://github.com/verl-project/verl-omni/blob/main/docs/start/rl_insight.md), and [slime-ascend integration guide](integrations/slime-ascend.md).
 
 ## Server settings
 

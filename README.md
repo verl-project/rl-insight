@@ -56,6 +56,7 @@ https://github.com/user-attachments/assets/d0ef242d-e108-468f-afa5-ec9a5321f0e8
 
 ## News
 
+- [2026/10/27] RL-Insight is integrated into [slime-ascend](https://gitcode.com/Ascend/slime-ascend). See the [integration guide](https://rl-insight.readthedocs.io/en/latest/monitor/integrations/slime-ascend.html).
 - [2026/10/20] Tuning guides are available for [verl asynchronous training](https://rl-insight.readthedocs.io/en/latest/tuning_case/async_mode_tuning_tutorial.html) and [verl-omni multimodal training](https://rl-insight.readthedocs.io/en/latest/tuning_case/multimodal_model_tuning_using_rl_insight.html).
 - [2026/09/15] RL-Insight is integrated into verl-omni. See the [integration guide](https://github.com/verl-project/verl-omni/blob/main/docs/start/rl_insight.md).
 - [2026/07/15] [RL-Insight 0.2.0](https://github.com/verl-project/rl-insight/releases/tag/v0.2.0) was released. See the [verl integration guide](https://github.com/verl-project/verl/blob/main/docs/advance/rl_insight.md) to enable training, rollout, TransferQueue, trace, and hardware monitoring.
