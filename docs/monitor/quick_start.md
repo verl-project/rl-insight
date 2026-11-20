@@ -127,33 +127,27 @@ username: admin
 password: admin
 ```
 
-After login, open **Dashboards** from the left navigation. Bundled dashboards are grouped into folders and tagged:
+After login, open **Dashboards** → **RL-Insight Dashboard Versions** to choose the dashboard version that matches the RL-Insight collector. **Latest** contains the dashboards bundled with the installed version. **Archive - v0.2.0** and **Archive - v0.3.0** contain the dashboards from those releases. Panel availability depends on the metrics and traces collected by the corresponding version.
 
-| Folder | Dashboards | Tags |
-| --- | --- | --- |
-| `verl` | `verl_trainer_v1_with_vllm_engine`, `verl_trainer_v1_with_sglang_engine` | `RL-Insight`, `verl`, `vllm` / `sglang` |
-| `verl-omni` | `verl_omni_trainer_v1_with_vllm_omni_engine` | `RL-Insight`, `verl-omni`, `vllm-omni` |
-| `agent_loop_trajectory` | `agent_loop_trajectory` | `RL-Insight`, `agent-loop`, `trajectory` |
-| `quick_start_demo` | `quick_start_demo` | `RL-Insight`, `quick-start`, `demo` |
+For the sample script in this guide, open **Latest** → **quick_start_demo** and set the time range to a recent window such as **Last 5 minutes** while the script is still running.
 
-For the sample script in this guide, open **quick_start_demo** → `quick_start_demo` and set the time range to a recent window such as **Last 5 minutes** while the script is still running. For framework-specific runs, open the folder that matches that integration.
-
-Bundled dashboard JSON files live in the package directory, one subdirectory per Grafana folder:
+The package groups dashboard JSON files by version:
 
 ```text
-rl_insight/config/services/grafana/dashboards/verl
-rl_insight/config/services/grafana/dashboards/verl-omni
-rl_insight/config/services/grafana/dashboards/agent_loop_trajectory
-rl_insight/config/services/grafana/dashboards/quick_start_demo
+rl_insight/config/services/grafana/dashboards/
+├── dashboard_versions.json
+├── Latest/
+├── Archive - v0.2.0/
+└── Archive - v0.3.0/
 ```
 
-At startup, RL-Insight copies them into the runtime dashboards directory and provisions Grafana from there. Grafana creates one folder per subdirectory (`foldersFromFilesStructure`).
+At startup, RL-Insight copies the JSON files to the runtime dashboards directory. Grafana uses each version directory as a folder. The dashboards in **Latest** retain their UIDs, so existing dashboard links still open the current dashboards.
 
 ```text
 ~/.rl-insight/runtime/dashboards
 ```
 
-To add a dashboard, you can still put its JSON in an existing package subdirectory, or add a new subdirectory for a new folder, then restart the stack. For integration-owned dashboards, the recommended approach is to pass an external directory with `--extra-dashboard-dir`; this keeps the installed package unchanged. See [Custom Grafana Dashboards](./custom_dashboards.md) for details.
+When adding a bundled dashboard, place its JSON in **Latest** and add its link to `dashboard_versions.json`. Each archive is a snapshot from its release tag. Archives have their own UIDs so they can be loaded alongside the current dashboards. For integration-owned dashboards, see [Custom Grafana Dashboards](./custom_dashboards.md) for how to use `--extra-dashboard-dir`.
 
 Prometheus metrics and Tempo traces are persisted under `~/.rl-insight/data` by default. Stopping the server does not delete collected data.
 

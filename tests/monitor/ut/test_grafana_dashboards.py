@@ -194,10 +194,31 @@ def _bundled_dashboard_files() -> list[Path]:
 
 
 def _shipped_dashboard_files() -> list[Path]:
-    """Every dashboard in the source tree, whether provisioned by default or not."""
-    return sorted(_BUNDLED_DASHBOARDS.rglob("*.json")) + sorted(
-        _RECIPE_DASHBOARDS.rglob("*.json")
+    """Dashboards under active development, including the version guide."""
+    return sorted(
+        [
+            *_BUNDLED_DASHBOARDS.glob("*.json"),
+            *(_BUNDLED_DASHBOARDS / "Latest").glob("*.json"),
+            *_RECIPE_DASHBOARDS.rglob("*.json"),
+        ]
     )
+
+
+def test_version_guide_links_to_every_versioned_dashboard() -> None:
+    guide_path = _BUNDLED_DASHBOARDS / "dashboard_versions.json"
+    guide = json.loads(guide_path.read_text(encoding="utf-8"))
+    content = guide["spec"]["elements"]["panel-1"]["spec"]["vizConfig"]["spec"][
+        "options"
+    ]["content"]
+    dashboard_uids = [
+        json.loads(path.read_text(encoding="utf-8"))["metadata"]["name"]
+        for path in _bundled_dashboard_files()
+        if path != guide_path
+    ]
+
+    assert guide["metadata"]["name"] not in dashboard_uids
+    assert len(dashboard_uids) == len(set(dashboard_uids))
+    assert sorted(re.findall(r"\]\(d/([^/]+)/", content)) == sorted(dashboard_uids)
 
 
 def _iter_element_references(node: object):
