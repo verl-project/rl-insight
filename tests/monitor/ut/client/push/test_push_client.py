@@ -533,8 +533,13 @@ def _reset_bootstrap() -> None:
     prom_utils._push_bootstrap_attempted = False
 
 
+@pytest.mark.parametrize("identity_from_env", [False, True])
+@pytest.mark.parametrize("invalid_sink", [False, True])
 def test_register_targets_bootstraps_push_client_in_uninitialized_process(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Any,
+    identity_from_env: bool,
+    invalid_sink: bool,
 ) -> None:
     # Simulate a Ray rollout actor process: rl_insight.init() was never called,
     # but RL_INSIGHT_CONFIG points at a push config and the engine registers its
@@ -553,6 +558,9 @@ push:
       prefix: xgpt.server.infer
       streams: [rollout]
       rollout_name_prefix: ""
+      tags_from_env:
+        - {tag: project, env: PROJECT_NAME}
+        - {tag: experiment_name, env: EXPERIMENT_NAME}
   rollout:
     interval_seconds: 60
     metrics:
@@ -560,8 +568,30 @@ push:
 """,
         encoding="utf-8",
     )
+    if invalid_sink:
+        conf = OmegaConf.load(conf_path)
+        conf.push.sinks.append(
+            {
+                "driver": "fake_boot_mod:create_sink",
+                "streams": ["rollout"],
+                "tags_from_env": [
+                    {"tag": "host", "default": "worker", "format": "{missing}"}
+                ],
+            }
+        )
+        OmegaConf.save(conf, conf_path)
     monkeypatch.setenv("RL_INSIGHT_CONFIG", str(conf_path))
     monkeypatch.delenv("RL_INSIGHT_SERVER_URL", raising=False)
+    monkeypatch.delenv("PROJECT_NAME", raising=False)
+    monkeypatch.delenv("EXPERIMENT_NAME", raising=False)
+    names = {"project": "default", "experiment_name": "default"}
+    if identity_from_env:
+        monkeypatch.setenv("PROJECT_NAME", "configured-project")
+        monkeypatch.setenv("EXPERIMENT_NAME", "configured-experiment")
+        names = {
+            "project": "configured-project",
+            "experiment_name": "configured-experiment",
+        }
     _reset_bootstrap()
     try:
         prom_utils.update_prometheus_config(
@@ -576,7 +606,21 @@ push:
             "[fdbd::1]:1": {"replica": "0"},
             "127.0.0.1:2": {"replica": "1"},
         }
-        assert len(sinks) == 1
+        assert len(sinks) == (2 if invalid_sink else 1)
+        client = api._STATE.client
+        assert client is not None
+        assert len(client._bound) == 1
+        assert api._STATE.enabled is True
+        assert api._STATE.labels == names
+        with pytest.warns(RuntimeWarning, match="ignoring re-initialization"):
+            api.init(project="ignored-project", experiment_name="ignored-experiment")
+        assert api._STATE.client is client
+        assert api._STATE.labels == names
+        assert poller_module.get_active_registry() is registry
+        assert len(sinks) == (2 if invalid_sink else 1)
+        api.finish()
+        assert sinks[0].closed
+        assert poller_module.get_active_registry() is None
     finally:
         _reset_bootstrap()
         sys.modules.pop("fake_boot_mod", None)

@@ -63,7 +63,7 @@ def create_monitor_client(conf: DictConfig | None = None) -> MonitorClient | Non
     """Create a monitor client from ``server.backend`` in the merged trainer config.
 
     Args:
-        conf: Merged monitor config; omit to prepare a Ray connection only.
+        conf: Merged monitor config; omit to prepare a client without formal initialization.
 
     Returns:
         Backend-specific client, or ``None`` if the factory disables monitoring.
@@ -73,7 +73,10 @@ def create_monitor_client(conf: DictConfig | None = None) -> MonitorClient | Non
     """
     if conf is None:
         conf = load_monitor_config()
-        if str(conf.server.backend).strip() != MonitorBackend.RAY:
+        if str(conf.server.backend).strip() not in (
+            MonitorBackend.RAY,
+            MonitorBackend.PUSH,
+        ):
             return None
         conf.pop("run_metadata", None)
 
