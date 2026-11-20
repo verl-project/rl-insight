@@ -28,6 +28,7 @@ For CPU, memory, disk, network, or Ascend NPU metrics, see
 
    verl <monitor/integrations/verl>
    verl-omni <monitor/integrations/verl-omni>
+   verl-SpeCo <monitor/integrations/verl-speco>
 
 .. toctree::
    :maxdepth: 2
