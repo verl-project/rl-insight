@@ -27,7 +27,7 @@ _DASHBOARD = (
     / "services"
     / "grafana"
     / "dashboards"
-    / "verl"
+    / "Latest"
     / "verl_tainer_v1_with_vllm_engine.json"
 )
 _TRACE_ROW_TITLE = "vLLM request traces"

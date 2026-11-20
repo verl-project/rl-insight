@@ -423,10 +423,12 @@ def test_provisioning_uses_direct_sources_and_execution_filters(tmp_path):
     sources = yaml.safe_load(provisioning.read_text())["datasources"]
     assert {s["uid"] for s in sources} == {"prometheus", "tempo"}
     assert all("/api/v1/" not in s["url"] for s in sources)
-    dashboards = list((files.grafana_config.parent / "dashboards").rglob("*.json"))
+    dashboards = list(
+        (files.grafana_config.parent / "dashboards" / "Latest").glob("*.json")
+    )
     assert len(dashboards) >= 5
     for path in dashboards:
-        dashboard = json.loads(path.read_text())
+        dashboard = json.loads(path.read_text(encoding="utf-8"))
         assert "run_id" not in json.dumps(dashboard)
         for element in dashboard["spec"]["elements"].values():
             panel = element.get("spec", {})
