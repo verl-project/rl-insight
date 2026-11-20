@@ -18,14 +18,22 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from omegaconf import DictConfig, OmegaConf
 
-from .constants import MonitorBackend, MonitorDefaults, MonitorEnv, MonitorPaths
+from .constants import (
+    MonitorBackend,
+    MonitorDefaults,
+    MonitorEnv,
+    MonitorHardware,
+    MonitorPaths,
+)
 
 logger = logging.getLogger(__name__)
+
 
 _TRAINING_MONITOR_DEFAULTS = OmegaConf.create(
     {
@@ -36,6 +44,11 @@ _TRAINING_MONITOR_DEFAULTS = OmegaConf.create(
         },
         "prometheus": {
             "metrics_report_port": MonitorDefaults.METRICS_REPORT_PORT,
+        },
+        "hardware": {
+            "enabled": MonitorHardware.ENABLED,
+            "interval_seconds": MonitorHardware.INTERVAL_SECONDS,
+            "collectors": list(MonitorHardware.COLLECTORS),
         },
     }
 )
@@ -89,7 +102,7 @@ def load_monitor_config(
     Precedence (lowest to highest): built-in defaults, the external YAML named
     by ``RL_INSIGHT_CONFIG``, the explicit ``config`` argument (``init(config)``),
     and finally the ``RL_INSIGHT_SERVER_URL`` / ``RL_INSIGHT_SERVER_BACKEND``
-    environment variables for ``server.url`` / ``server.backend``.
+    environment variables.
 
     Args:
         config: Partial mapping or ``DictConfig`` merged on top of defaults and

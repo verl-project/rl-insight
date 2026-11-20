@@ -1,5 +1,7 @@
 # Ascend NPU Hardware Monitoring
 
+> **Scheduled for removal:** Exporter-based hardware monitoring will be removed in version 0.5.0. Use the built-in [hardware monitoring guide](hardware_monitoring_en.md) instead. This document remains available for existing Prometheus deployments.
+
 MindCluster NPU Exporter provides Ascend NPU metrics. Run one exporter on every monitored NPU node.
 
 Run Sections 1-3 on each monitored NPU node. Run Section 4 on the host where RL-Insight Server is running.
@@ -104,6 +106,6 @@ rl-insight server start --detach
 rl-insight server targets add npu_targets.yaml
 ```
 
-`targets add` only registers targets and reloads Prometheus; it does not manage NPU Exporter. After registration, view NPU utilization, memory, power, temperature, and network throughput in the RL-Insight Grafana dashboards.
+`targets add` only registers targets and reloads Prometheus; it does not manage NPU Exporter. The RL-Insight hardware panels read only the built-in collector, so query the registered NPU Exporter series directly in Prometheus after registration.
 
 ![RL-Insight NPU hardware metrics](https://raw.githubusercontent.com/verl-project/rl-insight/main/assets/monitor/hardware/npu_metrics.png)

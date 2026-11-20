@@ -121,7 +121,7 @@ For the Ray backend, verify these paths:
 | Training processes | RL-Insight server API | `18080` |
 | Ray hub / trace exporters | Tempo OTLP HTTP | `4318` |
 | Prometheus | Ray hub metrics endpoint | `9092` |
-| Prometheus | Registered engine or hardware exporter | Endpoint-specific |
+| Prometheus | Registered engine exporter (legacy hardware exporters optional) | Endpoint-specific |
 | Browser | Grafana | `3000` |
 
 Use cluster-reachable addresses. For Ray job submission, propagate settings through the job's runtime environment:
@@ -134,4 +134,4 @@ env_vars:
 
 If using `RL_INSIGHT_CONFIG`, propagate it too and ensure the file exists at the same path on each worker node.
 
-Check discovery from the training host with `curl http://<server-ip>:18080/api/v1/services`, then inspect Prometheus **Status → Targets**. Check Tempo and OTLP connectivity separately for missing traces. See [Quick Start](quick_start.md) for an end-to-end demo and [Hardware Monitoring](hardware/index.md) for exporter setup.
+Check discovery from the training host with `curl http://<server-ip>:18080/api/v1/services`, then inspect Prometheus **Status → Targets**. Check Tempo and OTLP connectivity separately for missing traces. See [Quick Start](quick_start.md) for an end-to-end demo and [Hardware Monitoring](hardware/index.md) for the built-in hardware collector and the legacy exporter guides.

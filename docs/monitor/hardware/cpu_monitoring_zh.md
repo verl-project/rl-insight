@@ -1,5 +1,7 @@
 # CPU 硬件监控
 
+> **即将移除：** 基于 exporter 的硬件监控将在 0.5.0 版本移除。请使用内置的[硬件监控指南](hardware_monitoring_zh.md)。本文档保留用于已有的 Prometheus 部署。
+
 CPU、内存和网络指标由 Prometheus `node_exporter` 提供。每个需要监控的节点都要运行一个 node_exporter。
 
 第 1～3 节在需要监控的节点上执行；第 4 节在运行 RL-Insight Server 的机器上执行。
@@ -92,6 +94,6 @@ rl-insight server start --detach
 rl-insight server targets add cpu_targets.yaml
 ```
 
-`targets add` 只注册 target 并 reload Prometheus，不管理 node_exporter 的生命周期。注册成功后，在 RL-Insight Grafana 看板中查看 CPU、实际内存用量和网络收发带宽。
+`targets add` 只注册 target 并 reload Prometheus，不管理 node_exporter 的生命周期。RL-Insight 硬件面板只读取内置采集，注册成功后请在 Prometheus 中直接查询 node_exporter 序列。
 
 ![RL-Insight CPU 硬件指标](https://raw.githubusercontent.com/verl-project/rl-insight/main/assets/monitor/hardware/cpu_metrics.png)
