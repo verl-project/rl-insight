@@ -84,7 +84,10 @@ Open `docs/_build/html/index.html` to preview the site.
 
 ## Pull Requests & Code Reviews
 
-Thanks for submitting a PR! To streamline reviews:
+Our maintainers actively respond to issues and PRs. To make the best use of their limited time, please keep the following points in mind:
+- While a PR is still under development, switch it to draft status in a timely manner. Switch it to `Ready for review`, the default state when opening a PR, only after development and verification are complete and you believe it is ready for review and merging.
+- AI agents are useful tools for improving development efficiency, but please do not rely on them excessively. You, as the human developer, must review and take responsibility for the content of your PRs and issues.
+- Do not use agents in this repository to automatically reply to issues or PRs, open PRs, or otherwise bypass human review, unless the AI-generated output is clearly labeled.
 - Follow our Pull Request Template for title format and checklist.
 - Adhere to our pre-commit lint rules and ensure all checks pass.
 - Update docs for any user-facing changes.
