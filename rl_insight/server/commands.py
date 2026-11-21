@@ -118,7 +118,9 @@ class ServerCommands:
 
         self.validator.validate_start(conf)
         manager = ServerServiceManager(conf)
-        if self._print_running_details(manager, conf):
+        active_state = manager.active_state()
+        if active_state:
+            self._handle_running_services(conf, active_state)
             return 0
 
         statuses = manager.check_dependencies()
@@ -143,7 +145,10 @@ class ServerCommands:
             return 1
 
         if stack is None:
-            if not self._print_running_details(manager, conf):
+            active_state = manager.active_state()
+            if active_state:
+                self._handle_running_services(conf, active_state)
+            else:
                 print("RL-Insight server services already appear to be running.")
             return 0
 
@@ -168,18 +173,10 @@ class ServerCommands:
         )
         return manager.wait(stack, attach_logs=args.attach_logs)
 
-    def _print_running_details(
-        self, manager: ServerServiceManager, conf: DictConfig
-    ) -> bool:
-        """Render details for the recorded stack, if it is still running.
-
-        Returns:
-            True when a running stack was found and its details were printed.
-        """
-        active_state = manager.active_state()
-        if not active_state:
-            return False
-
+    def _handle_running_services(
+        self, conf: DictConfig, active_state: dict[str, Any]
+    ) -> None:
+        """Handle an existing stack using its recorded runtime configuration."""
         running_conf = _runtime_config(conf, active_state)
         print("RL-Insight server services already appear to be running.")
         self.console.print_running_details(
@@ -187,7 +184,6 @@ class ServerCommands:
             running_conf,
             active_state_rows(active_state),
         )
-        return True
 
     def stop(self, args: argparse.Namespace) -> int:
         """Stop local RL-Insight server, Prometheus, Tempo, and Grafana processes."""
