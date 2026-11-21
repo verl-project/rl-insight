@@ -1,6 +1,6 @@
 # Python API
 
-Import the public API with `import rl_insight as insight`. The examples below use the default Ray backend and the Prometheus/Tempo stack started in [Quick Start](quick_start.md). Backend selection and configuration precedence are covered in [Configuration](configuration.md).
+Import the public API with `import rl_insight as insight`. The examples below use the default Ray backend and the Prometheus/Tempo stack started in [Quick Start](../../tutorial/quick_start.md). Backend selection and configuration precedence are covered in [Configuration](configuration.md).
 
 ## Initialize and finish
 
@@ -44,7 +44,7 @@ insight.metric_log("reward_mean", value=0.8, step=12, worker="trainer_0")
 
 Use consistent label keys for each metric and stable values such as worker roles or replica IDs. Avoid per-request IDs as Prometheus labels. `documentation` supplies metric help text; omitting it uses generated text.
 
-With the default Ray namespace, gauges such as `queue_depth` are exposed as `rl_insight_monitor_queue_depth`. Prometheus samples gauges at scrape time, so intermediate updates can be missed. Use `metric_log` for step-tagged trace records; it is not a Prometheus gauge and requires a working trace export path. Histograms expose `_bucket`, `_sum`, and `_count` series for aggregation and percentile queries. Push sinks may translate names and types differently; see [Push Metric Distributions](push-distributions.md).
+With the default Ray namespace, gauges such as `queue_depth` are exposed as `rl_insight_monitor_queue_depth`. Prometheus samples gauges at scrape time, so intermediate updates can be missed. Use `metric_log` for step-tagged trace records; it is not a Prometheus gauge and requires a working trace export path. Histograms expose `_bucket`, `_sum`, and `_count` series for aggregation and percentile queries. Push sinks may translate names and types differently; see [Push Metric Distributions](../../advanced_features/push_distributions.md).
 
 ## Trace a runtime state
 
@@ -88,4 +88,4 @@ insight.trace_span(
 
 Times are Unix epoch nanoseconds, not monotonic-clock readings. The API does not validate or normalize timestamps; supply an end time at or after the start. Attribute values must be OpenTelemetry scalars (`str`, `bool`, `int`, `float`) or homogeneous sequences. Unlike `trace_state` and `trace_op`, this helper does not add a `monitor.trace_segment` marker. Initialization labels are merged into the record.
 
-For structured agent trajectories, see [Agent Loop Protocol](agent_loop_protocol.md).
+For structured agent trajectories, see [Agent Loop Protocol](../agent_loop_protocol.md).
