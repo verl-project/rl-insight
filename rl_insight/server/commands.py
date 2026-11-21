@@ -20,8 +20,10 @@ import argparse
 import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import Any
 
 import requests
+import yaml
 from omegaconf import DictConfig, OmegaConf
 
 from ..utils.constants import MonitorEnv
@@ -37,7 +39,6 @@ from .display import (
     format_table,
 )
 from .network import format_host_port, local_addresses
-from .runtime import StartedService
 from .services import ServerServiceManager
 
 
@@ -119,10 +120,7 @@ class ServerCommands:
         manager = ServerServiceManager(conf)
         active_state = manager.active_state()
         if active_state:
-            print("RL-Insight server services already appear to be running.")
-            print(
-                format_table(["Service", "PID", "Log"], active_state_rows(active_state))
-            )
+            self._handle_running_services(conf, active_state)
             return 0
 
         statuses = manager.check_dependencies()
@@ -133,7 +131,7 @@ class ServerCommands:
 
         auto_port = getattr(args, "auto_port", False)
         if not auto_port:
-            self.console.print_start_summary(manager, conf)
+            self.console.print_start_summary(manager)
 
         try:
             stack = manager.start(
@@ -147,12 +145,22 @@ class ServerCommands:
             return 1
 
         if stack is None:
-            print("RL-Insight server services already appear to be running.")
+            active_state = manager.active_state()
+            if active_state:
+                self._handle_running_services(conf, active_state)
+            else:
+                print("RL-Insight server services already appear to be running.")
             return 0
 
         if auto_port:
-            self.console.print_start_summary(manager, conf, status="ready")
-        self.console.print_running_summary(conf, stack.services)
+            self.console.print_start_summary(manager, status="ready")
+        self.console.print_running_summary(
+            conf,
+            [
+                (service.name, service.process.pid, service.log_file)
+                for service in stack.services
+            ],
+        )
 
         if args.detach:
             print("RL-Insight server services are running in background mode.")
@@ -164,6 +172,18 @@ class ServerCommands:
             f"{data_dir}. Press Ctrl+C to stop."
         )
         return manager.wait(stack, attach_logs=args.attach_logs)
+
+    def _handle_running_services(
+        self, conf: DictConfig, active_state: dict[str, Any]
+    ) -> None:
+        """Handle an existing stack using its recorded runtime configuration."""
+        running_conf = _runtime_config(conf, active_state)
+        print("RL-Insight server services already appear to be running.")
+        self.console.print_running_details(
+            ServerServiceManager(running_conf),
+            running_conf,
+            active_state_rows(active_state),
+        )
 
     def stop(self, args: argparse.Namespace) -> int:
         """Stop local RL-Insight server, Prometheus, Tempo, and Grafana processes."""
@@ -370,10 +390,19 @@ class ServerConsole:
     def print_start_summary(
         self,
         manager: ServerServiceManager,
-        conf: DictConfig,
         *,
         status: str = "starting",
     ) -> None:
+        print(format_logo())
+        self.print_stack_overview(manager, status=status)
+
+    def print_stack_overview(
+        self,
+        manager: ServerServiceManager,
+        *,
+        status: str = "starting",
+    ) -> None:
+        """Print node/listen status and the service port table."""
         addresses = local_addresses()
         panel_rows = []
         if addresses["ipv4"]:
@@ -393,7 +422,6 @@ class ServerConsole:
             ]
         )
 
-        print(format_logo())
         print(format_panel("[RL-INSIGHT] Server Stack", panel_rows))
         print(
             format_table(
@@ -405,10 +433,20 @@ class ServerConsole:
             )
         )
 
+    def print_running_details(
+        self,
+        manager: ServerServiceManager,
+        conf: DictConfig,
+        services: Sequence[Sequence[Any]],
+    ) -> None:
+        """Print the startup details for services that are already running."""
+        self.print_stack_overview(manager, status="running")
+        self.print_running_summary(conf, services)
+
     def print_running_summary(
         self,
         conf: DictConfig,
-        services: Sequence[StartedService],
+        services: Sequence[Sequence[Any]],
     ) -> None:
         addresses = local_addresses()
         host = addresses["host"]
@@ -417,10 +455,7 @@ class ServerConsole:
         if bool(OmegaConf.select(conf, "grafana.enable", default=True)):
             grafana_url = _service_url(host, conf.grafana.port)
         server_url = _server_url(conf, host)
-        rows = [
-            [service.name, service.process.pid, service.log_file]
-            for service in services
-        ]
+        rows = [[name, pid, log] for name, pid, log in services]
         print(format_table(["Service", "PID", "Log"], rows))
         print("RL-Insight server services are ready.")
         if server_url:
@@ -448,6 +483,24 @@ def _service_url(host: str, port: object, path: str = "") -> str:
         return ""
     normalized_path = path if not path or path.startswith("/") else f"/{path}"
     return f"http://{format_host_port(host, port)}{normalized_path}"
+
+
+def _runtime_config(conf: DictConfig, state: Mapping[str, Any]) -> DictConfig:
+    """Return the config recorded by the running stack, falling back to ``conf``.
+
+    The runtime copy is authoritative for ports rewritten by ``--auto-port``.
+    """
+    runtime_dir = state.get("runtime_dir")
+    if not runtime_dir:
+        return conf
+    runtime_config = Path(str(runtime_dir)) / "server.yaml"
+    if not runtime_config.is_file():
+        return conf
+    try:
+        loaded = OmegaConf.load(runtime_config)
+    except (OSError, yaml.YAMLError):
+        return conf
+    return loaded if isinstance(loaded, DictConfig) else conf
 
 
 def _server_url(conf: DictConfig, host: str) -> str:
