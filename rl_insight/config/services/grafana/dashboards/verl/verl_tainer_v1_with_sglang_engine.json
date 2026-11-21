@@ -4610,6 +4610,79 @@
             "spec": {
               "title": "sglang engine metric",
               "collapse": true,
+              "variables": [
+                {
+                  "kind": "QueryVariable",
+                  "spec": {
+                    "name": "sglang_model_name",
+                    "current": {
+                      "text": "",
+                      "value": ""
+                    },
+                    "label": "sglang: Model Name",
+                    "hide": "dontHide",
+                    "refresh": "onDashboardLoad",
+                    "skipUrlSync": false,
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "query": "label_values({__name__=~\"sglang[:_]gen_throughput\"}, model_name)",
+                        "refId": "StandardVariableQuery"
+                      }
+                    },
+                    "regex": "",
+                    "regexApplyTo": "value",
+                    "sort": "disabled",
+                    "definition": "label_values({__name__=~\"sglang[:_]gen_throughput\"}, model_name)",
+                    "options": [],
+                    "multi": false,
+                    "includeAll": true,
+                    "allValue": ".*",
+                    "allowCustomValue": true
+                  }
+                },
+                {
+                  "kind": "QueryVariable",
+                  "spec": {
+                    "name": "sglang_replica",
+                    "current": {
+                      "text": "",
+                      "value": ""
+                    },
+                    "label": "sglang: Rollout Replica",
+                    "hide": "dontHide",
+                    "refresh": "onDashboardLoad",
+                    "skipUrlSync": false,
+                    "description": "Replica rank of SGLang rollout",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "query": "label_values({__name__=~\"sglang[:_]gen_throughput\"}, replica)",
+                        "refId": "StandardVariableQuery"
+                      }
+                    },
+                    "regex": "",
+                    "regexApplyTo": "value",
+                    "sort": "disabled",
+                    "definition": "label_values({__name__=~\"sglang[:_]gen_throughput\"}, replica)",
+                    "options": [],
+                    "multi": false,
+                    "includeAll": true,
+                    "allValue": ".*",
+                    "allowCustomValue": true
+                  }
+                }
+              ],
               "layout": {
                 "kind": "GridLayout",
                 "spec": {
@@ -4728,6 +4801,83 @@
             "spec": {
               "title": "transfer queue metric",
               "collapse": true,
+              "variables": [
+                {
+                  "kind": "QueryVariable",
+                  "spec": {
+                    "name": "task_name",
+                    "current": {
+                      "text": "",
+                      "value": ""
+                    },
+                    "label": "transfer queue: Task",
+                    "hide": "dontHide",
+                    "refresh": "onDashboardLoad",
+                    "skipUrlSync": false,
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "query": "label_values(tq_partition_consumption_progress, task_name)",
+                        "refId": "StandardVariableQuery"
+                      }
+                    },
+                    "regex": "",
+                    "regexApplyTo": "value",
+                    "sort": "disabled",
+                    "definition": "label_values(tq_partition_consumption_progress, task_name)",
+                    "options": [],
+                    "multi": true,
+                    "includeAll": true,
+                    "allValue": ".*",
+                    "allowCustomValue": true
+                  }
+                },
+                {
+                  "kind": "CustomVariable",
+                  "spec": {
+                    "name": "op_type",
+                    "query": "PUT_DATA,GET_DATA,CLEAR_DATA,GET_META,CLEAR_META,NOTIFY_DATA_UPDATE",
+                    "current": {
+                      "text": "All",
+                      "value": "$__all"
+                    },
+                    "options": [],
+                    "multi": true,
+                    "includeAll": true,
+                    "allValue": ".*",
+                    "label": "transfer queue: Op Type",
+                    "hide": "dontHide",
+                    "skipUrlSync": false,
+                    "allowCustomValue": true,
+                    "valuesFormat": "csv"
+                  }
+                },
+                {
+                  "kind": "CustomVariable",
+                  "spec": {
+                    "name": "quantile",
+                    "query": "p50,p99",
+                    "current": {
+                      "text": "All",
+                      "value": "$__all"
+                    },
+                    "options": [],
+                    "multi": true,
+                    "includeAll": true,
+                    "allValue": ".*",
+                    "label": "transfer queue: Quantile",
+                    "hide": "dontHide",
+                    "skipUrlSync": false,
+                    "allowCustomValue": true,
+                    "valuesFormat": "csv"
+                  }
+                }
+              ],
               "layout": {
                 "kind": "RowsLayout",
                 "spec": {
@@ -5271,152 +5421,6 @@
           "includeAll": true,
           "allValue": ".*",
           "allowCustomValue": true
-        }
-      },
-      {
-        "kind": "QueryVariable",
-        "spec": {
-          "name": "sglang_model_name",
-          "current": {
-            "text": "",
-            "value": ""
-          },
-          "label": "sglang: Model Name",
-          "hide": "dontHide",
-          "refresh": "onDashboardLoad",
-          "skipUrlSync": false,
-          "query": {
-            "kind": "DataQuery",
-            "group": "prometheus",
-            "version": "v0",
-            "datasource": {
-              "name": "${datasource}"
-            },
-            "spec": {
-              "query": "label_values({__name__=~\"sglang[:_]gen_throughput\"}, model_name)",
-              "refId": "StandardVariableQuery"
-            }
-          },
-          "regex": "",
-          "regexApplyTo": "value",
-          "sort": "disabled",
-          "definition": "label_values({__name__=~\"sglang[:_]gen_throughput\"}, model_name)",
-          "options": [],
-          "multi": false,
-          "includeAll": true,
-          "allValue": ".*",
-          "allowCustomValue": true
-        }
-      },
-      {
-        "kind": "QueryVariable",
-        "spec": {
-          "name": "sglang_replica",
-          "current": {
-            "text": "",
-            "value": ""
-          },
-          "label": "sglang: Rollout Replica",
-          "hide": "dontHide",
-          "refresh": "onDashboardLoad",
-          "skipUrlSync": false,
-          "description": "Replica rank of SGLang rollout",
-          "query": {
-            "kind": "DataQuery",
-            "group": "prometheus",
-            "version": "v0",
-            "datasource": {
-              "name": "${datasource}"
-            },
-            "spec": {
-              "query": "label_values({__name__=~\"sglang[:_]gen_throughput\"}, replica)",
-              "refId": "StandardVariableQuery"
-            }
-          },
-          "regex": "",
-          "regexApplyTo": "value",
-          "sort": "disabled",
-          "definition": "label_values({__name__=~\"sglang[:_]gen_throughput\"}, replica)",
-          "options": [],
-          "multi": false,
-          "includeAll": true,
-          "allValue": ".*",
-          "allowCustomValue": true
-        }
-      },
-      {
-        "kind": "QueryVariable",
-        "spec": {
-          "name": "task_name",
-          "current": {
-            "text": "",
-            "value": ""
-          },
-          "label": "transfer queue: Task",
-          "hide": "dontHide",
-          "refresh": "onDashboardLoad",
-          "skipUrlSync": false,
-          "query": {
-            "kind": "DataQuery",
-            "group": "prometheus",
-            "version": "v0",
-            "datasource": {
-              "name": "${datasource}"
-            },
-            "spec": {
-              "query": "label_values(tq_partition_consumption_progress, task_name)",
-              "refId": "StandardVariableQuery"
-            }
-          },
-          "regex": "",
-          "regexApplyTo": "value",
-          "sort": "disabled",
-          "definition": "label_values(tq_partition_consumption_progress, task_name)",
-          "options": [],
-          "multi": true,
-          "includeAll": true,
-          "allValue": ".*",
-          "allowCustomValue": true
-        }
-      },
-      {
-        "kind": "CustomVariable",
-        "spec": {
-          "name": "op_type",
-          "query": "PUT_DATA,GET_DATA,CLEAR_DATA,GET_META,CLEAR_META,NOTIFY_DATA_UPDATE",
-          "current": {
-            "text": "All",
-            "value": "$__all"
-          },
-          "options": [],
-          "multi": true,
-          "includeAll": true,
-          "allValue": ".*",
-          "label": "transfer queue: Op Type",
-          "hide": "dontHide",
-          "skipUrlSync": false,
-          "allowCustomValue": true,
-          "valuesFormat": "csv"
-        }
-      },
-      {
-        "kind": "CustomVariable",
-        "spec": {
-          "name": "quantile",
-          "query": "p50,p99",
-          "current": {
-            "text": "All",
-            "value": "$__all"
-          },
-          "options": [],
-          "multi": true,
-          "includeAll": true,
-          "allValue": ".*",
-          "label": "transfer queue: Quantile",
-          "hide": "dontHide",
-          "skipUrlSync": false,
-          "allowCustomValue": true,
-          "valuesFormat": "csv"
         }
       }
     ]
