@@ -1,0 +1,77 @@
+{
+  "apiVersion": "dashboard.grafana.app/v2",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "rl-insight-dashboard-versions"
+  },
+  "spec": {
+    "title": "RL-Insight Dashboard Versions",
+    "tags": [
+      "RL-Insight"
+    ],
+    "editable": false,
+    "annotations": [],
+    "variables": [],
+    "links": [],
+    "timeSettings": {
+      "timezone": "browser",
+      "from": "now-1h",
+      "to": "now",
+      "hideTimepicker": true
+    },
+    "elements": {
+      "panel-1": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1,
+          "title": "Choose a dashboard version",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "text",
+            "version": "12.0.0",
+            "spec": {
+              "options": {
+                "mode": "markdown",
+                "content": "Choose the dashboards that match the RL-Insight version that collected your data. Metrics, trace fields, and panels can differ across versions.\n\n### Latest\n\n**Latest** contains the dashboards bundled with this RL-Insight installation. Start here for data collected with the current version.\n\n- [agent_loop_trajectory](d/a1b2c3d4-e5f6-7890-abcd-ef1234567890/agent-loop-trajectory)\n- [quick_start_demo](d/b7560416-da14-4d4d-898d-971245772891/quick-start-demo)\n- [slime_training_with_sglang](d/slime-training-with-sglang/slime-training-with-sglang)\n- [verl_trainer_v1_with_sglang_engine](d/d436bdfd-f96e-4c62-b0b1-8e8315c1757a/verl-trainer-v1-with-sglang-engine)\n- [verl_trainer_v1_with_vllm_engine](d/a4cabbce-92af-4a84-9399-4deba24ae6d1/verl-trainer-v1-with-vllm-engine)\n- [verl_omni_trainer_v1_with_vllm_omni_engine](d/9d5b98ca-e967-48a0-9b5f-03435c36c8db/verl-omni-trainer-v1-with-vllm-omni-engine)\n\n### Archived releases\n\nUse the matching archive to view the panels and queries shipped with that release. If a panel has no data, check the experiment time range and the collector version.\n\n#### v0.3.0\n\n- [agent_loop_trajectory](d/31813491-4d6a-5272-a511-62e06e895713/agent-loop-trajectory-v0-3-0)\n- [quick_start_demo](d/024734a4-8ac5-59cb-8da3-d188ede0c2e2/quick-start-demo-v0-3-0)\n- [verl_omni_trainer_v1_with_vllm_omni_engine](d/7fafcd15-6e05-5ecb-ad35-1e60e609b784/verl-omni-trainer-v1-with-vllm-omni-engine-v0-3-0)\n- [verl_trainer_v1_with_sglang_engine](d/840cf0a3-c73c-5c1b-b674-b9b472fb9904/verl-trainer-v1-with-sglang-engine-v0-3-0)\n- [verl_trainer_v1_with_vllm_engine](d/ed703cd1-a9df-5c48-8963-0a891dd01047/verl-trainer-v1-with-vllm-engine-v0-3-0)\n\n#### v0.2.0\n\n- [quick_start_demo](d/acfca169-174f-53ae-8c8d-795ade642a55/quick-start-demo-v0-2-0)\n- [verl_trainer_v1_with_sglang_engine](d/162123f2-1423-5e16-9d98-06af03dfad67/verl-trainer-v1-with-sglang-engine-v0-2-0)\n- [verl_trainer_v1_with_vllm_engine](d/bcfb7936-821d-579b-92ba-404950d29db1/verl-trainer-v1-with-vllm-engine-v0-2-0)"
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "layout": {
+      "kind": "GridLayout",
+      "spec": {
+        "items": [
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 0,
+              "width": 24,
+              "height": 28,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-1"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
