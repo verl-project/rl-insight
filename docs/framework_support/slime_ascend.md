@@ -9,17 +9,17 @@ The integration is available in the upstream [RL-Insight integration merge reque
 Install and start the RL-Insight service stack on a host reachable from the Slime training and rollout workers:
 
 ```bash
-pip install "rl-insight>=0.3.0"
+pip install "rl-insight>=0.4.0"
 rl-insight server install
 rl-insight server start --detach
 ```
 
-The Slime dashboard was added by [RL-Insight PR #188](https://github.com/verl-project/rl-insight/pull/188) and will be released officially with RL-Insight 0.4.0. Until that version is published, install RL-Insight from source if you need the bundled dashboard.
+The Slime dashboard was added by [RL-Insight PR #188](https://github.com/verl-project/rl-insight/pull/188) . Until that version is published, install RL-Insight from source if you need the bundled dashboard.
 
 Install the same SDK version in the Slime training environment and set the RL-Insight server API URL:
 
 ```bash
-pip install "rl-insight>=0.3.0"
+pip install "rl-insight>=0.4.0"
 export RL_INSIGHT_SERVER_URL=http://<server-host>:<server-port>
 ```
 
