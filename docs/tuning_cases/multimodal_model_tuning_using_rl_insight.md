@@ -2,7 +2,7 @@
 
 This case study uses Qwen3-Omni-30B-A3B-Instruct training on Ascend 910B NPUs to demonstrate how RL-Insight can guide multimodal model tuning. It focuses on memory pressure during actor updates, Trainer/Rollouter bubbles, per-rank rollout imbalance, and the throughput trade-offs between synchronous, separate-async, and colocate-async execution.
 
-For the general tuning methodology, see the [Async RL Training Tuning Guide](async_mode_tuning_tutorial.md). This page records one workload and should not be treated as a universal configuration recommendation.
+For the general tuning methodology, see the [Async RL Training Tuning Guide](async_rl_training_tuning_guide.md). This page records one workload and should not be treated as a universal configuration recommendation.
 
 > [!IMPORTANT]
 > The colocate-async measurements were collected with the experimental integration represented by [verl-omni PR #337](https://github.com/verl-project/verl-omni/pull/337). At the time of this case study, that PR was still a draft and the mode was not available in the stock `verl-omni` main branch.

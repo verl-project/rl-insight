@@ -48,7 +48,7 @@ To use a custom data directory, pass `--log-dir`:
 rl-insight server start --log-dir /path/to/rl-insight-data
 ```
 
-The directory is created automatically and is used by Prometheus, Tempo, Grafana, and target state. See [Data Directory Migration](./data_migration.md) for backup and restore instructions.
+The directory is created automatically and is used by Prometheus, Tempo, Grafana, and target state. See [Data Directory Migration](../advanced_features/data_directory_migration.md) for backup and restore instructions.
 
 Useful variants:
 
