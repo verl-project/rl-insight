@@ -46,6 +46,7 @@ then use :doc:`Configuration <programming_guide/interfaces/configuration>` to co
    Verl <framework_support/verl>
    Verl-omni <framework_support/verl_omni>
    Verl-SpeCo <framework_support/verl_speco>
+   Slime_ascend <framework_support/slime_ascend>
 
 .. toctree::
    :maxdepth: 1
