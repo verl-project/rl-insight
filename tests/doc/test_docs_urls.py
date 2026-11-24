@@ -26,6 +26,7 @@ The main features include:
 
 import os
 import re
+import time
 from pathlib import Path
 
 import requests
@@ -34,8 +35,11 @@ import requests
 CURRENT_FILE = Path(__file__).resolve()
 PROJECT_ROOT = CURRENT_FILE.parents[2]
 DOCS_FOLDER = PROJECT_ROOT / "docs"
-URL_PATTERN = re.compile(r"https?://[^\s)+\"'>]+")
+URL_PATTERN = re.compile(r"https?://[^\s\[\]()\"'>]+")
+MARKDOWN_LINK_PATTERN = re.compile(r"\[[^\]]*\]\((https?://[^\s)]+)(?:\s+[^)]*)?\)")
 TIMEOUT = 5  # request timeout
+URL_CHECK_ATTEMPTS = 3
+URL_CHECK_RETRY_DELAY = 1
 TEMPLATE_MARKERS = ("<", "${", "{")
 TEXT_SUFFIXES = {".md", ".rst", ".txt", ".py"}
 
@@ -60,31 +64,55 @@ def extract_urls_from_file(file_path: Path) -> list[str]:
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
-        return URL_PATTERN.findall(content)
+        markdown_urls = MARKDOWN_LINK_PATTERN.findall(content)
+        content_without_markdown_links = MARKDOWN_LINK_PATTERN.sub("", content)
+        return markdown_urls + URL_PATTERN.findall(content_without_markdown_links)
     except Exception as e:
         print(f"Could not read file {file_path}: {str(e)}")
         return []
+
+
+def test_extract_urls_from_markdown_link(tmp_path: Path) -> None:
+    content = (
+        "[https://example.com/guide](https://example.com/guide)\n"
+        "https://example.com/plain"
+    )
+    file_path = tmp_path / "links.md"
+    file_path.write_text(content, encoding="utf-8")
+
+    assert extract_urls_from_file(file_path) == [
+        "https://example.com/guide",
+        "https://example.com/plain",
+    ]
 
 
 def is_url_valid(url: str) -> bool:
     """
     Check if a URL is reachable (status code 200 ~ 399).
     """
-    try:
-        response = requests.head(url, timeout=TIMEOUT, allow_redirects=True)
-        if 200 <= response.status_code < 400:
-            return True
-        if response.status_code in {403, 405, 429}:
-            with requests.get(
-                url,
-                timeout=TIMEOUT,
-                allow_redirects=True,
-                stream=True,
-            ) as response:
-                return 200 <= response.status_code < 400
-        return False
-    except requests.exceptions.RequestException:
-        return False
+    for attempt in range(URL_CHECK_ATTEMPTS):
+        try:
+            response = requests.head(url, timeout=TIMEOUT, allow_redirects=True)
+            if 200 <= response.status_code < 400:
+                return True
+            if response.status_code in {403, 405, 429}:
+                with requests.get(
+                    url,
+                    timeout=TIMEOUT,
+                    allow_redirects=True,
+                    stream=True,
+                ) as response:
+                    if 200 <= response.status_code < 400:
+                        return True
+            if response.status_code < 500 and response.status_code != 429:
+                return False
+        except requests.exceptions.RequestException:
+            pass
+
+        if attempt + 1 < URL_CHECK_ATTEMPTS:
+            time.sleep(URL_CHECK_RETRY_DELAY * (attempt + 1))
+
+    return False
 
 
 def is_template_url(url: str) -> bool:

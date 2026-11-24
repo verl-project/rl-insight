@@ -281,9 +281,11 @@ def test_trace_tables_should_use_gauge_cells() -> None:
 
 def test_replica_variable_should_match_any_vllm_metric() -> None:
     spec = _load_spec()
+    row = _find_row(spec["layout"], "vLLM engine metric")
+    assert row is not None, "missing dashboard row: vLLM engine metric"
     replica = next(
         variable
-        for variable in spec["variables"]
+        for variable in row.get("variables", [])
         if variable["spec"]["name"] == "replica"
     )
     definition = replica["spec"]["definition"]
