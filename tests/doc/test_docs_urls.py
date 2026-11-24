@@ -72,16 +72,15 @@ def extract_urls_from_file(file_path: Path) -> list[str]:
         return []
 
 
-def test_extract_urls_from_markdown_link() -> None:
+def test_extract_urls_from_markdown_link(tmp_path: Path) -> None:
     content = (
         "[https://example.com/guide](https://example.com/guide)\n"
         "https://example.com/plain"
     )
-    urls = MARKDOWN_LINK_PATTERN.findall(content)
-    content_without_markdown_links = MARKDOWN_LINK_PATTERN.sub("", content)
-    urls.extend(URL_PATTERN.findall(content_without_markdown_links))
+    file_path = tmp_path / "links.md"
+    file_path.write_text(content, encoding="utf-8")
 
-    assert urls == [
+    assert extract_urls_from_file(file_path) == [
         "https://example.com/guide",
         "https://example.com/plain",
     ]
