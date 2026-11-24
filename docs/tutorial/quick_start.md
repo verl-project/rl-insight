@@ -230,6 +230,7 @@ For framework-specific setup and monitoring switches, follow the maintained upst
 | verl | [verl](../framework_support/verl.md) | [Official integration guide](https://github.com/verl-project/verl/blob/main/docs/advance/rl_insight.md) |
 | verl-omni | [verl-omni](../framework_support/verl_omni.md) | [Official integration guide](https://github.com/verl-project/verl-omni/blob/main/docs/start/rl_insight.md) |
 | verl-SpeCo | [verl-SpeCo](../framework_support/verl_speco.md) | [Official integration guide](https://github.com/verl-project/verl-SpeCo/blob/main/docs/usage.md#online-monitoring-with-rl-insight) |
+| slime-ascend | [slime-ascend](../framework_support/slime_ascend.md) | [Official integration guide](https://gitcode.com/Ascend/slime-ascend/merge_requests/129) |
 
 For verl metric names, types, calculations, and descriptions, see the existing [verl metric reference](../programming_guide/metric_name_catalog.md).
 
