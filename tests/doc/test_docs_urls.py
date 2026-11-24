@@ -36,6 +36,7 @@ CURRENT_FILE = Path(__file__).resolve()
 PROJECT_ROOT = CURRENT_FILE.parents[2]
 DOCS_FOLDER = PROJECT_ROOT / "docs"
 URL_PATTERN = re.compile(r"https?://[^\s\[\]()\"'>]+")
+MARKDOWN_LINK_PATTERN = re.compile(r"\[[^\]]*\]\((https?://[^\s)]+)(?:\s+[^)]*)?\)")
 TIMEOUT = 5  # request timeout
 URL_CHECK_ATTEMPTS = 3
 URL_CHECK_RETRY_DELAY = 1
@@ -63,7 +64,9 @@ def extract_urls_from_file(file_path: Path) -> list[str]:
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
-        return URL_PATTERN.findall(content)
+        markdown_urls = MARKDOWN_LINK_PATTERN.findall(content)
+        content_without_markdown_links = MARKDOWN_LINK_PATTERN.sub("", content)
+        return markdown_urls + URL_PATTERN.findall(content_without_markdown_links)
     except Exception as e:
         print(f"Could not read file {file_path}: {str(e)}")
         return []
@@ -74,10 +77,11 @@ def test_extract_urls_from_markdown_link() -> None:
         "[https://example.com/guide](https://example.com/guide)\n"
         "https://example.com/plain"
     )
-    urls = URL_PATTERN.findall(content)
+    urls = MARKDOWN_LINK_PATTERN.findall(content)
+    content_without_markdown_links = MARKDOWN_LINK_PATTERN.sub("", content)
+    urls.extend(URL_PATTERN.findall(content_without_markdown_links))
 
     assert urls == [
-        "https://example.com/guide",
         "https://example.com/guide",
         "https://example.com/plain",
     ]
