@@ -25,7 +25,7 @@ from collections.abc import Generator
 
 import pytest
 
-from rl_insight.utils.constants import MonitorBackend, MonitorEnv
+from rl_insight.utils.constants import MonitorBackend, MonitorEnv, MonitorHardware
 from rl_insight.utils.monitor_config_loader import load_monitor_config
 
 
@@ -161,3 +161,28 @@ def test_empty_server_backend_env_should_be_ignored(
     conf = load_monitor_config({"server": {"backend": "custom"}})
 
     assert conf.server.backend == "custom"
+
+
+def test_load_monitor_config_should_default_hardware_section() -> None:
+    conf = load_monitor_config()
+
+    assert conf.hardware.enable == MonitorHardware.ENABLED
+    assert conf.hardware.interval_seconds == MonitorHardware.INTERVAL_SECONDS
+    assert list(conf.hardware.collectors) == list(MonitorHardware.COLLECTORS)
+
+
+def test_load_monitor_config_should_merge_hardware_overrides() -> None:
+    conf = load_monitor_config(
+        {
+            "server": {"url": "http://a"},
+            "hardware": {
+                "enable": False,
+                "interval_seconds": 5,
+                "collectors": ["host"],
+            },
+        }
+    )
+
+    assert conf.hardware.enable is False
+    assert conf.hardware.interval_seconds == 5
+    assert list(conf.hardware.collectors) == ["host"]

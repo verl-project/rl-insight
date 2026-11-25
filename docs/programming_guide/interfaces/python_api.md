@@ -24,7 +24,7 @@ finally:
 
 Replace the address with the server API URL. Environment overrides still take precedence over this mapping. For Ray, a missing URL or uninitialized Ray leaves monitoring inactive. Calls to metric and trace helpers are no-ops while monitoring is inactive. A repeated `init()` after successful initialization warns and is ignored.
 
-`finish()` resets monitoring in the current process and asks the client to close its resources, including push pollers and sinks. It does not stop the server stack or the Ray hub, and it does not delete collected data. Framework integrations normally manage initialization; use their upstream guides instead of initializing a second time.
+`finish()` closes monitoring for the current process. Outside Ray, local hardware sampling stops. In a Ray job, shared hardware sampling can continue. The server stays running and collected data remains available. Framework integrations normally manage initialization and cleanup.
 
 ## Record metrics
 

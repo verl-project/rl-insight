@@ -28,7 +28,7 @@ _DASHBOARD = (
     / "grafana"
     / "dashboards"
     / "verl"
-    / "verl_tainer_v1_with_vllm_engine.json"
+    / "verl_trainer_v1_with_vllm_engine.json"
 )
 _TRACE_ROW_TITLE = "vLLM request traces"
 _TRACE_SPAN_NAME = "llm_request"
