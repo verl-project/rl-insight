@@ -1,0 +1,51 @@
+# CODEOWNERS for tardis-key/rl-insight
+#
+# Syntax: <pattern> <owner>...
+# The LAST matching pattern wins, so broad rules come first and
+# specific overrides come last.
+#
+# Owners must have Write access, otherwise the entry is ignored.
+# Current write access: @tardis-key (admin), @mayunaise, @mengchengTang
+# @ETOgaosion still needs Write access before its
+# entry below takes effect.
+
+# Default: every change needs a maintainer
+*                                                   @tardis-key @mengchengTang
+
+# Entry docs and community files
+/README.md                                          @tardis-key @mengchengTang
+/CONTRIBUTING.md                                    @tardis-key @mengchengTang
+/assets/                                            @tardis-key @mengchengTang
+
+# Package metadata, dependency and lint configs
+/pyproject.toml                                     @tardis-key @mengchengTang
+/requirements.txt                                   @tardis-key @mengchengTang
+/.pre-commit-config.yaml                            @tardis-key @mengchengTang
+/.gitignore                                         @tardis-key
+/.dockerignore                                      @tardis-key
+/.readthedocs.yaml                                  @tardis-key @mengchengTang
+
+# CI, container and specialty checks
+/.github/                                           @tardis-key @mengchengTang
+/docker/                                            @tardis-key @mengchengTang
+
+# Runtime monitor: client / collector / server
+/rl_insight/                                        @tardis-key @mengchengTang
+/rl_insight/server/                                 @tardis-key @mengchengTang
+/rl_insight/api.py                                  @tardis-key @mengchengTang
+/rl_insight/config/                                 @tardis-key @mengchengTang
+/rl_insight/client/                                 @tardis-key @mengchengTang @ETOgaosion
+
+# Recipe pipeline: parsers, visualizers, degradation analysis
+/recipe/                                            @tardis-key @mengchengTang @mayunaise
+/recipe/perf_analysis/                              @tardis-key @mengchengTang @mayunaise
+
+# Docs, tests and agent skills
+/docs/                                              @tardis-key @mengchengTang @mayunaise
+/tests/                                             @tardis-key @mengchengTang
+/.agent/                                            @tardis-key
+/.claude/                                           @tardis-key
+/.codex/                                            @tardis-key
+
+# The ownership rules themselves stay with the maintainers only
+/.github/CODEOWNERS                                 @tardis-key

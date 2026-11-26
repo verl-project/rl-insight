@@ -19,13 +19,14 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
 from omegaconf import OmegaConf
 
 from rl_insight.server import runtime as runtime_module
-from rl_insight.utils.constants import MonitorPaths
+from rl_insight.utils.constants import MonitorDefaults, MonitorPaths
 
 _BUNDLED_DASHBOARDS = Path(MonitorPaths.GRAFANA_DASHBOARDS_DIR)
 # Integration-owned dashboards that ship in the source tree, one subdirectory per
@@ -275,12 +276,55 @@ def _dashboard_panels(dashboard: dict) -> list[dict]:
     ]
 
 
+def _layout_variables(layout: object) -> list[dict]:
+    """Collect variables declared on rows or tabs in a layout subtree."""
+    if not isinstance(layout, dict):
+        return []
+    spec = layout.get("spec")
+    if not isinstance(spec, dict):
+        return []
+    variables = list(spec.get("variables") or [])
+    kind = layout.get("kind")
+    if kind == "RowsLayout":
+        for row in spec.get("rows") or []:
+            row_spec = row.get("spec") or {}
+            variables.extend(row_spec.get("variables") or [])
+            variables.extend(_layout_variables(row_spec.get("layout")))
+    elif kind == "TabsLayout":
+        for tab in spec.get("tabs") or []:
+            variables.extend(_layout_variables((tab.get("spec") or {}).get("layout")))
+    return variables
+
+
 def _panel_expressions(panel: dict) -> list[str]:
     return [
         query["spec"]["query"]["spec"].get("expr")
         for query in panel["data"]["spec"]["queries"]
         if query.get("kind") == "PanelQuery"
     ]
+
+
+def _dashboard_variable_names(dashboard: dict) -> set[str]:
+    """Collect dashboard-wide and row-scoped variables from the layout."""
+    names = {
+        variable["spec"]["name"] for variable in dashboard["spec"].get("variables", [])
+    }
+
+    def visit(node: object) -> None:
+        if isinstance(node, dict):
+            if node.get("kind") == "RowsLayoutRow":
+                names.update(
+                    variable["spec"]["name"]
+                    for variable in node.get("spec", {}).get("variables", [])
+                )
+            for value in node.values():
+                visit(value)
+        elif isinstance(node, list):
+            for value in node:
+                visit(value)
+
+    visit(dashboard["spec"].get("layout", {}))
+    return names
 
 
 @pytest.mark.parametrize(
@@ -291,12 +335,11 @@ def test_shipped_dashboard_should_declare_a_variable_for_every_template(
 ) -> None:
     """Every ``$name`` used in a PromQL expression resolves to a dashboard variable.
 
-    ``$__rate_interval`` and friends are Grafana built-ins, so they are exempt.
+    Row-scoped variables belong to their dashboard section. ``$__rate_interval``
+    and other Grafana built-ins are exempt.
     """
     dashboard = json.loads(dashboard_path.read_text(encoding="utf-8"))
-    declared = {
-        variable["spec"]["name"] for variable in dashboard["spec"].get("variables", [])
-    }
+    declared = _dashboard_variable_names(dashboard)
     used: set[str] = set()
     for panel in _dashboard_panels(dashboard):
         for expression in _panel_expressions(panel):
@@ -649,3 +692,223 @@ def test_shipped_dashboard_should_keep_prometheus_queries_on_prometheus(
                 assert payload.get("queryType") == "traceql", (
                     f"{panel['title']} issues a Tempo query without a queryType"
                 )
+
+
+# ---------------------------------------------------------------------------
+# Trainer dashboard hardware panels.
+# ---------------------------------------------------------------------------
+
+_DASHBOARDS_DIR = (
+    Path(__file__).resolve().parents[3]
+    / "rl_insight"
+    / "config"
+    / "services"
+    / "grafana"
+    / "dashboards"
+)
+_TRAINER_DASHBOARDS = [
+    _DASHBOARDS_DIR / "verl" / "verl_trainer_v1_with_vllm_engine.json",
+    _DASHBOARDS_DIR / "verl-omni" / "verl_omni_trainer_v1_with_vllm_omni_engine.json",
+]
+_METRIC_PREFIX = f"{MonitorDefaults.NAMESPACE}_rlinsight_"
+_DEVICE_FILTER = 'device_index=~"$device_index"'
+
+# Panel id -> built-in metric family backing the visible query.
+_BUILTIN_PANELS = {
+    "325": "cpu_utilization_percent",
+    "326": "memory_used_bytes",
+    "328": "network_receive_bytes_per_second",
+    "329": "npu_chip_info_utilization",
+    "330": "npu_chip_info_hbm_utilization",
+    "331": "npu_chip_info_hbm_used_memory",
+    "332": "npu_chip_info_power",
+    "333": "npu_chip_info_temperature",
+    "334": "npu_chip_info_health_status",
+    "335": "npu_chip_info_hbm_bandwidth_utilization",
+    "337": "gpu_utilization_percent",
+    "338": "gpu_memory_utilization_percent",
+    "339": "gpu_memory_used_bytes",
+    "340": "gpu_power_watts",
+    "341": "gpu_temperature_celsius",
+    # The vllm dashboard numbers its GPU panels separately.
+    "350": "gpu_utilization_percent",
+    "357": "gpu_memory_utilization_percent",
+    "352": "gpu_memory_used_bytes",
+    "353": "gpu_power_watts",
+    "354": "gpu_temperature_celsius",
+    "344": "disk_read_bytes_per_second",
+}
+_RAY_PROCESS_PANELS = {"345": "ray_process_cpu_percent", "346": "ray_process_rss_bytes"}
+_SELF_PROCESS_PANELS = {"347": "process_cpu_percent", "348": "process_rss_bytes"}
+
+
+@pytest.fixture(
+    scope="module", params=_TRAINER_DASHBOARDS, ids=lambda path: path.parent.name
+)
+def trainer_dashboard(request: pytest.FixtureRequest) -> dict[str, Any]:
+    with open(request.param, encoding="utf-8") as f:
+        return json.load(f)["spec"]
+
+
+def _panel_queries(spec: dict[str, Any], panel_id: str) -> list[tuple[str, str, bool]]:
+    """(expr, legendFormat, hidden) triples of one hardware panel."""
+    element = spec["elements"].get(f"panel-{panel_id}")
+    if element is None:
+        return []
+    queries = element["spec"]["data"]["spec"]["queries"]
+    return [
+        (
+            query["spec"]["query"]["spec"]["expr"],
+            query["spec"]["query"]["spec"].get("legendFormat", ""),
+            bool(query["spec"].get("hidden")),
+        )
+        for query in queries
+    ]
+
+
+def _query_values(spec: dict[str, Any], panel_id: str, *, hidden: bool) -> list[str]:
+    return [
+        expr
+        for expr, _, is_hidden in _panel_queries(spec, panel_id)
+        if is_hidden == hidden
+    ]
+
+
+def test_hardware_panels_should_query_builtin_series_with_device_filters(
+    trainer_dashboard: dict[str, Any],
+) -> None:
+    for panel_id, family in _BUILTIN_PANELS.items():
+        visible = _query_values(trainer_dashboard, panel_id, hidden=False)
+        if not visible:
+            continue  # the omni dashboard has no disk panel
+        assert all(_METRIC_PREFIX in expr for expr in visible), panel_id
+        assert any(f"{_METRIC_PREFIX}{family}" in expr for expr in visible), panel_id
+        assert not _query_values(trainer_dashboard, panel_id, hidden=True), panel_id
+
+    # Both directions are present on the network and disk panels.
+    for panel_id in ("328", "344"):
+        visible_exprs = " ".join(
+            _query_values(trainer_dashboard, panel_id, hidden=False)
+        )
+        if visible_exprs:
+            assert "network_receive" in visible_exprs or "disk_read" in visible_exprs
+            assert "network_transmit" in visible_exprs or "disk_write" in visible_exprs
+
+    # NPU memory stays in megabytes, like the exporter it replaces.
+    npu_memory = _query_values(trainer_dashboard, "331", hidden=False)
+    if npu_memory:
+        assert all("/ 1048576" not in expr for expr in npu_memory)
+
+    # Device labels filter device panels; process panels carry pid/role labels.
+    for panel_ids, legend, shows_card in (
+        (
+            ("329", "330", "331", "332", "333", "337", "338", "339", "340", "341"),
+            None,
+            True,
+        ),
+        (
+            tuple(_RAY_PROCESS_PANELS),
+            "{{node}} {{device_index}} {{worker_role}} {{pid}}",
+            True,
+        ),
+        (tuple(_SELF_PROCESS_PANELS), "{{node}} {{worker_role}} {{pid}}", False),
+    ):
+        for panel_id in panel_ids:
+            queries = _panel_queries(trainer_dashboard, panel_id)
+            if not queries:
+                continue
+            for expr, legend_format, hidden in queries:
+                if hidden:
+                    continue  # only visible queries drive the panels
+                assert (_DEVICE_FILTER in expr) is shows_card, expr
+                if legend is not None:
+                    assert legend_format == legend, legend_format
+
+
+def test_hardware_variables_and_rows_should_use_builtin_sources(
+    trainer_dashboard: dict[str, Any],
+) -> None:
+    hardware_row = _find_row_spec(trainer_dashboard["layout"], "hardware metric")
+    assert hardware_row is not None
+    hardware_variables = {
+        variable["spec"]["name"]: variable["spec"]
+        for variable in hardware_row["variables"]
+    }
+    assert {spec["label"] for spec in hardware_variables.values()} == {
+        "Node",
+        "Device",
+    }
+    node_variable = hardware_variables["node"]
+    assert "device_index" in hardware_variables
+
+    query = node_variable["definition"]
+    assert "query_result(" in query
+    assert f"{_METRIC_PREFIX}cpu_utilization_percent" in query
+    assert f"{_METRIC_PREFIX}npu_chip_info_name" in query
+    assert f"{_METRIC_PREFIX}gpu_info" in query
+    assert "npu-exporter" not in query
+    assert "DCGM_FI_DEV_GPU_UTIL" not in query
+    assert "node-exporter" not in query
+    assert node_variable["regex"] == '/node="(?<value>[^"]+)"/'
+
+    def _condition(title: str) -> dict[str, Any]:
+        row = _find_row_spec(trainer_dashboard["layout"], title)
+        assert row is not None, title
+        assert "repeat" not in json.dumps(row.get("layout") or {}), title
+        return row["conditionalRendering"]["spec"]
+
+    cpu_row = _find_row_spec(trainer_dashboard["layout"], "CPU / Host Metrics")
+    assert cpu_row is not None
+    assert "conditionalRendering" not in cpu_row
+    assert "repeat" not in json.dumps(cpu_row.get("layout") or {})
+
+    for title, variable, value in (
+        ("Ascend NPU Metrics", "npu_vendor", "ascend"),
+        ("NVIDIA GPU Metrics", "gpu_vendor", "nvidia"),
+    ):
+        condition = _condition(title)
+        assert condition["visibility"] == "show"
+        assert condition["condition"] == "and"
+        assert condition["items"] == [
+            {
+                "kind": "ConditionalRenderingVariable",
+                "spec": {"variable": variable, "operator": "equals", "value": value},
+            }
+        ]
+
+    variables = {
+        variable["spec"]["name"]: variable["spec"]
+        for variable in trainer_dashboard["variables"]
+    }
+    for name in ("npu_vendor", "gpu_vendor"):
+        assert name in variables
+        assert variables[name]["hide"] == "hideVariable"
+        assert variables[name]["refresh"] == "onTimeRangeChanged"
+    assert (
+        f"{_METRIC_PREFIX}npu_chip_info_name" in variables["npu_vendor"]["definition"]
+    )
+    assert f"{_METRIC_PREFIX}gpu_info" in variables["gpu_vendor"]["definition"]
+    assert "DCGM_FI_DEV_GPU_UTIL" not in variables["gpu_vendor"]["definition"]
+
+
+def _find_row_spec(layout: Any, title: str) -> dict[str, Any] | None:
+    if not isinstance(layout, dict):
+        return None
+    spec = layout.get("spec")
+    if not isinstance(spec, dict):
+        return None
+    kind = layout.get("kind")
+    if kind == "RowsLayout":
+        for row in spec.get("rows") or []:
+            row_spec = row.get("spec") or {}
+            if row_spec.get("title") == title:
+                return row_spec
+            found = _find_row_spec(row_spec.get("layout"), title)
+            if found is not None:
+                return found
+    elif kind == "TabsLayout":
+        for tab in spec.get("tabs") or []:
+            found = _find_row_spec((tab.get("spec") or {}).get("layout"), title)
+            if found is not None:
+                return found
+    return None

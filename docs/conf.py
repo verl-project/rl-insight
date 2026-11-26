@@ -34,6 +34,7 @@ extensions = [
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
+    "sphinxcontrib.mermaid",
 ]
 
 # Common headings such as "Troubleshooting" occur in multiple guides.
@@ -45,6 +46,8 @@ myst_enable_extensions = [
     "amsmath",  # Enables amsmath environments
 ]
 myst_heading_anchors = 4
+# Render ```mermaid fences with sphinxcontrib-mermaid.
+myst_fence_as_directive = ["mermaid"]
 
 # Use Google style docstrings instead of NumPy docstrings.
 napoleon_google_docstring = True
@@ -76,7 +79,6 @@ exclude_patterns = [
     "Thumbs.db",
     ".DS_Store",
     "recipe/**",
-    "monitor/hardware/*_zh.md",
 ]
 
 # -- Options for HTML output -------------------------------------------------

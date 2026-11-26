@@ -21,11 +21,16 @@ dependencies = [
   "prometheus_client>=0.23.1",
   "opentelemetry-sdk",
   "opentelemetry-exporter-otlp-proto-http",
+  "pyarrow",
+  "tqdm",
   "pyyaml",
   "psutil",
 ]
 
 [project.optional-dependencies]
+nvidia = [
+  "nvidia-ml-py",
+]
 recipe = [
   "numpy",
   "scikit-learn",

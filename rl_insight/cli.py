@@ -19,10 +19,13 @@ from __future__ import annotations
 import argparse
 import logging
 from collections.abc import Sequence
+import subprocess
+import sys
 from pathlib import Path
 
 from . import __version__
 from .server.commands import ServerCommands
+from .utils.constants import MonitorPaths
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -53,6 +56,18 @@ def _build_parser() -> argparse.ArgumentParser:
 
     subparsers = parser.add_subparsers(dest="command", required=True)
     _add_server_parser(subparsers)
+    return parser
+
+
+def _log_dir_parser() -> argparse.ArgumentParser:
+    """Return the shared data-directory argument parser."""
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument(
+        "--log-dir",
+        type=Path,
+        default=None,
+        help="Directory containing persisted RL-Insight data; defaults to ~/.rl-insight/data.",
+    )
     return parser
 
 
@@ -92,18 +107,13 @@ def _add_server_parser(subparsers: argparse._SubParsersAction) -> None:
     start = server_subparsers.add_parser(
         "start",
         help="Start the RL-Insight server stack.",
+        parents=[_log_dir_parser()],
     )
     _add_common_config_args(start)
     start.add_argument(
         "--auto-port",
         action="store_true",
         help="Keep available configured ports and automatically replace occupied ports.",
-    )
-    start.add_argument(
-        "--log-dir",
-        type=Path,
-        default=None,
-        help="Directory containing persisted RL-Insight data; defaults to ~/.rl-insight/data.",
     )
     start.add_argument(
         "--extra-dashboard-dir",
@@ -123,6 +133,19 @@ def _add_server_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Run in foreground and stream service logs.",
     )
     start.set_defaults(func=commands.start)
+
+    status = server_subparsers.add_parser(
+        "status",
+        help="List persisted projects, experiments, and their time ranges.",
+        parents=[_log_dir_parser()],
+    )
+    status.add_argument(
+        "--promtool-bin",
+        type=Path,
+        default=None,
+        help="Path to promtool; auto-detected when omitted.",
+    )
+    status.set_defaults(func=_handle_server_status)
 
     stop = server_subparsers.add_parser(
         "stop",
@@ -147,6 +170,27 @@ def _add_server_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     _add_common_config_args(add_targets)
     add_targets.set_defaults(func=commands.add_targets)
+
+
+def _handle_server_status(args: argparse.Namespace) -> int:
+    """Inspect persisted data and print the result."""
+    from .utils.data_inspection import inspect_data_directory, print_summaries
+
+    data_dir = _resolve_data_dir(args)
+    try:
+        summaries = inspect_data_directory(data_dir, promtool_bin=args.promtool_bin)
+    except (FileNotFoundError, subprocess.CalledProcessError, ValueError) as exc:
+        print(f"Server status failed: {exc}", file=sys.stderr)
+        return 1
+
+    print_summaries(summaries)
+    return 0
+
+
+def _resolve_data_dir(args: argparse.Namespace) -> Path:
+    if args.log_dir is None:
+        return (MonitorPaths.STATE_ROOT / "data").resolve()
+    return args.log_dir.expanduser().resolve()
 
 
 def _add_common_config_args(parser: argparse.ArgumentParser) -> None:

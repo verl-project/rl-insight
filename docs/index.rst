@@ -4,10 +4,8 @@ Welcome to RL-Insight's documentation!
 RL-Insight is a performance insight and observability toolkit for reinforcement learning (RL) systems.
 It focuses on online observability for distributed RL training.
 
-Start with :doc:`Quick Start <monitor/quick_start>` to verify metrics and traces,
-then use :doc:`Configuration <monitor/configuration>` to configure your deployment.
-For CPU, memory, disk, network, or Ascend NPU metrics, see
-:doc:`Hardware Monitoring <monitor/hardware/index>`.
+Start with :doc:`Quick Start <tutorial/quick_start>` to verify metrics and traces,
+then use :doc:`Configuration <programming_guide/interfaces/configuration>` to configure your deployment.
 
 --------------------------------------------
 
@@ -15,26 +13,53 @@ For CPU, memory, disk, network, or Ascend NPU metrics, see
 
 .. toctree::
    :maxdepth: 2
-   :caption: Monitor
+   :caption: Tutorial
 
-   Getting Started <monitor/getting_started>
-   Instrumentation <monitor/instrumentation>
-   Operations <monitor/operations>
-   Hardware Monitoring <monitor/hardware/index>
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Framework Integrations
-
-   verl <monitor/integrations/verl>
-   verl-omni <monitor/integrations/verl-omni>
+   Quick Start <tutorial/quick_start>
+   Server Installation <tutorial/server_installation>
 
 .. toctree::
    :maxdepth: 2
-   :caption: Tuning Guides
+   :caption: Programming Guide
 
-   Async RL Training Tuning Guide <tuning_case/async_mode_tuning_tutorial>
-   Multimodal Model Tuning Using RL-Insight <tuning_case/multimodal_model_tuning_using_rl_insight>
+   Python API <programming_guide/interfaces/python_api>
+   Configuration <programming_guide/interfaces/configuration>
+   CLI Command <programming_guide/interfaces/cli_command>
+   Environment Variable <programming_guide/interfaces/environment_variable>
+   Agent Loop Protocol <programming_guide/agent_loop_protocol>
+   Metric Name Catalog <programming_guide/metric_name_catalog>
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Advanced Features
+
+   Hardware Monitoring <advanced_features/hardware/index>
+   Local Persisted Data Status <advanced_features/local_persisted_data_status>
+   Distributions in Push Sinks <advanced_features/push_distributions>
+   Custom Grafana Dashboards <advanced_features/custom_grafana_dashboards>
+   Data Directory Migration <advanced_features/data_directory_migration>
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Framework Support
+
+   Verl <framework_support/verl>
+   Verl-omni <framework_support/verl_omni>
+   Verl-SpeCo <framework_support/verl_speco>
+   Slime_ascend <framework_support/slime_ascend>
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Tuning Cases
+
+   Async RL Training Tuning Guide <tuning_cases/async_rl_training_tuning_guide>
+   Multimodal Model Tuning Using RL-Insight <tuning_cases/multimodal_model_tuning_using_rl_insight>
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Other
+
+   Stress Test Report <other/stress_test_report>
 
 Contribution
 -------------

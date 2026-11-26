@@ -28,7 +28,7 @@ _DASHBOARD = (
     / "grafana"
     / "dashboards"
     / "verl"
-    / "verl_tainer_v1_with_vllm_engine.json"
+    / "verl_trainer_v1_with_vllm_engine.json"
 )
 _TRACE_ROW_TITLE = "vLLM request traces"
 _TRACE_SPAN_NAME = "llm_request"
@@ -162,56 +162,30 @@ def test_trace_query_should_filter_by_resource_attributes() -> None:
         assert 'resource.replica =~ "^($trace_replica)$"' in query
 
 
-def test_trace_query_should_filter_by_correlation_attributes() -> None:
+def test_trace_query_should_fallback_to_all_replicas() -> None:
     for panel in _trace_tables(_load_spec()):
         query = _query_specs(panel)[0]["spec"]["query"]
 
-        # -1 keeps the step filter optional; integer attributes do not support
-        # regex, so the query uses a static "$step = -1" comparison.
-        assert "(span.global_steps = $step || $step = -1)" in query
-        # Anchor the regex so selecting "100" does not also match "1006".
-        # The All option expands to ".*"; the extra static comparison keeps
-        # spans without the sample attribute visible in that case.
-        assert 'span.sample =~ "^($sample)$"' in query
-        assert '"$sample" = ".*"' in query
         # The row-scoped Replica filter must not reuse the Prometheus vllm
         # replica variable; it is sourced from Tempo tags instead.
         assert 'resource.replica =~ "^($trace_replica)$"' in query
         assert '"$trace_replica" = ".*"' in query
 
 
-def test_trace_row_should_expose_step_sample_and_replica_filters() -> None:
+def test_trace_row_should_expose_replica_filter() -> None:
     row = _find_row(_load_spec()["layout"], _TRACE_ROW_TITLE)
     assert row is not None, f"missing dashboard row: {_TRACE_ROW_TITLE}"
     variables = {
         variable["spec"]["name"]: variable["spec"] for variable in row["variables"]
     }
 
-    # Trajectory and Session have no dropdowns: the raw trace covers them. The
-    # result cap is fixed in the query, so there is no limit variable.
-    assert list(variables) == ["step", "trace_replica", "sample"]
-    assert variables["step"]["label"] == "Step"
-    assert variables["step"]["definition"] == _ROW_VARIABLE_QUERY
-    assert variables["step"]["query"]["spec"]["query"] == _ROW_VARIABLE_QUERY
-    assert variables["step"]["multi"] is False
-    # Grafana selects All whenever includeAll is on and no value is saved, so
-    # step trades the built-in All option for a trailing static All option.
-    assert variables["step"]["includeAll"] is False
-    assert variables["step"]["staticOptions"] == [{"text": "All", "value": "-1"}]
-    assert variables["step"]["staticOptionsOrder"] == "after"
-    assert variables["step"]["allValue"] == "-1"
-    # No saved value: the first step (first option after numericalAsc) is
-    # selected, so expanding the row starts at the beginning of the run.
-    assert variables["step"]["current"] == {"text": "", "value": ""}
-    assert variables["step"]["sort"] == "numericalAsc"
-    assert variables["sample"]["label"] == "Sample"
-    assert variables["sample"]["definition"] == _ROW_VARIABLE_QUERY
-    assert variables["sample"]["query"]["spec"]["query"] == _ROW_VARIABLE_QUERY
-    assert variables["sample"]["multi"] is True
-    assert variables["sample"]["includeAll"] is True
-    assert variables["sample"]["allValue"] == ".*"
-    assert variables["sample"]["sort"] == "numericalAsc"
+    # Engine spans carry no step/sample attributes, so the row keeps only the
+    # resource-derived replica filter.
+    assert list(variables) == ["trace_replica"]
     assert variables["trace_replica"]["label"] == "Replica"
+    # Replica 0 is the default so opening the row does not fan out to every
+    # replica before the user picks a narrower scope.
+    assert variables["trace_replica"]["current"] == {"text": "0", "value": "0"}
     assert variables["trace_replica"]["definition"] == _ROW_VARIABLE_QUERY
     assert variables["trace_replica"]["query"]["spec"]["query"] == _ROW_VARIABLE_QUERY
     assert variables["trace_replica"]["multi"] is True
@@ -227,22 +201,14 @@ def test_trace_query_should_select_native_vllm_attributes() -> None:
             assert f"span.{attribute}" in query
 
 
-def test_trace_query_should_select_optional_correlation_attributes() -> None:
-    panels = _trace_panels(_load_spec())
-    queries = [_query_specs(panel)[0]["spec"]["query"] for panel in panels]
-
-    assert any(
-        all(
-            f"span.{attribute}" in query
-            for attribute in ("global_steps", "turn", "sample")
-        )
-        for query in queries
-    )
-    # Trajectory, Session and the engine request id are dropped from the table;
-    # they stay discoverable through the trace itself.
-    for query in queries:
-        for attribute in ("traj", "session", "gen_ai.request.id"):
-            assert f"span.{attribute}" not in query
+def test_trace_query_should_not_select_training_correlation_attributes() -> None:
+    # Engine spans only expose native gen_ai.* attributes and resource identity;
+    # step/sample/traj/turn are never written by vLLM.
+    for panel in _trace_panels(_load_spec()):
+        for query_spec in _query_specs(panel):
+            query = query_spec["spec"]["query"]
+            for attribute in ("global_steps", "sample", "traj", "turn", "session"):
+                assert f"span.{attribute}" not in query
 
 
 def test_state_timeline_should_only_query_state_interval_spans() -> None:
@@ -315,9 +281,11 @@ def test_trace_tables_should_use_gauge_cells() -> None:
 
 def test_replica_variable_should_match_any_vllm_metric() -> None:
     spec = _load_spec()
+    row = _find_row(spec["layout"], "vLLM engine metric")
+    assert row is not None, "missing dashboard row: vLLM engine metric"
     replica = next(
         variable
-        for variable in spec["variables"]
+        for variable in row.get("variables", [])
         if variable["spec"]["name"] == "replica"
     )
     definition = replica["spec"]["definition"]
@@ -367,7 +335,7 @@ def test_trace_tables_should_order_columns_by_tempo_display_names() -> None:
             assert organize["excludeByName"][field] is True
 
 
-def test_trace_table_should_expose_replica_and_sample_columns() -> None:
+def test_trace_table_should_expose_replica_column() -> None:
     for panel in _trace_tables(_load_spec()):
         query = _query_specs(panel)[0]["spec"]["query"]
         select_clause = query.split("| select(", 1)[1]
@@ -379,7 +347,7 @@ def test_trace_table_should_expose_replica_and_sample_columns() -> None:
             if transformation["group"] == "organize"
         )
         assert organize["renameByName"].get("replica") == "Replica"
-        assert organize["renameByName"].get("sample") == "Sample"
+        assert organize["renameByName"].get("sample") is None
 
 
 def test_trace_table_should_derive_decode_throughput() -> None:
@@ -408,12 +376,9 @@ def test_trace_table_should_derive_decode_throughput() -> None:
         for transformation in transformations
         if transformation["group"] == "organize"
     )
-    # Start/Trace sit first, then identity columns, then the timing columns.
-    assert organize["indexByName"]["Decode tok/s"] == 11
+    # Start/Trace sit first, then replica, then the timing columns.
+    assert organize["indexByName"]["Decode tok/s"] == 8
     assert organize["indexByName"]["replica"] == 2
-    assert organize["indexByName"]["global_steps"] == 3
-    assert organize["indexByName"]["turn"] == 4
-    assert organize["indexByName"]["sample"] == 5
 
     unit = next(
         prop["value"]

@@ -23,7 +23,7 @@ RL-Insight focuses on the online observability path that RL training needs most:
 
 - **One-command server startup**: install dependencies and start the RL-Insight server with Prometheus, Tempo, and Grafana with `rl-insight server install` and `rl-insight server start`.
 - **Trainer and rollout metric aggregation**: collect key actor, rollout, and transfer queue metrics in one monitoring view while keeping training-side instrumentation lightweight.
-- **CPU and Ascend NPU monitoring**: register node_exporter and NPU Exporter endpoints to view hardware metrics in the RL-Insight Grafana dashboards.
+- **Hardware monitoring**: collect CPU, memory, network, disk, NVIDIA GPU, and Ascend NPU metrics with the monitor started by `rl_insight.init()`; no exporter deployment is required. Legacy exporter guides remain available for existing Prometheus deployments.
 - **Grafana dashboards for RL workloads**: provide ready-to-use dashboard structure for training metrics, rollout behavior, engine metrics, and RL state timelines.
 
 ## Architecture
@@ -56,7 +56,8 @@ https://github.com/user-attachments/assets/d0ef242d-e108-468f-afa5-ec9a5321f0e8
 
 ## News
 
-- [2026/10/20] Tuning guides are available for [verl asynchronous training](https://rl-insight.readthedocs.io/en/latest/tuning_case/async_mode_tuning_tutorial.html) and [verl-omni multimodal training](https://rl-insight.readthedocs.io/en/latest/tuning_case/multimodal_model_tuning_using_rl_insight.html).
+- [2026/10/27] RL-Insight is integrated into [slime-ascend](https://gitcode.com/Ascend/slime-ascend). See the [integration guide](https://rl-insight.readthedocs.io/en/latest/framework_support/slime-ascend.html).
+- [2026/10/20] Tuning guides are available for [verl asynchronous training](https://rl-insight.readthedocs.io/en/latest/tuning_cases/async_rl_training_tuning_guide.html) and [verl-omni multimodal training](https://rl-insight.readthedocs.io/en/latest/tuning_cases/multimodal_model_tuning_using_rl_insight.html).
 - [2026/09/15] RL-Insight is integrated into verl-omni. See the [integration guide](https://github.com/verl-project/verl-omni/blob/main/docs/start/rl_insight.md).
 - [2026/07/15] [RL-Insight 0.2.0](https://github.com/verl-project/rl-insight/releases/tag/v0.2.0) was released. See the [verl integration guide](https://github.com/verl-project/verl/blob/main/docs/advance/rl_insight.md) to enable training, rollout, TransferQueue, trace, and hardware monitoring.
 - [2026/06/16] RL-Insight officially supports Online Monitor, including one-command server startup, trainer and rollout metric aggregation, and Grafana dashboards for RL workloads.
@@ -67,14 +68,14 @@ Start with the guide that matches your current setup:
 
 | Document | What it covers | When to use it |
 |---|---|---|
-| [Server Installation](https://rl-insight.readthedocs.io/en/latest/monitor/server_installation.html) | Prometheus, Tempo, and Grafana service setup, including supported Linux and Windows platforms, direct installation, offline installation, and existing service binaries. | Use this first if the monitor services are not installed or you need to verify the server environment. |
-| [Quick Start](https://rl-insight.readthedocs.io/en/latest/monitor/quick_start.html) | A full smoke-test flow: install the Python package, start the monitor stack, emit sample metric/trace data, and open Grafana. | Use this after the services are ready, or when you want to validate the monitor path end to end. |
-| [Hardware Monitoring](https://rl-insight.readthedocs.io/en/latest/monitor/hardware/index.html) | Install or reuse node_exporter and NPU Exporter, then register CPU and Ascend NPU targets with RL-Insight. | Use this when you want hardware metrics in the RL-Insight Grafana dashboards. |
+| [Server Installation](https://rl-insight.readthedocs.io/en/latest/tutorial/server_installation.html) | Prometheus, Tempo, and Grafana service setup, including supported Linux and Windows platforms, direct installation, offline installation, and existing service binaries. | Use this first if the monitor services are not installed or you need to verify the server environment. |
+| [Quick Start](https://rl-insight.readthedocs.io/en/latest/tutorial/quick_start.html) | A full smoke-test flow: install the Python package, start the monitor stack, emit sample metric/trace data, and open Grafana. | Use this after the services are ready, or when you want to validate the monitor path end to end. |
+| [Hardware Monitoring](https://rl-insight.readthedocs.io/en/latest/advanced_features/hardware/index.html) | Built-in hardware collection started by `rl_insight.init()` (CPU, memory, network, disk, NVIDIA GPU, Ascend NPU), plus the legacy exporter guides. | Use this when you want hardware metrics in the RL-Insight Grafana dashboards. |
 
 Recommended order:
 
-1. Prepare the server services with [Server Installation](https://rl-insight.readthedocs.io/en/latest/monitor/server_installation.html).
-2. Run the end-to-end flow with [Quick Start](https://rl-insight.readthedocs.io/en/latest/monitor/quick_start.html).
+1. Prepare the server services with [Server Installation](https://rl-insight.readthedocs.io/en/latest/tutorial/server_installation.html).
+2. Run the end-to-end flow with [Quick Start](https://rl-insight.readthedocs.io/en/latest/tutorial/quick_start.html).
 
 ## Server Stack
 
@@ -98,10 +99,11 @@ RL-Insight manages three open-source services locally on Linux and Windows x64:
 | `metric_count(name, amount=1.0, documentation="", **labels)` | Increment a Prometheus counter. |
 | `metric_gauge(name, value, documentation="", **labels)` | Record the latest value for a gauge. |
 | `metric_histogram(name, value, documentation="", **labels)` | Add one sample to a histogram. |
+| `metric_log(name, value, *, step, **labels)` | Record a scalar for a specific training step through the trace path. |
 | `trace_state(state_name, state_lane_id=None, **labels)` | Record a named RL state interval. |
 | `trace_op(name=None, extra_labels=None, **static_labels)` | Decorate a sync or async function and emit one duration span per call. |
 | `trace_span(name, start_time_ns, end_time_ns, attributes)` | Report one completed span directly, with a caller-supplied name, epoch-ns times, and attributes. |
-| `finish()` | Reset in-process monitor state. |
+| `finish()` | Reset monitor state. |
 
 Configuration can be passed to `insight.init(config=...)` or through environment variables:
 
@@ -138,11 +140,11 @@ Useful environment variables:
 
 ## Documentation
 
-- [Configuration](https://rl-insight.readthedocs.io/en/latest/monitor/configuration.html): server and client settings, defaults, and override precedence.
-- [Python API](https://rl-insight.readthedocs.io/en/latest/monitor/api.html): initialization, metrics, traces, and cleanup.
-- [Quick Start](https://rl-insight.readthedocs.io/en/latest/monitor/quick_start.html): install RL-Insight, start the services, instrument code, and open Grafana.
-- [Server Installation](https://rl-insight.readthedocs.io/en/latest/monitor/server_installation.html): Linux and Windows service requirements, supported OS/CPU combinations, and version policy.
-- [Hardware Monitoring](https://rl-insight.readthedocs.io/en/latest/monitor/hardware/index.html): install exporters and register CPU or Ascend NPU scrape targets.
+- [Configuration](https://rl-insight.readthedocs.io/en/latest/programming_guide/interfaces/configuration.html): server and client settings, defaults, and override precedence.
+- [Python API](https://rl-insight.readthedocs.io/en/latest/programming_guide/interfaces/python_api.html): initialization, metrics, traces, and cleanup.
+- [Quick Start](https://rl-insight.readthedocs.io/en/latest/tutorial/quick_start.html): install RL-Insight, start the services, instrument code, and open Grafana.
+- [Server Installation](https://rl-insight.readthedocs.io/en/latest/tutorial/server_installation.html): Linux and Windows service requirements, supported OS/CPU combinations, and version policy.
+- [Hardware Monitoring](https://rl-insight.readthedocs.io/en/latest/advanced_features/hardware/index.html): built-in hardware collection, metric names, Grafana panels, and the legacy exporter guides.
 - [Default server config](https://github.com/verl-project/rl-insight/blob/main/rl_insight/config/config.yaml): bundled ports, retention settings, and service config paths.
 
 ## Community

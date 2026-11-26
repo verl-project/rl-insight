@@ -120,8 +120,12 @@ class ServerCommands:
         active_state = manager.active_state()
         if active_state:
             print("RL-Insight server services already appear to be running.")
-            print(
-                format_table(["Service", "PID", "Log"], active_state_rows(active_state))
+            conf = OmegaConf.load(Path(active_state["runtime_dir"]) / "server.yaml")
+            self.console.print_start_summary(
+                ServerServiceManager(conf), conf, status="running"
+            )
+            self.console.print_running_summary(
+                conf, rows=active_state_rows(active_state)
             )
             return 0
 
@@ -408,7 +412,9 @@ class ServerConsole:
     def print_running_summary(
         self,
         conf: DictConfig,
-        services: Sequence[StartedService],
+        services: Sequence[StartedService] = (),
+        *,
+        rows: Sequence[Sequence[object]] = (),
     ) -> None:
         addresses = local_addresses()
         host = addresses["host"]
@@ -417,7 +423,7 @@ class ServerConsole:
         if bool(OmegaConf.select(conf, "grafana.enable", default=True)):
             grafana_url = _service_url(host, conf.grafana.port)
         server_url = _server_url(conf, host)
-        rows = [
+        rows = rows or [
             [service.name, service.process.pid, service.log_file]
             for service in services
         ]

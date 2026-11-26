@@ -31,6 +31,7 @@ from typing import Any
 from omegaconf import DictConfig, OmegaConf
 
 from .client import create_monitor_client
+from .hardware import start_hardware_monitor
 from .utils.monitor_config_loader import load_monitor_config
 from .utils import MonitorBackend, MonitorEventKind
 from .utils.constants import MonitorDefaults
@@ -64,6 +65,7 @@ class _MonitorState:
         namespace: Config ``namespace`` used for metric/OTEL resource naming (not Ray actor namespace).
         process_id: String PID added to trace attributes on emit.
         labels: Process-wide labels attached to every metric and trace event.
+        hardware_monitor: Hardware monitor started by ``init``, or ``None``.
     """
 
     enabled: bool = False
@@ -72,6 +74,7 @@ class _MonitorState:
     namespace: str = ""
     process_id: str = field(default_factory=lambda: str(os.getpid()))
     labels: dict[str, Any] = field(default_factory=dict)
+    hardware_monitor: Any | None = None
 
 
 _STATE = _MonitorState()
@@ -126,12 +129,14 @@ def init(
         client = create_monitor_client(monitor_conf)
         if client is None:
             return
+        hardware_monitor = start_hardware_monitor(monitor_conf, client, metadata)
         _STATE = _MonitorState(
             enabled=client is not None,
             client=client,
             conf=monitor_conf,
             namespace=str(monitor_conf.server.namespace),
             labels=metadata,
+            hardware_monitor=hardware_monitor,
         )
     except Exception as e:
         logger.error(
@@ -189,16 +194,21 @@ def get_context() -> RunContext | None:
 
 
 def finish() -> None:
-    """Flush submitted traces and release the local monitor client.
+    """Stop the local hardware monitor and close the monitor client.
 
-    The shared Ray Hub remains available until its job exits.
+    Closing releases pollers and sinks when the client supports it. This does
+    not stop the server stack or the per-node hardware actors; Ray reclaims
+    each actor when the process that created it exits.
     """
     global _STATE
+    hardware_monitor = _STATE.hardware_monitor
+    if hardware_monitor is not None:
+        hardware_monitor.stop()
     client = _STATE.client
     if client is not None and hasattr(client, "close"):
         try:
             client.close()
-        except Exception:  # noqa: BLE001 - shutdown must never raise
+        except Exception:  # noqa: BLE001 - close errors are ignored during shutdown
             logger.warning(
                 "[rl-insight] Failed to flush monitoring data during finish()",
                 exc_info=True,
