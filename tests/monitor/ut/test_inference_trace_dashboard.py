@@ -32,10 +32,7 @@ _DASHBOARD = (
 )
 _TRACE_ROW_TITLE = "vLLM request traces"
 _TRACE_SPAN_NAME = "llm_request"
-_ROW_VARIABLE_QUERY = (
-    '{ name = "llm_request" && resource.project =~ "$project" '
-    '&& resource.experiment_name =~ "$experiment_name" }'
-)
+_ROW_VARIABLE_QUERY = '{ name = "llm_request" }'
 
 _NATIVE_LATENCY_ATTRIBUTES = (
     "gen_ai.latency.e2e",
@@ -153,12 +150,14 @@ def test_trace_row_should_query_tempo_spans() -> None:
         assert query["spec"]["tableType"] == "spans"
 
 
-def test_trace_query_should_filter_by_resource_attributes() -> None:
+def test_trace_query_should_not_filter_by_run_identity() -> None:
+    # Engine spans cannot carry the Hub's execution-suffixed experiment name,
+    # so the row is scoped by the dashboard time range and replica only.
     for panel in _trace_panels(_load_spec()):
         query = _query_specs(panel)[0]["spec"]["query"]
         assert f'name = "{_TRACE_SPAN_NAME}"' in query
         for attribute in ("project", "experiment_name"):
-            assert f'resource.{attribute} =~ "$' in query
+            assert f"resource.{attribute}" not in query
         assert 'resource.replica =~ "^($trace_replica)$"' in query
 
 
@@ -329,8 +328,6 @@ def test_trace_tables_should_order_columns_by_tempo_display_names() -> None:
         assert organize["indexByName"]["Span ID"] == 1
         assert organize["renameByName"]["Start time"] == "Start"
         assert organize["renameByName"]["Span ID"] == "Trace"
-        assert organize["excludeByName"]["project"] is True
-        assert organize["excludeByName"]["experiment_name"] is True
         for field in ("Trace Service", "Trace Name", "Name", "Duration"):
             assert organize["excludeByName"][field] is True
 
