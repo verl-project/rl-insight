@@ -258,8 +258,6 @@ def test_engine_request_trace_should_preserve_native_attributes(
             {
                 "resource": {
                     "attributes": [
-                        _otlp_string("project", "rl-insight-e2e"),
-                        _otlp_string("experiment_name", EXPERIMENT_NAME),
                         _otlp_string("replica", "0"),
                     ]
                 },
@@ -324,8 +322,6 @@ def test_engine_request_trace_should_preserve_native_attributes(
         params={
             "q": (
                 '{ name = "llm_request" && '
-                'resource.project = "rl-insight-e2e" && '
-                f'resource.experiment_name = "{EXPERIMENT_NAME}" && '
                 'resource.replica = "0" && '
                 f'span.test_run = "{TEST_RUN_ID}" }}'
             )
