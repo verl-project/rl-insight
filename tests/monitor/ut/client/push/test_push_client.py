@@ -530,7 +530,7 @@ def test_factory_returns_none_when_all_drivers_fail(
 def _reset_bootstrap() -> None:
     api.finish()
     poller_module.set_active_registry(None)
-    prom_utils._push_bootstrap_attempted = False
+    api._push_bootstrap_attempted = False
 
 
 @pytest.mark.parametrize("identity_from_env", [False, True])

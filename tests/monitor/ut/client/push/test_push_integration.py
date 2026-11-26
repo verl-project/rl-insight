@@ -27,6 +27,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
+from unittest.mock import Mock
 
 import pytest
 from omegaconf import DictConfig, OmegaConf
@@ -34,7 +35,6 @@ from omegaconf import DictConfig, OmegaConf
 from rl_insight import api
 from rl_insight.client.push import poller as poller_module
 from rl_insight.client.push.sinks.base import PushSink
-from rl_insight.utils import prometheus_utils as prom_utils
 from rl_insight.utils.prometheus_utils import update_prometheus_config
 
 LOGGING_DRIVER = "rl_insight.client.push.sinks.logging:create_sink"
@@ -73,6 +73,32 @@ def test_init_push_without_server_url_is_enabled(
         api.metric_gauge("reward_mean", value=0.9)
 
     assert "store root.trainer.reward_mean=0.9" in caplog.text
+
+
+def test_register_targets_does_not_contact_ray_for_trace_only_push(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import ray
+
+    from rl_insight.client import ray_monitor_client
+
+    monkeypatch.delenv("RL_INSIGHT_CONFIG", raising=False)
+    monkeypatch.delenv("RL_INSIGHT_SERVER_BACKEND", raising=False)
+    monkeypatch.setattr(ray, "is_initialized", lambda: True)
+    create_hub = Mock(side_effect=AssertionError("unexpected Ray Hub connection"))
+    monkeypatch.setattr(ray_monitor_client, "get_or_create_monitor_hub", create_hub)
+    api.init(
+        config={
+            "server": {"backend": "push"},
+            "push": {"sinks": [{"driver": LOGGING_DRIVER, "streams": ["trace"]}]},
+        }
+    )
+    assert api._STATE.enabled
+    assert poller_module.get_active_registry() is None
+
+    update_prometheus_config(["127.0.0.1:9000"])
+
+    create_hub.assert_not_called()
 
 
 def test_init_push_registers_rollout_targets_and_finish_releases(
@@ -180,6 +206,23 @@ def early_push_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> DictCo
     return conf
 
 
+def test_register_targets_reuses_push_client_prepared_by_state_trace(
+    early_push_config: DictConfig, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with api.trace_state("early"):
+        pass
+    monkeypatch.delenv("RL_INSIGHT_CONFIG")
+
+    update_prometheus_config(["host-a:9000", "host-b:9000"], labels=[{"rank": 0}, None])
+
+    registry = poller_module.get_active_registry()
+    assert registry is not None
+    assert [(t.address, t.labels) for t in registry.snapshot()] == [
+        ("host-a:9000", {"rank": "0"}),
+        ("host-b:9000", {}),
+    ]
+
+
 @pytest.mark.parametrize("environment_override", [False, True])
 def test_push_state_traces_work_before_init_and_finish_releases_resources(
     early_push_config: DictConfig,
@@ -233,7 +276,7 @@ def test_formal_init_reuses_early_push_client_and_keeps_configured_names(
 ) -> None:
     monkeypatch.setenv("PROJECT_NAME", "configured-project")
     monkeypatch.setenv("EXPERIMENT_NAME", "configured-experiment")
-    monkeypatch.setattr(prom_utils, "_push_bootstrap_attempted", False)
+    monkeypatch.setattr(api, "_push_bootstrap_attempted", False)
     early_push_config.push.sinks[0].tags_from_env = [
         {"tag": "project", "env": "PROJECT_NAME"},
         {"tag": "experiment_name", "env": "EXPERIMENT_NAME"},

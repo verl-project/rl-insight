@@ -317,6 +317,17 @@ def _parse_interval(push_conf: Any) -> float:
     return interval
 
 
+def get_push_task_names(conf: DictConfig) -> tuple[str | None, str | None]:
+    """Read the Push worker's task names from configured sink tags."""
+    tags: dict[str, str] = {}
+    for sink_conf in OmegaConf.select(conf, "push.sinks") or []:
+        try:
+            tags.update(collect_env_tags(OmegaConf.select(sink_conf, "tags_from_env")))
+        except Exception:  # noqa: BLE001 - the factory logs and skips this sink
+            continue
+    return tags.get("project"), tags.get("experiment_name")
+
+
 def create_push_monitor_client(conf: DictConfig) -> PushMonitorClient | None:
     """Build one push client per process and reuse it until it is closed.
 
