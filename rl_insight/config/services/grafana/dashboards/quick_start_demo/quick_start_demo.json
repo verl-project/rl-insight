@@ -255,7 +255,7 @@
                     "properties": [
                       {
                         "id": "displayName",
-                        "value": "${__field.labels.experiment_name} / ${__field.labels.state_lane_id}"
+                        "value": "${__field.labels.state_lane_id}"
                       }
                     ]
                   }
