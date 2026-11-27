@@ -27,7 +27,6 @@ from rl_insight.collector import ray_monitor_hub as hub_module
 from rl_insight.utils.constants import MonitorEventKind, MonitorRayActor
 from rl_insight.utils.protocol import RunContext
 
-
 HubImplementation = cast(
     Any, hub_module.MonitorHubActor
 ).__ray_metadata__.modified_class
@@ -85,7 +84,12 @@ def test_init_should_configure_collectors_and_register_scrape_target_when_create
     update_config.assert_not_called()
     suffix = instance._execution_suffix
     assert instance.connect(__version__) == __version__
-    instance.register_targets(["10.0.0.9:1234"], "vllm", [{"replica": 0}])
+    instance.submit_targets(
+        ["10.0.0.9:1234"],
+        "vllm",
+        [{"replica": 0}],
+        context=RunContext("override", "alternate", "http://other:18080"),
+    )
     update_config.assert_not_called()
     assert instance.get_context() is None
     instance.flush()

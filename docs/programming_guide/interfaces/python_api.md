@@ -57,6 +57,33 @@ with insight.trace_state("rollout_generate", state_lane_id="replica_0", step=12)
 
 The span is emitted when the block exits. The default lane is the current process ID. Same-name overlapping states on one lane merge into one interval; a different state entered while that lane is occupied is dropped. Use distinct lanes for independently active workers. `state_name`, `state_lane_id`, and `monitor.trace_segment` are reserved trace attributes.
 
+Push workers can send state spans before `init()` using the YAML selected by `RL_INSIGHT_CONFIG`: select `server.backend: push` and configure a sink subscribed to `trace`. These spans carry the supplied labels and configured sink tags; call `finish()` when the worker stops.
+
+Configure Push before the first monitoring call; its settings remain fixed until `finish()`. Calling `init()` later adds the project name and experiment name to subsequent spans. Spans already sent retain their original attributes.
+
+When using multiple application threads, initialize Push before starting them.
+
+Set the task names in the client YAML. Add these rules to each Push sink and use the same project and experiment names as the training logger. When a rule omits `env`, the SDK uses its `default` value directly.
+
+```yaml
+tags_from_env:
+  - {tag: project, default: verl_grpo}
+  - {tag: experiment_name, default: qwen3_8b_grpo}
+```
+
+Make the YAML available at the same path on every worker node. When using Ray, forward `RL_INSIGHT_CONFIG` before creating workers.
+
+```python
+import os
+import ray
+
+ray.init(runtime_env={"env_vars": {"RL_INSIGHT_CONFIG": os.environ["RL_INSIGHT_CONFIG"]}})
+```
+
+In verl, set `ray_kwargs.ray_init.runtime_env.env_vars.RL_INSIGHT_CONFIG` to the absolute path of the YAML.
+
+Push workers that register rollout targets before logger initialization use these configured `project` and `experiment_name` tags for their first `init()`. Later initialization keeps the existing rule: it warns and is ignored.
+
 ## Trace a function call
 
 `trace_op(name=None, *, extra_labels=None, **static_labels)` decorates synchronous or asynchronous functions and records one duration span per call:

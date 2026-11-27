@@ -26,6 +26,7 @@ import yaml
 from omegaconf import OmegaConf
 from prometheus_client import CollectorRegistry, Gauge, make_wsgi_app
 
+from rl_insight import api
 from rl_insight.utils import prometheus_utils as prometheus_module
 from rl_insight.utils.protocol import RunContext
 
@@ -203,21 +204,30 @@ def test_register_should_preserve_concurrent_cross_process_updates(tmp_path) -> 
     }
 
 
-def test_update_prometheus_config_should_send_normalized_targets_when_server_is_set(
+@pytest.mark.parametrize(
+    "context", [None, RunContext("override", "alternate", "http://other:18080")]
+)
+def test_update_prometheus_config_should_submit_normalized_targets_to_ray_hub(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
+    context: RunContext | None,
 ) -> None:
     import ray
 
     from rl_insight.client import ray_monitor_client
 
-    hub = MagicMock()
-    hub.get_context.remote.return_value = RunContext(
-        "p", "e", "http://server:18080", initialized=True
-    )
+    implementation = cast(
+        Any, ray_monitor_client.MonitorHubActor
+    ).__ray_metadata__.modified_class
+    hub = implementation()
+    hub._initialized = True
+    hub._context = RunContext("p", "e", "http://server:18080", initialized=True)
+    actor = MagicMock()
+    actor.get_context.remote.return_value = hub._context
+    actor.submit_targets.remote.side_effect = hub.submit_targets
     monkeypatch.setattr(ray, "is_initialized", lambda: True)
     monkeypatch.setattr(ray, "get", lambda ref, *, timeout: ref)
-    monkeypatch.setattr(ray_monitor_client, "get_or_create_monitor_hub", lambda: hub)
+    monkeypatch.setattr(ray_monitor_client, "get_or_create_monitor_hub", lambda: actor)
     monkeypatch.setattr(
         ray_monitor_client, "initialize_hub_connection", lambda *a, **kw: None
     )
@@ -226,24 +236,36 @@ def test_update_prometheus_config_should_send_normalized_targets_when_server_is_
     monkeypatch.setenv("RL_INSIGHT_SERVER_URL", "http://server:18080/")
     monkeypatch.setattr(prometheus_module.requests, "post", post)
 
-    prometheus_module.update_prometheus_config(
-        ["host-a:9000", "host-b:9000"],
-        job_name="workers",
-        labels=[{"rank": 0}, None],
-    )
+    try:
+        prometheus_module.update_prometheus_config(
+            ["host-a:9000", "host-b:9000"],
+            job_name="workers",
+            labels=[{"rank": 0}, None],
+            context=context,
+        )
+    finally:
+        api.finish()
 
+    actor.submit_targets.remote.assert_called_once_with(
+        ["host-a:9000", "host-b:9000"],
+        "workers",
+        [{"rank": 0}, None],
+        context=context,
+    )
+    actor.get_context.remote.assert_not_called()
+    expected = context or hub._context
     post.assert_called_once_with(
-        "http://server:18080/api/v1/prometheus/targets",
+        f"{expected.server_url}/api/v1/prometheus/targets",
         json={
             "job_name": "workers",
             "targets": [
                 {
                     "target": "host-a:9000",
-                    "labels": {"rank": "0", "project": "p", "experiment_name": "e"},
+                    "labels": {"rank": "0", **expected.labels()},
                 },
                 {
                     "target": "host-b:9000",
-                    "labels": {"project": "p", "experiment_name": "e"},
+                    "labels": expected.labels(),
                 },
             ],
         },
@@ -262,30 +284,6 @@ def test_update_prometheus_config_should_reject_mismatched_labels_when_lengths_d
         )
 
 
-def test_update_prometheus_config_should_register_in_process_when_push_active(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from rl_insight.client.push import poller as poller_module
-
-    registry = poller_module.TargetRegistry()
-    poller_module.set_active_registry(registry)
-    post = MagicMock(side_effect=AssertionError("push backend must not POST"))
-    monkeypatch.delenv("RL_INSIGHT_SERVER_URL", raising=False)
-    monkeypatch.setattr(prometheus_module.requests, "post", post)
-    try:
-        prometheus_module.update_prometheus_config(
-            ["host-a:9000", "host-b:9000"], labels=[{"rank": 0}, None]
-        )
-    finally:
-        poller_module.set_active_registry(None)
-
-    assert [(t.address, t.labels) for t in registry.snapshot()] == [
-        ("host-a:9000", {"rank": "0"}),
-        ("host-b:9000", {}),
-    ]
-    post.assert_not_called()
-
-
 def test_hub_targets_keep_registration_failures_for_explicit_retry(
     monkeypatch,
     caplog,
@@ -298,14 +296,16 @@ def test_hub_targets_keep_registration_failures_for_explicit_retry(
     hub.__init__()
     hub._initialized = True
     hub._context = context
-    item = (["host:9000"], "workers", None, False)
+    override = RunContext("override", "alternate", "http://other")
+    addresses = ["host:9000"]
+    item = (addresses, "workers", None, override, False)
     response = MagicMock()
     response.raise_for_status.side_effect = prometheus_module.requests.HTTPError(
         "identity conflict"
     )
     post = MagicMock(return_value=response)
     monkeypatch.setattr(prometheus_module.requests, "post", post)
-    hub.register_targets(*item[:3])
+    hub.submit_targets(addresses, "workers", context=override)
     assert "identity conflict" in caplog.text
     assert hub._pending_targets == [item]
     hub.init(OmegaConf.create({}))
@@ -315,6 +315,14 @@ def test_hub_targets_keep_registration_failures_for_explicit_retry(
     assert "offline" in caplog.text
     assert hub._pending_targets == [item]
     post.side_effect = None
+    response.raise_for_status.side_effect = [
+        prometheus_module.requests.HTTPError("identity conflict"),
+        None,
+    ]
+    hub.submit_targets(["other:9000"], "workers")
+    assert hub._pending_targets == [item]
+    assert post.call_args.args == ("http://server/api/v1/prometheus/targets",)
     response.raise_for_status.side_effect = None
     hub.flush_pending_targets()
     assert not hub._pending_targets
+    assert post.call_args.args == ("http://other/api/v1/prometheus/targets",)

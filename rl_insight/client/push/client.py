@@ -43,6 +43,8 @@ STREAM_METRIC = "metric"
 STREAM_TRACE = "trace"
 STREAM_ROLLOUT = "rollout"
 
+_active_client: PushMonitorClient | None = None
+
 
 @dataclass(frozen=True)
 class _MetricRule:
@@ -184,6 +186,7 @@ class PushMonitorClient(MonitorClient):
 
     def close(self) -> None:
         """Stop polling and flush sinks; idempotent."""
+        global _active_client
         if self._closed:
             return
         self._closed = True
@@ -199,6 +202,8 @@ class PushMonitorClient(MonitorClient):
             atexit.unregister(self.close)
         except Exception:  # noqa: BLE001 - pragma: no cover
             pass
+        if _active_client is self:
+            _active_client = None
 
 
 def _streams(sink_conf: Any) -> frozenset[str]:
@@ -312,12 +317,26 @@ def _parse_interval(push_conf: Any) -> float:
     return interval
 
 
+def get_push_task_names(conf: DictConfig) -> tuple[str | None, str | None]:
+    """Read the Push worker's task names from configured sink tags."""
+    tags: dict[str, str] = {}
+    for sink_conf in OmegaConf.select(conf, "push.sinks") or []:
+        try:
+            tags.update(collect_env_tags(OmegaConf.select(sink_conf, "tags_from_env")))
+        except Exception:  # noqa: BLE001 - the factory logs and skips this sink
+            continue
+    return tags.get("project"), tags.get("experiment_name")
+
+
 def create_push_monitor_client(conf: DictConfig) -> PushMonitorClient | None:
-    """Build the push client from ``push`` config; return ``None`` when disabled.
+    """Build one push client per process and reuse it until it is closed.
 
     Returns ``None`` (monitoring off) when there is no ``push`` section, no
     usable sink, or every driver fails to load.
     """
+    global _active_client
+    if _active_client is not None:
+        return _active_client
     push_conf = OmegaConf.select(conf, "push")
     sink_confs = OmegaConf.select(push_conf, "sinks") if push_conf is not None else None
     if not sink_confs:
@@ -358,4 +377,5 @@ def create_push_monitor_client(conf: DictConfig) -> PushMonitorClient | None:
     client = PushMonitorClient(metric_prefix, trace_prefix, bound, poller)
     if poller is not None:
         poller.start()
+    _active_client = client
     return client

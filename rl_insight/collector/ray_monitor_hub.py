@@ -26,8 +26,6 @@ import ray
 from omegaconf import DictConfig
 
 from .. import __version__
-from ..utils.constants import MonitorDefaults, MonitorRayActor
-from .base import MonitorCollector
 from ..server.http_api import initialize_server_connection
 from ..server.network import format_host_port, service_url_from_server_url
 from ..utils import (
@@ -36,12 +34,14 @@ from ..utils import (
     OpenTelemetryTraceCollector,
     start_metrics_http_server,
 )
+from ..utils.constants import MonitorDefaults, MonitorRayActor
 from ..utils.prometheus_utils import register_prometheus_targets
 from ..utils.protocol import (
     RunContext,
     create_execution_suffix,
     require_version,
 )
+from .base import MonitorCollector
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
@@ -66,7 +66,13 @@ class MonitorHubActor(MonitorCollector):
         self._pending_events: deque[dict[str, Any]] = deque()
         self._events_applied = 0
         self._pending_targets: list[
-            tuple[list[str], str | None, list[Mapping[str, Any] | None] | None, bool]
+            tuple[
+                list[str],
+                str | None,
+                list[Mapping[str, Any] | None] | None,
+                RunContext | None,
+                bool,
+            ]
         ] = []
         self._event_handlers = {
             MonitorEventKind.COUNTER: self._handle_counter,
@@ -127,9 +133,8 @@ class MonitorHubActor(MonitorCollector):
         self._initialized = True
         self._flush_pending_events()
         # Hub metrics already contain the execution labels.
-        self._pending_targets.append(
-            ([format_host_port(self._node_ip, self._metrics_port)], None, None, True)
-        )
+        address = format_host_port(self._node_ip, self._metrics_port)
+        self._pending_targets.append(([address], None, None, None, True))
         self.flush_pending_targets()
         logger.info(
             "[rl-insight] MonitorHubActor HTTP bind %s:%s, "
@@ -140,27 +145,27 @@ class MonitorHubActor(MonitorCollector):
             self._metrics_port,
         )
 
-    def register_targets(
+    def submit_targets(
         self,
         addresses: list[str],
         job_name: str | None = None,
         labels: list[Mapping[str, Any] | None] | None = None,
+        *,
+        context: RunContext | None = None,
     ) -> None:
-        """Save exporter addresses until formal init, then register them directly."""
+        """Queue scrape targets and publish them once the Hub is initialized."""
         if self._closed:
             logger.warning(
                 "[rl-insight] Monitor Hub is closed; skipping target registration"
             )
             return
-        if labels is not None and len(labels) != len(addresses):
-            raise ValueError(
-                "[rl-insight] labels length must match server_addresses length"
-            )
-        item = (addresses, job_name, labels, False)
-        if addresses:
-            if item in self._pending_targets:
-                self._pending_targets.remove(item)
-            self._pending_targets.append(item)
+        if not self._initialized:
+            # Early targets inherit the context set by formal init.
+            context = None
+        item = (addresses, job_name, labels, context, False)
+        if item in self._pending_targets:
+            self._pending_targets.remove(item)
+        self._pending_targets.append(item)
         self.flush_pending_targets()
 
     def flush_pending_targets(self) -> None:
@@ -173,20 +178,19 @@ class MonitorHubActor(MonitorCollector):
         if not self._initialized:
             return
         for pending in list(self._pending_targets):
-            addresses, job_name, labels, identity_in_metrics = pending
+            addresses, job_name, labels, context, identity_in_metrics = pending
+            context = context or self._context
             if not identity_in_metrics:
                 labels = [
-                    self._context.labels(target_labels)
+                    context.labels(target_labels)
                     for target_labels in (labels or [None] * len(addresses))
                 ]
-            if not register_prometheus_targets(
-                addresses, job_name, labels, self._context
-            ):
+            if not register_prometheus_targets(addresses, job_name, labels, context):
                 logger.warning(
                     "[rl-insight] Prometheus targets remain pending after registration "
                     "failed; retry with flush_pending_targets()"
                 )
-                return
+                continue
             self._pending_targets.remove(pending)
 
     def apply_event(self, event: dict[str, Any]) -> None:
