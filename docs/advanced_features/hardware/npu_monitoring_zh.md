@@ -108,4 +108,4 @@ rl-insight server targets add npu_targets.yaml
 
 `targets add` 只注册 target 并 reload Prometheus，不管理 NPU Exporter 的生命周期。RL-Insight 硬件面板只读取内置采集，注册成功后请在 Prometheus 中直接查询 NPU Exporter 序列。
 
-![RL-Insight NPU 硬件指标](https://raw.githubusercontent.com/verl-project/rl-insight/main/assets/monitor/hardware/npu_metrics.png)
+![RL-Insight NPU 硬件指标](https://raw.githubusercontent.com/verl-project/rl-insight/v0.4.x/assets/monitor/hardware/npu_metrics.png)

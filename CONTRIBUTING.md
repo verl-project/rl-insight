@@ -7,7 +7,7 @@ Thank you for considering a contribution to rl-insight! We welcome contributions
 Join our Lark group to connect with the team and other developers:
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/verl-project/rl-insight/main/assets/community/lark-qr.png" width="240" alt="Join RL-Insight on Lark">
+  <img src="https://raw.githubusercontent.com/verl-project/rl-insight/v0.4.x/assets/community/lark-qr.png" width="240" alt="Join RL-Insight on Lark">
 </p>
 
 Your support can take many forms:
@@ -95,7 +95,7 @@ Our maintainers actively respond to issues and PRs. To make the best use of thei
 
 ## License
 
-See the [LICENSE](https://github.com/verl-project/rl-insight/blob/main/LICENSE) file for full details.
+See the [LICENSE](https://github.com/verl-project/rl-insight/blob/v0.4.x/LICENSE) file for full details.
 
 ## Thank You
 
